@@ -27,47 +27,12 @@
 -- OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
 -- OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 -- SUCH DAMAGE.
-{-# OPTIONS_GHC -funbox-strict-fields -Wall -Werror #-}
 
--- | This module provides an implementation of a very common technique
--- in compiler implementation.  Names are assigned to a unique number
--- during lexing, which allows them to be compared with a simple
--- numerical equality check thereafter.  This also allows symbols to
--- be stored in arrays as opposed to hash maps.
-module Data.Symbol(
-       Symbol,
-       -- * Accessors
-       mkSymbol,
-       ) where
+module Tests.Data.Symbol(tests) where
 
-import Data.Hashable
-import Data.Ix
-import Data.Word
+import Data.Symbol
+import Test.HUnitPlus.Base
 
--- | Symbol datatype.  Symbols are used as 
-newtype Symbol =
-  Symbol {
-    -- | The unique numerical ID of the symbol.
-    number :: Word
-  }
-  deriving (Eq, Ord, Ix)
+import qualified Data.HashSet as HashSet
 
--- | Create a symbol
-mkSymbol :: Word
-         -- ^ Index value (this determines equality and ordering)
-         -> Symbol
-         -- ^ Symbol value
-mkSymbol n = Symbol { number = n }
-
-instance Enum Symbol where
-  succ = Symbol . succ . number
-  pred = Symbol . pred . number
-  toEnum = Symbol . toEnum
-  fromEnum = fromEnum . number
-  enumFromThen Symbol { number = n } = map Symbol . enumFromThen n . number
-  enumFromTo Symbol { number = n } = map Symbol . enumFromTo n . number
-  enumFromThenTo Symbol { number = n } Symbol { number = m } =
-    map Symbol . enumFromThenTo n m . number
-
-instance Hashable Symbol where
-  hashWithSalt s Symbol { number = n } = hashWithSalt s n
+tests = []

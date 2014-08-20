@@ -25,8 +25,9 @@ Test-Suite UnitTest
   type:                 exitcode-stdio-1.0
   Main-Is:              UnitTest.hs
   hs-source-dirs:       src test
-  build-depends:        base >= 4.4.0 && < 5, Cabal >= 1.16.0, HUnit-Plus,
-                        hashable, bound
+  build-depends:        base >= 4.4.0 && < 5, Cabal >= 1.16.0, pretty, containers,
+                        hashable, prelude-extras, hashable-extras, bound, bytestring,
+                        array, mtl, hashmap, HUnit-Plus
   ghc-options:          -fhpc
 
 Library
@@ -34,7 +35,7 @@ Library
   hs-source-dirs:       src
   build-depends:        base >= 4.4.0 && < 5, Cabal >= 1.16.0, pretty, containers,
                         hashable, prelude-extras, hashable-extras, bound, bytestring,
-                        array, mtl
+                        array, mtl, hashmap
   exposed-modules:      Bound.Scope.ExtraInstances
                         Bound.Var.ExtraInstances
 --                        Control.Monad.Symbol
