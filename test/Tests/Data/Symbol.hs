@@ -30,9 +30,36 @@
 
 module Tests.Data.Symbol(tests) where
 
+import Control.Monad
+import Data.Hashable
 import Data.Symbol
+import Data.Word
 import Test.HUnitPlus.Base
 
 import qualified Data.HashSet as HashSet
 
-tests = []
+wordEnum :: [Word]
+wordEnum = enumFromTo 0 1000
+
+symbolEnum :: [Symbol]
+symbolEnum = enumFromTo (mkSymbol 0) (mkSymbol 1000)
+
+testNoDuplicates :: (Hashable a, Ord a) => [a] -> IO ()
+testNoDuplicates =
+  let
+    foldfun accum val =
+      do
+        not (HashSet.member val accum) @? "Duplicate value"
+        return (HashSet.insert val accum)
+  in do
+    void . foldM foldfun HashSet.empty
+
+testlist :: [Test]
+testlist = [
+    "mkSymbol" ~: testNoDuplicates (map mkSymbol wordEnum),
+    "enum" ~: testNoDuplicates symbolEnum,
+    "hash" ~: testNoDuplicates (map hash symbolEnum)
+  ]
+
+tests :: Test
+tests = "Symbol" ~: testlist

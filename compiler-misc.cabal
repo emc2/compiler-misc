@@ -27,7 +27,7 @@ Test-Suite UnitTest
   hs-source-dirs:       src test
   build-depends:        base >= 4.4.0 && < 5, Cabal >= 1.16.0, pretty, containers,
                         hashable, prelude-extras, hashable-extras, bound, bytestring,
-                        array, mtl, hashmap, HUnit-Plus
+                        array, mtl, unordered-containers, HUnit-Plus
   ghc-options:          -fhpc
 
 Library
@@ -35,7 +35,7 @@ Library
   hs-source-dirs:       src
   build-depends:        base >= 4.4.0 && < 5, Cabal >= 1.16.0, pretty, containers,
                         hashable, prelude-extras, hashable-extras, bound, bytestring,
-                        array, mtl, hashmap
+                        array, mtl, unordered-containers
   exposed-modules:      Bound.Scope.ExtraInstances
                         Bound.Var.ExtraInstances
 --                        Control.Monad.Symbol
