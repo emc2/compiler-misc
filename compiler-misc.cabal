@@ -1,0 +1,45 @@
+Name:                   compiler-misc
+Category:               Compiler, Data
+Version:                0.0.0
+License:                BSD3
+License-File:           LICENSE
+Author:                 Eric McCorkle
+Maintainer:             Eric McCorkle <emc2@metricspace.net>
+Stability:              Pre-alpha
+Synopsis:               A Haskell library containing miscellaneous components useful for building compilers and language frontends.
+Homepage:               https://github.com/emc2/arith-encode
+Bug-Reports:            https://github.com/emc2/arith-encode/issues
+Copyright:              Copyright (c) 2014 Eric McCorkle.  All rights reserved.
+Description:
+  This library provides a collection of miscellaneous bits of
+  functionality that come in handy when implementing a compiler.
+Build-type:             Simple
+Cabal-version:          >= 1.16
+
+Source-Repository head
+  Type: git
+  Location: git@github.com:emc2/arith-encode.git
+
+Test-Suite UnitTest
+  default-language:     Haskell2010
+  type:                 exitcode-stdio-1.0
+  Main-Is:              UnitTest.hs
+  hs-source-dirs:       src test
+  build-depends:        base >= 4.4.0 && < 5, Cabal >= 1.16.0, HUnit-Plus,
+                        hashable, bound
+  ghc-options:          -fhpc
+
+Library
+  default-language:     Haskell2010
+  hs-source-dirs:       src
+  build-depends:        base >= 4.4.0 && < 5, Cabal >= 1.16.0, pretty, containers,
+                        hashable, prelude-extras, hashable-extras, bound, bytestring,
+                        array, mtl
+  exposed-modules:      Bound.Scope.ExtraInstances
+                        Bound.Var.ExtraInstances
+--                        Control.Monad.Symbol
+                        Data.Hashable.ExtraInstances
+                        Data.Symbol
+                        Prelude.Extras.ExtraInstances
+                        Text.Format
+  other-modules:        Control.Monad.Symbol.Class
