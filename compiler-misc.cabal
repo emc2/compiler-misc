@@ -43,4 +43,5 @@ Library
                         Data.Symbol
                         Prelude.Extras.ExtraInstances
                         Text.Format
-  other-modules:        Control.Monad.Symbols.Class
+  other-modules:        Control.Monad.Gensym.Class
+                        Control.Monad.Symbols.Class
