@@ -29,20 +29,67 @@
 
 -- | Defines a class representing a monad which memoizes strings as
 -- numbers.  Useful in a compiler context for representing symbols.
-module Control.Monad.Symbol.Class(
-       MonadSymbol(..)
+module Control.Monad.Symbols.Class(
+       MonadSymbols(..)
        ) where
 
+import Control.Monad.Cont
+import Control.Monad.Error
+import Control.Monad.List
+import Control.Monad.Reader
+import Control.Monad.State
+import Control.Monad.Writer
 import Data.ByteString
+import Data.Symbol
 
 -- | A class representing monads that assign number ID's to strings.
 -- This is useful in a compiler context for representing symbols as
 -- numbers, which can be used to look up the corresponding string
 -- name.
-class MonadSymbol id m where
+class Monad m => MonadSymbols m where
   -- | A specific symbol used as a null symbol.
-  nullSym :: m id
-  -- | Get all the names contained in the mapping.
-  allNames :: m [ByteString]
+  nullSym :: m Symbol
+  -- | Get all defined symbols
+  allSyms :: m [Symbol]
   -- | Get the name for a given identifier.
-  name :: id -> m ByteString
+  name :: Symbol -> m ByteString
+
+  -- | Get all the names
+  allNames :: m [ByteString]
+  allNames = allSyms >>=  mapM name
+
+instance MonadSymbols m => MonadSymbols (ContT r m) where
+  nullSym = lift nullSym
+  allNames = lift allNames
+  allSyms = lift allSyms
+  name = lift . name
+
+instance (Error e, MonadSymbols m) => MonadSymbols (ErrorT e m) where
+  nullSym = lift nullSym
+  allNames = lift allNames
+  allSyms = lift allSyms
+  name = lift . name
+
+instance MonadSymbols m => MonadSymbols (ListT m) where
+  nullSym = lift nullSym
+  allNames = lift allNames
+  allSyms = lift allSyms
+  name = lift . name
+
+instance MonadSymbols m => MonadSymbols (StateT s m) where
+  nullSym = lift nullSym
+  allNames = lift allNames
+  allSyms = lift allSyms
+  name = lift . name
+
+instance MonadSymbols m => MonadSymbols (ReaderT s m) where
+  nullSym = lift nullSym
+  allNames = lift allNames
+  allSyms = lift allSyms
+  name = lift . name
+
+instance (Monoid s, MonadSymbols m) => MonadSymbols (WriterT s m) where
+  nullSym = lift nullSym
+  allNames = lift allNames
+  allSyms = lift allSyms
+  name = lift . name

@@ -38,9 +38,9 @@ Library
                         array, mtl, unordered-containers
   exposed-modules:      Bound.Scope.ExtraInstances
                         Bound.Var.ExtraInstances
---                        Control.Monad.Symbol
+                        Control.Monad.Symbols
                         Data.Hashable.ExtraInstances
                         Data.Symbol
                         Prelude.Extras.ExtraInstances
                         Text.Format
-  other-modules:        Control.Monad.Symbol.Class
+  other-modules:        Control.Monad.Symbols.Class

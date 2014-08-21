@@ -32,9 +32,10 @@ module Main(main) where
 
 import Test.HUnitPlus
 
+import qualified Tests.Control as Control
 import qualified Tests.Data as Data
 
-tests = [ Data.tests ]
+tests = [ Control.tests, Data.tests ]
 
 testsuite = TestSuite { suiteName = "UnitTests", suiteConcurrently = True,
                         suiteTests = tests, suiteOptions = [] }
