@@ -65,7 +65,7 @@ runSymbols :: Symbols a
 runSymbols s = runSymbolsT s
 
 -- | Execute the computation wrapped in a SymbolsT monad transformer.
-runSymbolsT :: MonadIO m =>
+runSymbolsT :: Monad m =>
                SymbolsT m a
             -- ^ The SymbolsT monad to execute.
             -> (Symbol, Symbol)

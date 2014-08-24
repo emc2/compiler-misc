@@ -36,8 +36,7 @@
 -- be stored in arrays as opposed to hash maps.
 module Data.Symbol(
        Symbol,
-       -- * Accessors
-       mkSymbol,
+       firstSym
        ) where
 
 import Data.Hashable
@@ -52,12 +51,9 @@ newtype Symbol =
   }
   deriving (Eq, Ord, Ix)
 
--- | Create a symbol
-mkSymbol :: Word
-         -- ^ Index value (this determines equality and ordering)
-         -> Symbol
-         -- ^ Symbol value
-mkSymbol n = Symbol { number = n }
+-- | A starting point for enumerating symbols.
+firstSym :: Symbol
+firstSym = Symbol { number = 0 }
 
 instance Show Symbol where
   show Symbol { number = n } = "<symbol " ++ show n ++ ">"

@@ -38,11 +38,11 @@ import Data.ByteString.Char8 hiding (zip)
 import Data.Symbol
 import Test.HUnitPlus.Base hiding (name)
 
-unusedSym = mkSymbol 0
+unusedSym = firstSym
 unusedName = pack "<unused>"
-symA = mkSymbol 1
+symA = succ unusedSym
 nameA = pack "A"
-symBB = mkSymbol 2
+symBB = succ symA
 nameBB = pack "BB"
 names = [unusedName, nameA, nameBB]
 syms = [unusedSym, symA, symBB]
