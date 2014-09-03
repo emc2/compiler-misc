@@ -34,17 +34,22 @@
 module Data.Interval(
        -- * Datatypes
        Interval(..),
-       Intervals,
 
        -- * Bounds
        lower,
        upper,
 
+       -- * Math functions
+       member,
+       members,
+       addNum,
+       subNum,
+       mulNum,
+
        -- * Utility Functions
        size
        ) where
 
-import Control.Monad
 import Data.Hashable
 import Data.List hiding (span)
 import Prelude hiding (span)
@@ -64,10 +69,6 @@ data Interval n =
     -- lower-bound.  Max 0 denotes all negative integers, and zero.
   | Max !n
     deriving (Ord, Eq)
-
--- | A datatype representing a set of intervals.
-newtype Intervals n = Intervals { intervals :: [Interval n] }
-  deriving (Ord, Eq)
 
 -- | Lower bound of a interval
 lower :: Interval n -> Maybe n
@@ -89,15 +90,46 @@ size (Interval lo hi) = Just (hi - lo + 1)
 size (Single _) = Just 1
 size _ = Nothing
 
+-- | Check whether a number is a member of an interval.
+member :: Integral n => Interval n -> n -> Bool
+member (Interval lo hi) num = num >= lo && num <= hi
+member (Single num) num' = num == num'
+member (Min num) num' = num' >= num
+member (Max num) num' = num' <= num
+
+-- | Get all members of the interval.
+members :: Enum n => Interval n -> [n]
+members (Interval lo hi) = enumFromTo lo hi
+members (Single num) = [num]
+members (Min num) = enumFrom num
+members (Max num) = iterate pred num
+
+-- | Get the interval obtained by adding a number to an interval.
+addNum :: Integral n => Interval n -> n -> Interval n
+addNum (Interval lo hi) num = Interval (lo + num) (hi + num)
+addNum (Single num) num' = Single (num + num')
+addNum (Min num) num' = Min (num + num')
+addNum (Max num) num' = Max (num + num')
+
+-- | Get the interval obtained by subtracting a number from an interval.
+subNum :: Integral n => Interval n -> n -> Interval n
+subNum (Interval lo hi) num = Interval (lo - num) (hi - num)
+subNum (Single num) num' = Single (num - num')
+subNum (Min num) num' = Min (num - num')
+subNum (Max num) num' = Max (num - num')
+
+-- | Get the interval obtained by multiplying an interval by a number.
+mulNum :: Integral n => Interval n -> n -> Interval n
+mulNum (Interval lo hi) num = Interval (lo * num) (hi * num)
+mulNum (Single num) num' = Single (num * num')
+mulNum (Min num) num' = Min (num * num')
+mulNum (Max num) num' = Max (num * num')
+
 instance Show n => Show (Interval n) where
   show (Min n) = show n ++ " to +inf"
   show (Single n) = show n
   show (Interval n1 n2) = show n1 ++ " to " ++ show n2
   show (Max n) = "-inf to " ++ show n
-
-instance Show n => Show (Intervals n) where
-  show (Intervals { intervals = [] }) = "-inf to +inf"
-  show (Intervals { intervals = is }) = show is
 
 instance Hashable n => Hashable (Interval n) where
   hashWithSalt s (Interval n1 n2) =
@@ -105,6 +137,3 @@ instance Hashable n => Hashable (Interval n) where
   hashWithSalt s (Single n) = s `hashWithSalt` (2 :: Int) `hashWithSalt` n
   hashWithSalt s (Min n) = s `hashWithSalt` (3 :: Int) `hashWithSalt` n
   hashWithSalt s (Max n) = s `hashWithSalt` (4 :: Int) `hashWithSalt` n
-
-instance Hashable n => Hashable (Intervals n) where
-  hashWithSalt s Intervals { intervals = is } = hashWithSalt s is

@@ -41,6 +41,7 @@ Library
                         Control.Monad.Gensym
                         Control.Monad.Symbols
                         Data.Hashable.ExtraInstances
+                        Data.Interval
                         Data.Symbol
                         Prelude.Extras.ExtraInstances
                         Text.Format
