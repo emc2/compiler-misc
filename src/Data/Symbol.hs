@@ -36,14 +36,15 @@
 -- be stored in arrays as opposed to hash maps.
 module Data.Symbol(
        Symbol,
-       firstSym
+       firstSym,
+       debugStr
        ) where
 
 import Data.Hashable
 import Data.Ix
 import Data.Word
 
--- | Symbol datatype.  Symbols are used as 
+-- | Symbol datatype.  Symbols are used as
 newtype Symbol =
   Symbol {
     -- | The unique numerical ID of the symbol.
@@ -55,8 +56,9 @@ newtype Symbol =
 firstSym :: Symbol
 firstSym = Symbol { number = 0 }
 
-instance Show Symbol where
-  show Symbol { number = n } = "<symbol " ++ show n ++ ">"
+-- | Get a debugging name for a Symbol
+debugStr :: Symbol -> String
+debugStr Symbol { number = n } = "<symbol " ++ show n ++ ">"
 
 instance Enum Symbol where
   succ = Symbol . succ . number
