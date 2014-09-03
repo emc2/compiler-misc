@@ -138,7 +138,7 @@ runSymbolsT' s =
 runSymbols :: Symbols a
            -- ^ The Symbols monad to execute.
            -> Gensym a
-runSymbols s = runSymbolsT s
+runSymbols = runSymbolsT
 
 -- Get the next symbol
 nextSym :: Monad m => (StateT Bounds (ReaderT Tables m)) Symbol
