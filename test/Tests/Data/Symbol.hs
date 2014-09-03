@@ -33,8 +33,6 @@ module Tests.Data.Symbol(tests) where
 import Control.Monad
 import Data.Hashable
 import Data.Symbol
-import Data.List
-import Data.Word
 import Test.HUnitPlus.Base
 
 import qualified Data.HashSet as HashSet
@@ -49,8 +47,7 @@ testNoDuplicates =
       do
         not (HashSet.member val accum) @? "Duplicate value"
         return (HashSet.insert val accum)
-  in do
-    void . foldM foldfun HashSet.empty
+  in void . foldM foldfun HashSet.empty
 
 testlist :: [Test]
 testlist = [

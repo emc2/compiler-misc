@@ -33,7 +33,6 @@ module Tests.Control.Monad.Symbols(tests) where
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Symbols
-import Control.Monad.Trans
 import Data.ByteString.Char8 hiding (zip)
 import Data.Symbol
 import Test.HUnitPlus.Base hiding (name)
