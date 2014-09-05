@@ -42,7 +42,7 @@ Library
                         Control.Monad.Symbols
                         Data.Hashable.ExtraInstances
                         Data.Interval
-                        Data.Pos
+                        Data.Position
                         Data.Symbol
                         Prelude.Extras.ExtraInstances
                         Text.Format
