@@ -80,7 +80,7 @@ runGensym :: Gensym a
            -- ^ The mapping of symbols.  The mapping to the lowest
            -- index is taken as the null symbol.
            -> IO a
-runGensym s = runGensymT s
+runGensym = runGensymT
 
 -- | Execute the computation wrapped in a SymbolsT monad transformer.
 runGensymT :: MonadIO m =>
@@ -107,7 +107,7 @@ runGensymT s (lo, hi) vals =
 startGensym :: Gensym a
             -- ^ The Symbols monad to execute.
             -> IO a
-startGensym s = startGensymT s
+startGensym = startGensymT
 
 -- | Execute a GensymT monad transformer with a starting state with
 -- only the null symbol defined
@@ -200,10 +200,10 @@ instance Monad m => Applicative (GensymT m) where
 
 instance (MonadPlus m, Alternative m) => Alternative (GensymT m) where
   empty = lift empty
-  s1 <|> s2 = GensymT ((unpackGensymT s1) <|> (unpackGensymT s2))
+  s1 <|> s2 = GensymT (unpackGensymT s1 <|> unpackGensymT s2)
 
 instance Functor (GensymT m) where
-  fmap f = fmap f
+  fmap = fmap
 
 instance MonadIO m => MonadSymbols (GensymT m) where
   nullSym = GensymT nullSym'
