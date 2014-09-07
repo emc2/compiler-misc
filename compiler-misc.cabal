@@ -48,4 +48,5 @@ Library
                         Text.Format
   other-modules:        Control.Monad.Gensym.Class
                         Control.Monad.SourceFiles.Class
+                        Control.Monad.SourceLoader.Class
                         Control.Monad.Symbols.Class
