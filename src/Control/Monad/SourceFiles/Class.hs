@@ -25,10 +25,10 @@
 -- OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 -- SUCH DAMAGE.
 {-# OPTIONS_GHC -Wall -Werror #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 
--- | Defines a class representing a monad which memoizes strings as
--- numbers.  Useful in a compiler context for representing symbols.
+-- | Defines a class of monads representing access to source code.
+-- This is useful for implementing lexers, as well as implementing a
+-- diagnostic message printer.
 module Control.Monad.SourceFiles.Class(
        MonadSourceFiles(..)
        ) where

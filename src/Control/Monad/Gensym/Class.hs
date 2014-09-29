@@ -28,7 +28,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 -- | Defines a class representing a monad which memoizes strings as
--- numbers.  Useful in a compiler context for representing symbols.
+-- tokens.  Useful in a compiler context for representing symbols.
 module Control.Monad.Gensym.Class(
        MonadGensym(..)
        ) where

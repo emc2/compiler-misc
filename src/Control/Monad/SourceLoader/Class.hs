@@ -38,11 +38,18 @@ import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer
+import Data.ByteString.Lazy
 
--- | Class of monads that load source files.
+-- | Class of monads that load source files.  Instances of this class
+-- will typically also implement @SourceFiles@, in order to give
+-- access to the loaded file.
 class Monad m => MonadSourceLoader m where
   -- | Load a source file at the given location.
-  loadSourceFile :: FilePath -> m ()
+  loadSourceFile :: FilePath
+                 -- ^ Path of the file to load.
+                 -> m [ByteString]
+                 -- ^ The contents of the file.  May also raise any
+                 -- exception that can be raised by @readFile@.
 
 instance MonadSourceLoader m => MonadSourceLoader (ContT r m) where
   loadSourceFile = lift . loadSourceFile
