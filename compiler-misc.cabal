@@ -27,7 +27,8 @@ Test-Suite UnitTest
   hs-source-dirs:       src test
   build-depends:        base >= 4.4.0 && < 5, Cabal >= 1.16.0, pretty, containers,
                         hashable, prelude-extras, hashable-extras, bound, bytestring,
-                        array, mtl, unordered-containers, HUnit-Plus, hashtables
+                        array, mtl, unordered-containers, HUnit-Plus, hashtables,
+                        filepath, utf8-string, hexpat, hexpat-pickle
   ghc-options:          -fhpc
 
 Library
@@ -35,18 +36,22 @@ Library
   hs-source-dirs:       src
   build-depends:        base >= 4.4.0 && < 5, Cabal >= 1.16.0, pretty, containers,
                         hashable, prelude-extras, hashable-extras, bound, bytestring,
-                        array, mtl, unordered-containers, hashtables
+                        array, mtl, unordered-containers, hashtables, filepath, utf8-string,
+                        hexpat, hexpat-pickle
   exposed-modules:      Bound.Scope.ExtraInstances
                         Bound.Var.ExtraInstances
                         Control.Monad.Gensym
+                        Control.Monad.Gensym.Class
+                        Control.Monad.SourceFiles.Class
+                        Control.Monad.SourceLoader
+                        Control.Monad.SourceLoader.Class
                         Control.Monad.Symbols
+                        Control.Monad.Symbols.Class
                         Data.Hashable.ExtraInstances
                         Data.Interval
                         Data.Position
                         Data.Symbol
                         Prelude.Extras.ExtraInstances
                         Text.Format
-  other-modules:        Control.Monad.Gensym.Class
-                        Control.Monad.SourceFiles.Class
-                        Control.Monad.SourceLoader.Class
-                        Control.Monad.Symbols.Class
+                        Text.Escapes
+                        Text.Numbers
