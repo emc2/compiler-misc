@@ -28,18 +28,11 @@
 -- OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 -- SUCH DAMAGE.
 
-module Main(main) where
+module Tests.Text(tests) where
 
-import Test.HUnitPlus
+import Test.HUnitPlus.Base
 
-import qualified Tests.Control as Control
-import qualified Tests.Data as Data
-import qualified Tests.Text as Text
+import qualified Tests.Text.Numbers as Numbers
 
-tests = [ Control.tests, Data.tests, Text.tests ]
-
-testsuite = TestSuite { suiteName = "UnitTests", suiteConcurrently = True,
-                        suiteTests = tests, suiteOptions = [] }
-
-main :: IO ()
-main = createMain [testsuite]
+tests :: Test
+tests = "Text" ~: [Numbers.tests]
