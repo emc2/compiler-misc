@@ -37,6 +37,9 @@ import Test.HUnitPlus.Base
 
 import qualified Data.HashSet as HashSet
 
+instance Show Symbol where
+  show = debugStr
+
 symbolEnum :: [Symbol]
 symbolEnum = take 1000 (iterate succ firstSym)
 

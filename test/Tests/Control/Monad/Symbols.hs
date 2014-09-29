@@ -37,6 +37,9 @@ import Data.ByteString.Char8 hiding (zip)
 import Data.Symbol
 import Test.HUnitPlus.Base hiding (name)
 
+instance Show Symbol where
+  show = debugStr
+
 unusedSym = firstSym
 unusedName = pack "<unused>"
 symA = succ unusedSym

@@ -44,7 +44,8 @@ import Data.Hashable
 import Data.Ix
 import Data.Word
 
--- | Symbol datatype.  Symbols are used as
+-- | Symbol datatype.  Symbols are used as tokens in most tree
+-- structures, and their actual names can be looked up in a database.
 newtype Symbol =
   Symbol {
     -- | The unique numerical ID of the symbol.
