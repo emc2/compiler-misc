@@ -62,7 +62,7 @@ runSymbols :: Symbols a
            -- ^ The mapping of symbols.  The mapping to the lowest
            -- index is taken as the null symbol.
            -> IO a
-runSymbols s = runSymbolsT s
+runSymbols = runSymbolsT
 
 -- | Execute the computation wrapped in a SymbolsT monad transformer.
 runSymbolsT :: Monad m =>
@@ -81,16 +81,16 @@ mapSymbolsT :: (Monad m, Monad n) => (m a -> n b) -> SymbolsT m a -> SymbolsT n 
 mapSymbolsT f = SymbolsT . mapReaderT f . unpackSymbolsT
 
 nullSym' :: Monad m => (ReaderT (Array Symbol ByteString) m) Symbol
-nullSym' = ask >>= return . fst . bounds
+nullSym' = liftM (fst . bounds) ask
 
 allNames' :: Monad m => (ReaderT (Array Symbol ByteString) m) [ByteString]
-allNames' = ask >>= return . elems
+allNames' = liftM elems ask
 
 name' :: Monad m => Symbol -> (ReaderT (Array Symbol ByteString) m) ByteString
-name' sym = ask >>= return . (! sym)
+name' sym = liftM (! sym) ask
 
 allSyms' :: Monad m => (ReaderT (Array Symbol ByteString) m) [Symbol]
-allSyms' = ask >>= return . indices
+allSyms' = liftM indices ask
 
 instance Monad m => Monad (SymbolsT m) where
   return = SymbolsT . return
@@ -102,10 +102,10 @@ instance Monad m => Applicative (SymbolsT m) where
 
 instance (Monad m, Alternative m) => Alternative (SymbolsT m) where
   empty = lift empty
-  s1 <|> s2 = SymbolsT ((unpackSymbolsT s1) <|> (unpackSymbolsT s2))
+  s1 <|> s2 = SymbolsT (unpackSymbolsT s1 <|> unpackSymbolsT s2)
 
 instance Functor (SymbolsT m) where
-  fmap f = fmap f
+  fmap = fmap
 
 instance Monad m => MonadSymbols (SymbolsT m) where
   nullSym = SymbolsT nullSym'
