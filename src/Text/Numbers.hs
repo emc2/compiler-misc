@@ -136,7 +136,7 @@ hexNatural =
 decNatural :: String -> Integer
 decNatural =
   let
-    foldfun accum digit = ((accum * 10) + hexDigit digit)
+    foldfun accum digit = ((accum * 10) + decDigit digit)
   in
     foldl foldfun 0
 
@@ -318,27 +318,38 @@ hexLiteral str =
       case findIndex (\c -> c == 'p' || c == 'P') str of
         Just index ->
           (take index str, fromInteger (hexInteger (drop (index + 1) str)))
-        Nothing -> (str, 1)
+        Nothing -> (str, 0)
+    (numstr, pos) =
+      case basestr of
+        '-' : rest -> (rest, False)
+        '+' : rest -> (rest, True)
+        _ -> (basestr, True)
   in
-    case elemIndex '.' basestr of
+    case elemIndex '.' numstr of
       Just index ->
         let
-          wholestr = take index basestr
-          fracstr = drop (index + 1) basestr
+          wholestr = take index numstr
+          fracstr = drop (index + 1) numstr
           wholepart = hexInteger wholestr
           fracpart = hexNatural fracstr
-          fracpower = length fracstr + (abs power - 1)
+          fracpower = length fracstr
           shiftamount = 4 * fracpower
           numerator = (wholepart `shiftL` shiftamount) .|. fracpart
           denomenator = 1 `shiftL` shiftamount
+          ratio =
+            if power > 0
+              then (numerator `shiftL` (power * 4)) % denomenator
+              else numerator % (denomenator `shiftL` (abs power * 4))
         in
-          if power > 0
-            then numerator % denomenator
-            else denomenator % numerator
+          if pos then ratio else -ratio
       Nothing ->
-        if power > 0
-          then toRational (hexNatural str ^ power)
-          else 1 % (hexNatural str ^ (-power))
+        let
+          ratio =
+            if power > 0
+              then toRational (hexNatural numstr `shiftL` (power * 4))
+              else hexNatural numstr % (1 `shiftL` (abs power * 4))
+        in
+          if pos then ratio else -ratio
 
 -- | Parse a string representing a floating point number in decimal, with
 -- an optional exponent.  The result will be represented with a
@@ -349,30 +360,42 @@ hexLiteral str =
 decLiteral :: String -> Rational
 decLiteral str =
   let
+    power :: Int
     (basestr, power) =
       case findIndex (\c -> c == 'p' || c == 'P' || c == 'e' || c == 'E') str of
         Just index ->
           (take index str, fromInteger (decInteger (drop (index + 1) str)))
-        Nothing -> (str, 1)
+        Nothing -> (str, 0)
+    (numstr, pos) =
+      case basestr of
+        '-' : rest -> (rest, False)
+        '+' : rest -> (rest, True)
+        _ -> (basestr, True)
   in
-    case elemIndex '.' basestr of
+    case elemIndex '.' numstr of
       Just index ->
         let
-          wholestr = take index basestr
-          fracstr = drop (index + 1) basestr
+          wholestr = take index numstr
+          fracstr = drop (index + 1) numstr
           wholepart = decInteger wholestr
           fracpart = decNatural fracstr
-          fracpower = length fracstr + (abs power - 1)
+          fracpower = length fracstr
           numerator = (wholepart * (10 ^ fracpower)) + fracpart
           denomenator = 10 ^ fracpower
+          ratio =
+            if power > 0
+              then (numerator * (10 ^ power)) % denomenator
+              else numerator % (denomenator * (10 ^ abs power))
         in
-          if power > 0
-            then numerator % denomenator
-            else denomenator % numerator
+          if pos then ratio else -ratio
       Nothing ->
-        if power > 0
-          then toRational (decNatural str ^ power)
-          else 1 % (decNatural str ^ (-power))
+        let
+          ratio =
+            if power > 0
+              then toRational (decNatural numstr * (10 ^ power))
+              else decNatural numstr % (10 ^ abs power)
+        in
+          if pos then ratio else -ratio
 
 -- | Parse a string representing a floating point number in octal, with
 -- an optional exponent.  The result will be represented with a
@@ -387,27 +410,38 @@ octLiteral str =
       case findIndex (\c -> c == 'p' || c == 'P' || c == 'e' || c == 'E') str of
         Just index ->
           (take index str, fromInteger (octInteger (drop (index + 1) str)))
-        Nothing -> (str, 1)
+        Nothing -> (str, 0)
+    (numstr, pos) =
+      case basestr of
+        '-' : rest -> (rest, False)
+        '+' : rest -> (rest, True)
+        _ -> (basestr, True)
   in
-    case elemIndex '.' basestr of
+    case elemIndex '.' numstr of
       Just index ->
         let
-          wholestr = take index basestr
-          fracstr = drop (index + 1) basestr
+          wholestr = take index numstr
+          fracstr = drop (index + 1) numstr
           wholepart = octInteger wholestr
           fracpart = octNatural fracstr
-          fracpower = length fracstr + (abs power - 1)
-          shiftamount = fracpower * 3
+          fracpower = length fracstr
+          shiftamount = 3 * fracpower
           numerator = (wholepart `shiftL` shiftamount) .|. fracpart
           denomenator = 1 `shiftL` shiftamount
+          ratio =
+            if power > 0
+              then (numerator `shiftL` (power * 3)) % denomenator
+              else numerator % (denomenator `shiftL` (abs power * 3))
         in
-          if power > 0
-            then numerator % denomenator
-            else denomenator % numerator
+          if pos then ratio else -ratio
       Nothing ->
-        if power > 0
-          then toRational (octNatural str ^ power)
-          else 1 % (octNatural str ^ (-power))
+        let
+          ratio =
+            if power > 0
+              then toRational (octNatural numstr `shiftL` (power * 3))
+              else octNatural numstr % (1 `shiftL` (abs power * 3))
+        in
+          if pos then ratio else -ratio
 
 -- | Parse a string representing a floating point number in binary, with
 -- an optional exponent.  The result will be represented with a
@@ -422,23 +456,34 @@ binLiteral str =
       case findIndex (\c -> c == 'p' || c == 'P' || c == 'e' || c == 'E') str of
         Just index ->
           (take index str, fromInteger (binInteger (drop (index + 1) str)))
-        Nothing -> (str, 1)
+        Nothing -> (str, 0)
+    (numstr, pos) =
+      case basestr of
+        '-' : rest -> (rest, False)
+        '+' : rest -> (rest, True)
+        _ -> (basestr, True)
   in
-    case elemIndex '.' basestr of
+    case elemIndex '.' numstr of
       Just index ->
         let
-          wholestr = take index basestr
-          fracstr = drop (index + 1) basestr
+          wholestr = take index numstr
+          fracstr = drop (index + 1) numstr
           wholepart = binInteger wholestr
           fracpart = binNatural fracstr
-          fracpower = length fracstr + (abs power - 1)
+          fracpower = length fracstr
           numerator = (wholepart `shiftL` fracpower) .|. fracpart
           denomenator = 1 `shiftL` fracpower
+          ratio =
+            if power > 0
+              then (numerator `shiftL` power) % denomenator
+              else numerator % (denomenator `shiftL` abs power)
         in
-          if power > 0
-            then numerator % denomenator
-            else denomenator % numerator
+          if pos then ratio else -ratio
       Nothing ->
-        if power > 0
-          then toRational (binNatural str ^ power)
-          else 1 % (binNatural str ^ (-power))
+        let
+          ratio =
+            if power > 0
+              then toRational (binNatural numstr `shiftL` power)
+              else binNatural numstr % (1 `shiftL` abs power)
+        in
+          if pos then ratio else -ratio
