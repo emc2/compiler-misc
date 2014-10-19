@@ -40,8 +40,12 @@ Library
                         hexpat, hexpat-pickle
   exposed-modules:      Bound.Scope.ExtraInstances
                         Bound.Var.ExtraInstances
+                        Control.Monad.Comments
+                        Control.Monad.Comments.Class
+                        Control.Monad.Genpos.Class
                         Control.Monad.Gensym
                         Control.Monad.Gensym.Class
+                        Control.Monad.Positions.Class
                         Control.Monad.SourceFiles.Class
                         Control.Monad.SourceLoader
                         Control.Monad.SourceLoader.Class
