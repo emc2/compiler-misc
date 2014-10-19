@@ -29,8 +29,12 @@
 -- SUCH DAMAGE.
 {-# OPTIONS_GHC -funbox-strict-fields -Wall -Werror #-}
 
+-- | Provides a type to use as a placeholder for a position.  These
+-- are used to look up the actual position information in a position
+-- database.
+--
+-- This is quite similar in concept to @Symbol@s
 module Data.Position(
-       -- * Types
        Position,
 
        firstPosition,
@@ -41,7 +45,8 @@ import Data.Hashable
 import Data.Ix
 import Data.Word
 
--- | Symbol datatype.  Symbols are used as
+-- | Position datatype.  This is a token that is used to look up
+-- position data.
 newtype Position =
   Position {
     -- | The unique numerical ID of the symbol.
@@ -49,11 +54,11 @@ newtype Position =
   }
   deriving (Eq, Ord, Ix)
 
--- | A starting point for enumerating symbols.
+-- | A starting point for enumerating @Position@s.
 firstPosition :: Position
 firstPosition = Position { idx = 0 }
 
--- | Get a debugging name for a Symbol
+-- | Get a debugging name for a @Position@
 debugStr :: Position -> String
 debugStr Position { idx = n } = "<position " ++ show n ++ ">"
 
