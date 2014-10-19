@@ -31,13 +31,13 @@
 
 -- | Defines a class of monads that have access to preserved comments.
 module Control.Monad.Comments.Class(
-       Comments(..)
+       MonadComments(..)
        ) where
 
 import Data.ByteString
 import Data.Position
 
 -- | Class of monads that store comments for each position.
-class Comments m where
+class MonadComments m where
   -- | Get all comments preceeding a given position.
   preceedingComments :: Position -> m [ByteString]
