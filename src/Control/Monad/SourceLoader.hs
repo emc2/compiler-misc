@@ -40,12 +40,14 @@ module Control.Monad.SourceLoader(
 
 import Control.Applicative
 import Control.Exception
+import Control.Monad.Comments.Class
 import Control.Monad.Cont
 import Control.Monad.Error
-import Control.Monad.Gensym
+import Control.Monad.Gensym.Class
+import Control.Monad.Positions.Class
 import Control.Monad.Reader
 import Control.Monad.State
-import Control.Monad.Symbols
+import Control.Monad.Symbols.Class
 import Control.Monad.Writer
 import Control.Monad.SourceFiles.Class
 import Control.Monad.SourceLoader.Class
@@ -180,18 +182,35 @@ instance MonadIO m => MonadIO (SourceLoaderT m) where
 instance MonadTrans SourceLoaderT where
   lift = SourceLoaderT . lift
 
+instance MonadComments m => MonadComments (SourceLoaderT m) where
+  preceedingComments = lift . preceedingComments
+
 instance MonadCont m => MonadCont (SourceLoaderT m) where
   callCC f =
     SourceLoaderT (callCC (\c -> unpackSourceLoaderT (f (SourceLoaderT . c))))
+
+instance MonadGensym m => MonadGensym (SourceLoaderT m) where
+  symbol = SourceLoaderT . symbol
 
 instance (Error e, MonadError e m) => MonadError e (SourceLoaderT m) where
   throwError = lift . throwError
   m `catchError` h =
     SourceLoaderT (unpackSourceLoaderT m `catchError` (unpackSourceLoaderT . h))
 
+instance MonadPositions m => MonadPositions (SourceLoaderT m) where
+  positionIsSynthetic = lift . positionIsSynthetic
+  positionOrigin = lift . positionOrigin
+  positionLineColumn = lift . positionLineColumn
+
 instance MonadState s m => MonadState s (SourceLoaderT m) where
   get = lift get
   put = lift . put
+
+instance MonadSymbols m => MonadSymbols (SourceLoaderT m) where
+  nullSym = SourceLoaderT nullSym
+  allNames = SourceLoaderT allNames
+  allSyms = SourceLoaderT allSyms
+  name = SourceLoaderT . name
 
 instance MonadReader r m => MonadReader r (SourceLoaderT m) where
   ask = lift ask
@@ -209,12 +228,3 @@ instance MonadPlus m => MonadPlus (SourceLoaderT m) where
 
 instance MonadFix m => MonadFix (SourceLoaderT m) where
   mfix f = SourceLoaderT (mfix (unpackSourceLoaderT . f))
-
-instance MonadSymbols m => MonadSymbols (SourceLoaderT m) where
-  nullSym = SourceLoaderT nullSym
-  allNames = SourceLoaderT allNames
-  allSyms = SourceLoaderT allSyms
-  name = SourceLoaderT . name
-
-instance MonadGensym m => MonadGensym (SourceLoaderT m) where
-  symbol = SourceLoaderT . symbol

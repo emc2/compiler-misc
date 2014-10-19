@@ -53,6 +53,8 @@ import Control.Monad.Error
 import Control.Monad.Gensym.Class
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
+import Control.Monad.SourceFiles.Class
+import Control.Monad.SourceLoader.Class
 import Control.Monad.State
 import Control.Monad.Symbols.Class
 import Control.Monad.Writer
@@ -122,6 +124,12 @@ instance MonadPositions m => MonadPositions (CommentsT m) where
   positionIsSynthetic = lift . positionIsSynthetic
   positionOrigin = lift . positionOrigin
   positionLineColumn = lift . positionLineColumn
+
+instance MonadSourceFiles m => MonadSourceFiles (CommentsT m) where
+  sourceLines = lift . sourceLines
+
+instance MonadSourceLoader m => MonadSourceLoader (CommentsT m) where
+  loadSourceFile = lift . loadSourceFile
 
 instance MonadState s m => MonadState s (CommentsT m) where
   get = lift get
