@@ -34,10 +34,34 @@ module Control.Monad.Comments.Class(
        MonadComments(..)
        ) where
 
+import Control.Monad.Cont
+import Control.Monad.Error
+import Control.Monad.List
+import Control.Monad.Reader
+import Control.Monad.State
+import Control.Monad.Writer
 import Data.ByteString
 import Data.Position
 
 -- | Class of monads that store comments for each position.
-class MonadComments m where
+class Monad m => MonadComments m where
   -- | Get all comments preceeding a given position.
   preceedingComments :: Position -> m [ByteString]
+
+instance MonadComments m => MonadComments (ContT r m) where
+  preceedingComments = lift . preceedingComments
+
+instance (Error e, MonadComments m) => MonadComments (ErrorT e m) where
+  preceedingComments = lift . preceedingComments
+
+instance MonadComments m => MonadComments (ListT m) where
+  preceedingComments = lift . preceedingComments
+
+instance MonadComments m => MonadComments (ReaderT s m) where
+  preceedingComments = lift . preceedingComments
+
+instance MonadComments m => MonadComments (StateT s m) where
+  preceedingComments = lift . preceedingComments
+
+instance (Monoid w, MonadComments m) => MonadComments (WriterT w m) where
+  preceedingComments = lift . preceedingComments

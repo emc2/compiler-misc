@@ -38,12 +38,15 @@ module Control.Monad.Symbols(
        ) where
 
 import Control.Applicative
+import Control.Monad.Comments.Class
 import Control.Monad.Cont
 import Control.Monad.Error
+import Control.Monad.Gensym.Class
+import Control.Monad.Positions.Class
 import Control.Monad.Reader
 import Control.Monad.State
-import Control.Monad.Writer
 import Control.Monad.Symbols.Class
+import Control.Monad.Writer
 import Data.Array
 import Data.ByteString hiding (empty)
 import Data.Symbol
@@ -119,6 +122,9 @@ instance MonadIO m => MonadIO (SymbolsT m) where
 instance MonadTrans SymbolsT where
   lift = SymbolsT . lift
 
+instance MonadComments m => MonadComments (SymbolsT m) where
+  preceedingComments = lift . preceedingComments
+
 instance MonadCont m => MonadCont (SymbolsT m) where
   callCC f = SymbolsT (callCC (\c -> unpackSymbolsT (f (SymbolsT . c))))
 
@@ -126,6 +132,14 @@ instance (Error e, MonadError e m) => MonadError e (SymbolsT m) where
   throwError = lift . throwError
   m `catchError` h =
     SymbolsT (unpackSymbolsT m `catchError` (unpackSymbolsT . h))
+
+instance MonadGensym m => MonadGensym (SymbolsT m) where
+  symbol = lift . symbol
+
+instance MonadPositions m => MonadPositions (SymbolsT m) where
+  positionIsSynthetic = lift . positionIsSynthetic
+  positionOrigin = lift . positionOrigin
+  positionLineColumn = lift . positionLineColumn
 
 instance MonadState s m => MonadState s (SymbolsT m) where
   get = lift get

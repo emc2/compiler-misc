@@ -32,6 +32,11 @@
              FlexibleInstances, UndecidableInstances #-}
 
 -- | Monad with access to preserved source comments.
+--
+-- Some compiler-related tools rely on specially-formatted comments in
+-- their functioning.  An example of this is documentation-generation
+-- tools like javadoc, haddock, and doxygen.  This monad provides a
+-- way to implement this sort of functionality.
 module Control.Monad.Comments(
        MonadComments(..),
        CommentsT,
@@ -42,12 +47,15 @@ module Control.Monad.Comments(
        ) where
 
 import Control.Applicative
+import Control.Monad.Comments.Class
 import Control.Monad.Cont
 import Control.Monad.Error
+import Control.Monad.Gensym.Class
+import Control.Monad.Positions.Class
 import Control.Monad.Reader
 import Control.Monad.State
+import Control.Monad.Symbols.Class
 import Control.Monad.Writer
-import Control.Monad.Comments.Class
 import Data.ByteString(ByteString)
 import Data.HashTable.IO(BasicHashTable)
 import Data.Position
@@ -107,9 +115,23 @@ instance (Error e, MonadError e m) => MonadError e (CommentsT m) where
   m `catchError` h =
     CommentsT (unpackCommentsT m `catchError` (unpackCommentsT . h))
 
+instance MonadGensym m => MonadGensym (CommentsT m) where
+  symbol = lift . symbol
+
+instance MonadPositions m => MonadPositions (CommentsT m) where
+  positionIsSynthetic = lift . positionIsSynthetic
+  positionOrigin = lift . positionOrigin
+  positionLineColumn = lift . positionLineColumn
+
 instance MonadState s m => MonadState s (CommentsT m) where
   get = lift get
   put = lift . put
+
+instance MonadSymbols m => MonadSymbols (CommentsT m) where
+  nullSym = lift nullSym
+  allNames = lift allNames
+  allSyms = lift allSyms
+  name = lift . name
 
 instance MonadReader r m => MonadReader r (CommentsT m) where
   ask = lift ask

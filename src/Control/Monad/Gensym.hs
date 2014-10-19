@@ -40,9 +40,11 @@ module Control.Monad.Gensym(
        ) where
 
 import Control.Applicative
+import Control.Monad.Comments.Class
 import Control.Monad.Cont
 import Control.Monad.Error
 import Control.Monad.Gensym.Class
+import Control.Monad.Positions.Class
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Symbols.Class
@@ -220,6 +222,9 @@ instance MonadIO m => MonadIO (GensymT m) where
 instance MonadTrans GensymT where
   lift = GensymT . lift . lift
 
+instance MonadComments m => MonadComments (GensymT m) where
+  preceedingComments = lift . preceedingComments
+
 instance MonadCont m => MonadCont (GensymT m) where
   callCC f = GensymT (callCC (\c -> unpackGensymT (f (GensymT . c))))
 
@@ -227,6 +232,11 @@ instance (Error e, MonadError e m) => MonadError e (GensymT m) where
   throwError = lift . throwError
   m `catchError` h =
     GensymT (unpackGensymT m `catchError` (unpackGensymT . h))
+
+instance MonadPositions m => MonadPositions (GensymT m) where
+  positionIsSynthetic = lift . positionIsSynthetic
+  positionOrigin = lift . positionOrigin
+  positionLineColumn = lift . positionLineColumn
 
 instance MonadState s m => MonadState s (GensymT m) where
   get = lift get
