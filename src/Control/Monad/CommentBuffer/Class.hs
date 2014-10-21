@@ -39,7 +39,7 @@ import Data.Position
 -- store them referenced by a particular 'Position'.
 class Monad m => MonadCommentBuffer m where
   -- | Start a comment.
-  startComment :: -> m ()
+  startComment :: m ()
   -- | Append text to the current comment.
   appendComment :: ByteString -> m ()
   -- | Finish a comment.
