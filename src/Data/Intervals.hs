@@ -36,26 +36,39 @@ module Data.Intervals(
 
        -- * Constructors
        allNumbers,
-       fromIntervalList,
+       fromIntervals,
+       fromNormalIntervals,
 
        -- * Deconstructors
-       toIntervalList,
+       intervals,
 
        -- * Utility Functions
        span,
-       distinctValues
+       distinctValues,
 
        -- ** Pack/Unpack Offsets
        packOffsets,
        unpackOffsets
        ) where
 
+import Control.Monad
+import Data.Hashable
+import Data.List hiding (span)
+import Data.Maybe
 import Data.Interval(Interval(..))
+import Prelude hiding (span)
+
 import qualified Data.Interval as Interval
 
 -- | A datatype representing a set of intervals.
 newtype Intervals n = Intervals { intervals :: [Interval n] }
   deriving (Ord, Eq)
+
+lower :: Interval n -> n
+lower = fromJust . Interval.lower
+
+upper :: Interval n -> n
+upper = fromJust . Interval.upper
 
 normalizeInterval :: Integral n => [Interval n] -> [Interval n]
 normalizeInterval =
@@ -89,7 +102,7 @@ normalizeInterval =
     -- discard all previous results and start over here.
     intervalNorm accum (Min n : r : list)
             | upper r >= n - 1 = intervalNorm accum (Min (lower r) : list)
-            | otherwise = intervalNorm ([Min n]) (r : list)
+            | otherwise = intervalNorm [Min n] (r : list)
     -- This rule is necessary to avoid taking the lower bound of Min,
     -- which is undefined
     intervalNorm accum (r : Max n : _) =
@@ -136,13 +149,13 @@ fromIntervals l = Intervals { intervals = normalizeInterval l }
 
 -- | Convert an Intervals object to a sorted, normalized list of
 -- Interval objects
-toIntervals :: Intervals n -> [Interval n]
-toIntervals (Intervals { intervals = l }) = l
+fromNormalIntervals :: Intervals n -> [Interval n]
+fromNormalIntervals (Intervals { intervals = l }) = l
 
 -- | Get the number of distinct values that this Intervals object
 -- represents.
 distinctValues :: Integral n => Intervals n -> Maybe n
-distinctValues = foldr (liftM2 (+)) (Just 0) . map size . toIntervalList
+distinctValues = foldl (liftM2 (+)) (Just 0) . map Interval.size . intervals
 
 -- | The Intervals object representing all numbers.
 allNumbers :: Intervals n
@@ -160,7 +173,21 @@ packOffsets =
               (avail + (hi - lo) + 1, Just ((hi, avail - lo) : list))
     genOffset (avail, _) _ = (avail, Nothing)
   in
-    (liftM reverse) . snd . foldl genOffset (0, Just []) . toIntervalList
+    liftM reverse . snd . foldl genOffset (0, Just []) . intervals
+
+add :: Integral n => Interval n -> Interval n -> Interval n
+add (Interval lo1 hi1) (Interval lo2 hi2) = Interval (lo1 + lo2) (hi1 + hi2)
+add (Interval lo hi) (Single num) = Interval (lo + num) (hi + num)
+add (Interval lo _) (Min num) = Min (lo + num)
+add (Interval _ hi) (Max num) = Max (hi + num)
+add i1 @ (Single _) i2 @ (Interval _ _) = add i2 i1
+add (Single num) (Single num') = Single (num + num')
+add (Single num) (Min num') = Min (num + num')
+add (Single num) (Max num') = Max (num + num')
+add i1 @ (Min _) i2 @ (Interval _ _) = add i2 i1
+add i1 @ (Min _) i2 @ (Single _) = add i2 i1
+add (Min num1) (Min num2) = Min (num1 + num2)
+
 
 -- | A possible list of (a, b) pairs, so that if x < a then x + b else
 -- ... will expand a condensed integer back out into its original
@@ -174,4 +201,11 @@ unpackOffsets =
       (avail + (hi - lo) + 1, Just ((avail, lo - avail) : list))
     genOffset (avail, _) _ = (avail, Nothing)
   in
-    (liftM reverse) . snd . foldl genOffset (0, Just []) . toIntervalList
+    liftM reverse . snd . foldl genOffset (0, Just []) . intervals
+
+instance Show n => Show (Intervals n) where
+  show (Intervals { intervals = [] }) = "-inf to +inf"
+  show (Intervals { intervals = is }) = show is
+
+instance Hashable n => Hashable (Intervals n) where
+  hashWithSalt s Intervals { intervals = is } = hashWithSalt s is

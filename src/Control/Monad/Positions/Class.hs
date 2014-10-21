@@ -35,13 +35,13 @@ module Control.Monad.Positions.Class(
        MonadPositions(..)
        ) where
 
-import Data.ByteString
 import Control.Monad.Cont
 import Control.Monad.Error
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer
+import Data.ByteString
 import Data.Position
 import Data.Word
 

@@ -50,6 +50,7 @@ import Control.Applicative
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
 import Control.Monad.Error
+import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
@@ -116,6 +117,9 @@ instance (Error e, MonadError e m) => MonadError e (CommentsT m) where
   throwError = lift . throwError
   m `catchError` h =
     CommentsT (unpackCommentsT m `catchError` (unpackCommentsT . h))
+
+instance MonadGenpos m => MonadGenpos (CommentsT m) where
+  position fname line = lift . position fname line
 
 instance MonadGensym m => MonadGensym (CommentsT m) where
   symbol = lift . symbol

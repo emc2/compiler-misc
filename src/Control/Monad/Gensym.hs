@@ -43,9 +43,12 @@ import Control.Applicative
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
 import Control.Monad.Error
+import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
+import Control.Monad.SourceFiles.Class
+import Control.Monad.SourceLoader.Class
 import Control.Monad.State
 import Control.Monad.Symbols.Class
 import Control.Monad.Symbols(Symbols, SymbolsT)
@@ -213,6 +216,9 @@ instance MonadIO m => MonadSymbols (GensymT m) where
   allSyms = GensymT allSyms'
   name = GensymT . name'
 
+instance MonadGenpos m => MonadGenpos (GensymT m) where
+  position fname line = lift . position fname line
+
 instance MonadIO m => MonadGensym (GensymT m) where
   symbol = GensymT . symbol'
 
@@ -237,6 +243,12 @@ instance MonadPositions m => MonadPositions (GensymT m) where
   positionIsSynthetic = lift . positionIsSynthetic
   positionOrigin = lift . positionOrigin
   positionLineColumn = lift . positionLineColumn
+
+instance MonadSourceFiles m => MonadSourceFiles (GensymT m) where
+  sourceLines = lift . sourceLines
+
+instance MonadSourceLoader m => MonadSourceLoader (GensymT m) where
+  loadSourceFile = lift . loadSourceFile
 
 instance MonadState s m => MonadState s (GensymT m) where
   get = lift get

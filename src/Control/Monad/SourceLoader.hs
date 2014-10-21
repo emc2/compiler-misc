@@ -43,6 +43,7 @@ import Control.Exception
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
 import Control.Monad.Error
+import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
@@ -188,6 +189,9 @@ instance MonadComments m => MonadComments (SourceLoaderT m) where
 instance MonadCont m => MonadCont (SourceLoaderT m) where
   callCC f =
     SourceLoaderT (callCC (\c -> unpackSourceLoaderT (f (SourceLoaderT . c))))
+
+instance MonadGenpos m => MonadGenpos (SourceLoaderT m) where
+  position fname line = lift . position fname line
 
 instance MonadGensym m => MonadGensym (SourceLoaderT m) where
   symbol = SourceLoaderT . symbol

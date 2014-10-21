@@ -25,41 +25,50 @@
 -- OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 -- SUCH DAMAGE.
 {-# OPTIONS_GHC -Wall -Werror #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 
--- | Defines a class representing a monad which memoizes strings as
--- numbers.  Useful in a compiler context for representing symbols.
-module Control.Monad.SourceFiles.Class(
-       MonadSourceFiles(..)
+-- | Defines a class of monads with the ability to create new
+-- 'Position's.
+module Control.Monad.Genpos.Class(
+       MonadGenpos(..)
        ) where
 
 import Control.Monad.Cont
 import Control.Monad.Error
 import Control.Monad.List
+import Control.Monad.Positions.Class
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer
-import Data.ByteString.Lazy
+import Data.ByteString
+import Data.Position
+import Data.Word
 
--- | Class of monads that have access to source code.
-class Monad m => MonadSourceFiles m where
-  -- | Get all lines from the source file.
-  sourceLines :: FilePath -> m [ByteString]
+-- | An extension to the 'MonadPositions' class that adds the ability
+-- to create new 'Position's.
+class MonadPositions m => MonadGenpos m where
+  -- | Create a 'Position' from raw data.
+  position :: ByteString
+           -- ^ The name of the file.
+           -> Word
+           -- ^ The line number.
+           -> Word
+           -- ^ The column number.
+           -> m Position
 
-instance MonadSourceFiles m => MonadSourceFiles (ContT r m) where
-  sourceLines = lift . sourceLines
+instance MonadGenpos m => MonadGenpos (ContT r m) where
+  position fname line = lift . position fname line
 
-instance (MonadSourceFiles m, Error e) => MonadSourceFiles (ErrorT e m) where
-  sourceLines = lift . sourceLines
+instance (Error e, MonadGenpos m) => MonadGenpos (ErrorT e m) where
+  position fname line = lift . position fname line
 
-instance MonadSourceFiles m => MonadSourceFiles (ListT m) where
-  sourceLines = lift . sourceLines
+instance MonadGenpos m => MonadGenpos (ListT m) where
+  position fname line = lift . position fname line
 
-instance MonadSourceFiles m => MonadSourceFiles (ReaderT r m) where
-  sourceLines = lift . sourceLines
+instance MonadGenpos m => MonadGenpos (ReaderT r m) where
+  position fname line = lift . position fname line
 
-instance MonadSourceFiles m => MonadSourceFiles (StateT s m) where
-  sourceLines = lift . sourceLines
+instance MonadGenpos m => MonadGenpos (StateT s m) where
+  position fname line = lift . position fname line
 
-instance (MonadSourceFiles m, Monoid w) => MonadSourceFiles (WriterT w m) where
-  sourceLines = lift . sourceLines
+instance (Monoid w, MonadGenpos m) => MonadGenpos (WriterT w m) where
+  position fname line = lift . position fname line
