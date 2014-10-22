@@ -38,6 +38,7 @@ module Control.Monad.Symbols(
        ) where
 
 import Control.Applicative
+import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
 import Control.Monad.Error
@@ -124,6 +125,14 @@ instance MonadIO m => MonadIO (SymbolsT m) where
 
 instance MonadTrans SymbolsT where
   lift = SymbolsT . lift
+
+instance MonadCommentBuffer m => MonadCommentBuffer (SymbolsT m) where
+  startComment = lift startComment
+  appendComment = lift . appendComment
+  finishComment = lift finishComment
+  addComment = lift . addComment
+  saveCommentsAsPreceeding = lift . saveCommentsAsPreceeding
+  clearComments = lift clearComments
 
 instance MonadComments m => MonadComments (SymbolsT m) where
   preceedingComments = lift . preceedingComments

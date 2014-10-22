@@ -32,7 +32,13 @@ module Control.Monad.CommentBuffer.Class(
        MonadCommentBuffer(..)
        ) where
 
-import Data.ByteString
+import Control.Monad.Cont
+import Control.Monad.Error
+import Control.Monad.List
+import Control.Monad.Reader
+import Control.Monad.State
+import Control.Monad.Writer
+import Data.ByteString.Lazy
 import Data.Position
 
 -- | Class of monads that accumulate comments in a buffer and then
@@ -50,3 +56,53 @@ class Monad m => MonadCommentBuffer m where
   saveCommentsAsPreceeding :: Position -> m ()
   -- | Clear the comment buffer.
   clearComments :: m ()
+
+instance MonadCommentBuffer m => MonadCommentBuffer (ContT r m) where
+  startComment = lift startComment
+  appendComment = lift . appendComment
+  finishComment = lift finishComment
+  addComment = lift . addComment
+  saveCommentsAsPreceeding = lift . saveCommentsAsPreceeding
+  clearComments = lift clearComments
+
+instance (MonadCommentBuffer m, Error e) =>
+         MonadCommentBuffer (ErrorT e m) where
+  startComment = lift startComment
+  appendComment = lift . appendComment
+  finishComment = lift finishComment
+  addComment = lift . addComment
+  saveCommentsAsPreceeding = lift . saveCommentsAsPreceeding
+  clearComments = lift clearComments
+
+instance MonadCommentBuffer m => MonadCommentBuffer (ListT m) where
+  startComment = lift startComment
+  appendComment = lift . appendComment
+  finishComment = lift finishComment
+  addComment = lift . addComment
+  saveCommentsAsPreceeding = lift . saveCommentsAsPreceeding
+  clearComments = lift clearComments
+
+instance MonadCommentBuffer m => MonadCommentBuffer (ReaderT r m) where
+  startComment = lift startComment
+  appendComment = lift . appendComment
+  finishComment = lift finishComment
+  addComment = lift . addComment
+  saveCommentsAsPreceeding = lift . saveCommentsAsPreceeding
+  clearComments = lift clearComments
+
+instance MonadCommentBuffer m => MonadCommentBuffer (StateT s m) where
+  startComment = lift startComment
+  appendComment = lift . appendComment
+  finishComment = lift finishComment
+  addComment = lift . addComment
+  saveCommentsAsPreceeding = lift . saveCommentsAsPreceeding
+  clearComments = lift clearComments
+
+instance (MonadCommentBuffer m, Monoid w) =>
+         MonadCommentBuffer (WriterT w m) where
+  startComment = lift startComment
+  appendComment = lift . appendComment
+  finishComment = lift finishComment
+  addComment = lift . addComment
+  saveCommentsAsPreceeding = lift . saveCommentsAsPreceeding
+  clearComments = lift clearComments

@@ -40,6 +40,7 @@ module Control.Monad.SourceLoader(
 
 import Control.Applicative
 import Control.Exception
+import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
 import Control.Monad.Error
@@ -182,6 +183,14 @@ instance MonadIO m => MonadIO (SourceLoaderT m) where
 
 instance MonadTrans SourceLoaderT where
   lift = SourceLoaderT . lift
+
+instance MonadCommentBuffer m => MonadCommentBuffer (SourceLoaderT m) where
+  startComment = lift startComment
+  appendComment = lift . appendComment
+  finishComment = lift finishComment
+  addComment = lift . addComment
+  saveCommentsAsPreceeding = lift . saveCommentsAsPreceeding
+  clearComments = lift clearComments
 
 instance MonadComments m => MonadComments (SourceLoaderT m) where
   preceedingComments = lift . preceedingComments

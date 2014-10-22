@@ -40,6 +40,7 @@ module Control.Monad.Gensym(
        ) where
 
 import Control.Applicative
+import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
 import Control.Monad.Error
@@ -215,6 +216,14 @@ instance MonadIO m => MonadSymbols (GensymT m) where
   allNames = GensymT allNames'
   allSyms = GensymT allSyms'
   name = GensymT . name'
+
+instance MonadCommentBuffer m => MonadCommentBuffer (GensymT m) where
+  startComment = lift startComment
+  appendComment = lift . appendComment
+  finishComment = lift finishComment
+  addComment = lift . addComment
+  saveCommentsAsPreceeding = lift . saveCommentsAsPreceeding
+  clearComments = lift clearComments
 
 instance MonadGenpos m => MonadGenpos (GensymT m) where
   position fname line = lift . position fname line
