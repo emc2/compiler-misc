@@ -103,12 +103,10 @@ eofPickler :: (GenericXMLString tag, Show tag,
               PU [NodeG [] tag text] PositionInfo
 eofPickler =
   let
-    fwdfunc ((), fname) = EndOfFile { eofFile = fname }
-
     revfunc EndOfFile { eofFile = fname } = ((), fname)
     revfunc pinfo = error $! "Can't convert " ++ show pinfo
   in
-    xpWrap (fwdfunc, revfunc)
+    xpWrap (EndOfFile . snd, revfunc)
            (xpElem (gxFromString "PositionInfo")
                    (xpAttrFixed (gxFromString "kind")
                                 (gxFromString "EndOfFile"))
@@ -119,12 +117,10 @@ syntheticPickler :: (GenericXMLString tag, Show tag,
                     PU [NodeG [] tag text] PositionInfo
 syntheticPickler =
   let
-    fwdfunc ((), desc) = Synthetic { synthDesc = desc }
-
     revfunc Synthetic { synthDesc = desc } = ((), desc)
     revfunc pinfo = error $! "Can't convert " ++ show pinfo
   in
-    xpWrap (fwdfunc, revfunc)
+    xpWrap (Synthetic . snd, revfunc)
            (xpElem (gxFromString "PositionInfo")
                    (xpAttrFixed (gxFromString "kind")
                                 (gxFromString "Synthetic"))
