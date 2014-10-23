@@ -56,6 +56,7 @@ Library
                         Data.Hashable.ExtraInstances
                         Data.Interval
                         Data.Position
+                        Data.PositionInfo
                         Data.Symbol
                         Prelude.Extras.ExtraInstances
                         Text.Format
