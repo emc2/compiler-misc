@@ -28,6 +28,7 @@
 -- OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 -- SUCH DAMAGE.
 {-# OPTIONS_GHC -funbox-strict-fields -Wall -Werror #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 
 -- | This module provides an implementation of a very common technique
 -- in compiler implementation.  Names are assigned to a unique number
@@ -43,6 +44,8 @@ module Data.Symbol(
 import Data.Hashable
 import Data.Ix
 import Data.Word
+import Text.XML.Expat.Pickle
+import Text.XML.Expat.Tree
 
 -- | Symbol datatype.  Symbols are used as tokens in most tree
 -- structures, and their actual names can be looked up in a database.
@@ -73,3 +76,8 @@ instance Enum Symbol where
 
 instance Hashable Symbol where
   hashWithSalt s Symbol { number = n } = hashWithSalt s n
+
+instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
+         XmlPickler [NodeG [] tag text] Symbol where
+  xpickle = xpWrap (Symbol . snd, \pos -> ((), number pos))
+                   (xpElem (gxFromString "Symbol") xpUnit (xpContent xpPrim))

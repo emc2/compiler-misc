@@ -28,6 +28,7 @@
 -- OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 -- SUCH DAMAGE.
 {-# OPTIONS_GHC -funbox-strict-fields -Wall -Werror #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 
 -- | Provides a type to use as a placeholder for a position.  These
 -- are used to look up the actual position information in a position
@@ -36,7 +37,6 @@
 -- This is quite similar in concept to @Symbol@s
 module Data.Position(
        Position,
-
        firstPosition,
        debugStr
        ) where
@@ -44,6 +44,8 @@ module Data.Position(
 import Data.Hashable
 import Data.Ix
 import Data.Word
+import Text.XML.Expat.Pickle
+import Text.XML.Expat.Tree
 
 -- | Position datatype.  This is a token that is used to look up
 -- position data.
@@ -74,3 +76,8 @@ instance Enum Position where
 
 instance Hashable Position where
   hashWithSalt s Position { idx = n } = hashWithSalt s n
+
+instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
+         XmlPickler [NodeG [] tag text] Position where
+  xpickle = xpWrap (Position . snd, \pos -> ((), idx pos))
+                   (xpElem (gxFromString "Position") xpUnit (xpContent xpPrim))
