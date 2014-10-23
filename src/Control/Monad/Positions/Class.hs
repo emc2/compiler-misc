@@ -41,59 +41,31 @@ import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer
-import Data.ByteString
 import Data.Position
-import Data.Word
+import Data.PositionInfo
 
 -- | Class of monads with access to information about 'Position's.
 class Monad m => MonadPositions m where
-  -- | Indicate whether or not the 'Position' is synthetic
-  -- (compiler-generated).
-  positionIsSynthetic :: Position
-                      -- ^ The 'Position'
-                      -> m Bool
-                      -- ^ @True@ if the position is synthetic.
-  -- | Indicate the origin of the 'Position'.  For non-synthetic
-  -- positions, this will be the name of the source file.  For
-  -- synthetic positions, this will be a description of where in the
-  -- compiler they were created.
-  positionOrigin :: Position
-                 -- ^ The 'Position'
-                 -> m ByteString
-                 -- ^ A UTF-8 string describing the origin of the position.
-  -- | Indicate the line number and column number of the position.
-  positionLineColumn :: Position
-                     -- ^ The 'Position'
-                     -> m (Word, Word)
-                     -- ^ The line number and column number of the
-                     -- position, respectively.
+  -- | Get information about a 'Position'
+  positionInfo :: Position
+               -- ^ The 'Position'
+               -> m PositionInfo
+               -- ^ @True@ if the position is synthetic.
 
 instance MonadPositions m => MonadPositions (ContT r m) where
-  positionIsSynthetic = lift . positionIsSynthetic
-  positionOrigin = lift . positionOrigin
-  positionLineColumn = lift . positionLineColumn
+  positionInfo = lift . positionInfo
 
 instance (MonadPositions m, Error e) => MonadPositions (ErrorT e m) where
-  positionIsSynthetic = lift . positionIsSynthetic
-  positionOrigin = lift . positionOrigin
-  positionLineColumn = lift . positionLineColumn
+  positionInfo = lift . positionInfo
 
 instance MonadPositions m => MonadPositions (ListT m) where
-  positionIsSynthetic = lift . positionIsSynthetic
-  positionOrigin = lift . positionOrigin
-  positionLineColumn = lift . positionLineColumn
+  positionInfo = lift . positionInfo
 
 instance MonadPositions m => MonadPositions (ReaderT r m) where
-  positionIsSynthetic = lift . positionIsSynthetic
-  positionOrigin = lift . positionOrigin
-  positionLineColumn = lift . positionLineColumn
+  positionInfo = lift . positionInfo
 
 instance MonadPositions m => MonadPositions (StateT s m) where
-  positionIsSynthetic = lift . positionIsSynthetic
-  positionOrigin = lift . positionOrigin
-  positionLineColumn = lift . positionLineColumn
+  positionInfo = lift . positionInfo
 
 instance (MonadPositions m, Monoid w) => MonadPositions (WriterT w m) where
-  positionIsSynthetic = lift . positionIsSynthetic
-  positionOrigin = lift . positionOrigin
-  positionLineColumn = lift . positionLineColumn
+  positionInfo = lift . positionInfo

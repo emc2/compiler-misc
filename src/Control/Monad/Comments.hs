@@ -125,9 +125,7 @@ instance MonadGensym m => MonadGensym (CommentsT m) where
   symbol = lift . symbol
 
 instance MonadPositions m => MonadPositions (CommentsT m) where
-  positionIsSynthetic = lift . positionIsSynthetic
-  positionOrigin = lift . positionOrigin
-  positionLineColumn = lift . positionLineColumn
+  positionInfo = lift . positionInfo
 
 instance MonadSourceFiles m => MonadSourceFiles (CommentsT m) where
   sourceLines = lift . sourceLines

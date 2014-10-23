@@ -249,9 +249,7 @@ instance (Error e, MonadError e m) => MonadError e (GensymT m) where
     GensymT (unpackGensymT m `catchError` (unpackGensymT . h))
 
 instance MonadPositions m => MonadPositions (GensymT m) where
-  positionIsSynthetic = lift . positionIsSynthetic
-  positionOrigin = lift . positionOrigin
-  positionLineColumn = lift . positionLineColumn
+  positionInfo = lift . positionInfo
 
 instance MonadSourceFiles m => MonadSourceFiles (GensymT m) where
   sourceLines = lift . sourceLines

@@ -211,9 +211,7 @@ instance (Error e, MonadError e m) => MonadError e (SourceLoaderT m) where
     SourceLoaderT (unpackSourceLoaderT m `catchError` (unpackSourceLoaderT . h))
 
 instance MonadPositions m => MonadPositions (SourceLoaderT m) where
-  positionIsSynthetic = lift . positionIsSynthetic
-  positionOrigin = lift . positionOrigin
-  positionLineColumn = lift . positionLineColumn
+  positionInfo = lift . positionInfo
 
 instance MonadState s m => MonadState s (SourceLoaderT m) where
   get = lift get

@@ -152,9 +152,7 @@ instance MonadGensym m => MonadGensym (SymbolsT m) where
   symbol = lift . symbol
 
 instance MonadPositions m => MonadPositions (SymbolsT m) where
-  positionIsSynthetic = lift . positionIsSynthetic
-  positionOrigin = lift . positionOrigin
-  positionLineColumn = lift . positionLineColumn
+  positionInfo = lift . positionInfo
 
 instance MonadSourceFiles m => MonadSourceFiles (SymbolsT m) where
   sourceLines = lift . sourceLines

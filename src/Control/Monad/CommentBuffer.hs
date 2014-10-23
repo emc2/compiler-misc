@@ -165,9 +165,7 @@ instance MonadGensym m => MonadGensym (CommentBufferT m) where
   symbol = lift . symbol
 
 instance MonadPositions m => MonadPositions (CommentBufferT m) where
-  positionIsSynthetic = lift . positionIsSynthetic
-  positionOrigin = lift . positionOrigin
-  positionLineColumn = lift . positionLineColumn
+  positionInfo = lift . positionInfo
 
 instance MonadSourceFiles m => MonadSourceFiles (CommentBufferT m) where
   sourceLines = lift . sourceLines
