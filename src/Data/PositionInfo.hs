@@ -85,57 +85,50 @@ srcPosPickler :: (GenericXMLString tag, Show tag,
                     PU [NodeG [] tag text] PositionInfo
 srcPosPickler =
   let
-    fwdfunc (kindval, (line, col, fname))
-      | kindval == gxFromString "SourcePosition" =
-        Right SourcePosition { srcFile = fname, srcLine = line,
-                               srcColumn = col }
-      | otherwise = Left $! "Wrong kind " ++ gxToString kindval
+    fwdfunc ((), (line, col, fname)) =
+      SourcePosition { srcFile = fname, srcLine = line, srcColumn = col }
 
     revfunc SourcePosition { srcFile = fname, srcLine = line,
-                             srcColumn = col } =
-      (gxFromString "SourcePosition", (line, col, fname))
+                             srcColumn = col } = ((), (line, col, fname))
     revfunc pinfo = error $! "Can't convert " ++ show pinfo
   in
-    xpWrapEither (fwdfunc, revfunc)
-                 (xpElem (gxFromString "PositionInfo")
-                         (xpAttr (gxFromString "kind") xpText0)
-                         (xpContent xpPrim))
+    xpWrap (fwdfunc, revfunc)
+           (xpElem (gxFromString "PositionInfo")
+                   (xpAttrFixed (gxFromString "kind")
+                                (gxFromString "SourcePosition"))
+                   (xpContent xpPrim))
 
 eofPickler :: (GenericXMLString tag, Show tag,
                GenericXMLString text, Show text) =>
               PU [NodeG [] tag text] PositionInfo
 eofPickler =
   let
-    fwdfunc (kindval, fname)
-      | kindval == gxFromString "EndOfFile" =
-        Right EndOfFile { eofFile = fname }
-      | otherwise = Left $! "Wrong kind " ++ gxToString kindval
+    fwdfunc ((), fname) = EndOfFile { eofFile = fname }
 
-    revfunc EndOfFile { eofFile = fname } = (gxFromString "EndOfFile", fname)
+    revfunc EndOfFile { eofFile = fname } = ((), fname)
     revfunc pinfo = error $! "Can't convert " ++ show pinfo
   in
-    xpWrapEither (fwdfunc, revfunc)
-                 (xpElem (gxFromString "PositionInfo")
-                         (xpAttr (gxFromString "kind") xpText0)
-                         (xpContent xpPrim))
+    xpWrap (fwdfunc, revfunc)
+           (xpElem (gxFromString "PositionInfo")
+                   (xpAttrFixed (gxFromString "kind")
+                                (gxFromString "EndOfFile"))
+                   (xpContent xpPrim))
 
 syntheticPickler :: (GenericXMLString tag, Show tag,
                      GenericXMLString text, Show text) =>
                     PU [NodeG [] tag text] PositionInfo
 syntheticPickler =
   let
-    fwdfunc (kindval, desc)
-      | kindval == gxFromString "Synthetic" =
-        Right Synthetic { synthDesc = desc }
-      | otherwise = Left $! "Wrong kind " ++ gxToString kindval
+    fwdfunc ((), desc) = Synthetic { synthDesc = desc }
 
-    revfunc Synthetic { synthDesc = desc } = (gxFromString "Synthetic", desc)
+    revfunc Synthetic { synthDesc = desc } = ((), desc)
     revfunc pinfo = error $! "Can't convert " ++ show pinfo
   in
-    xpWrapEither (fwdfunc, revfunc)
-                 (xpElem (gxFromString "PositionInfo")
-                         (xpAttr (gxFromString "kind") xpText0)
-                         (xpContent xpPrim))
+    xpWrap (fwdfunc, revfunc)
+           (xpElem (gxFromString "PositionInfo")
+                   (xpAttrFixed (gxFromString "kind")
+                                (gxFromString "Synthetic"))
+                   (xpContent xpPrim))
 
 instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
          XmlPickler [NodeG [] tag text] PositionInfo where
