@@ -28,6 +28,7 @@
 -- OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 -- SUCH DAMAGE.
 {-# OPTIONS_GHC -funbox-strict-fields -Wall -Werror #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 
 -- | This module contains datatypes representing ranges of integers.
 -- This is essentially a basis for interval arithmetic.
@@ -53,6 +54,8 @@ module Data.Interval(
 import Data.Hashable
 import Data.List hiding (span)
 import Prelude hiding (span)
+import Text.XML.Expat.Pickle
+import Text.XML.Expat.Tree
 
 -- | A datatype representing a single interval
 data Interval n =
@@ -137,3 +140,77 @@ instance Hashable n => Hashable (Interval n) where
   hashWithSalt s (Single n) = s `hashWithSalt` (2 :: Int) `hashWithSalt` n
   hashWithSalt s (Min n) = s `hashWithSalt` (3 :: Int) `hashWithSalt` n
   hashWithSalt s (Max n) = s `hashWithSalt` (4 :: Int) `hashWithSalt` n
+
+intervalPickler :: (GenericXMLString tag, Show tag,
+                    GenericXMLString text, Show text,
+                    Show n, Read n) =>
+                   PU [NodeG [] tag text] (Interval n)
+intervalPickler =
+  let
+    revfunc (Interval lo hi) = ((lo, hi), ())
+    revfunc int = error $! "Can't convert " ++ show int
+  in
+    xpWrap (\((lo, hi), ()) -> Interval lo hi, revfunc)
+           (xpElem (gxFromString "Interval")
+                   (xpPair (xpAttr (gxFromString "low") xpPrim)
+                           (xpAttr (gxFromString "high") xpPrim))
+                   xpUnit)
+
+singlePickler :: (GenericXMLString tag, Show tag,
+                  GenericXMLString text, Show text,
+                  Show n, Read n) =>
+                 PU [NodeG [] tag text] (Interval n)
+singlePickler =
+  let
+    revfunc (Single val) = (val, ())
+    revfunc int = error $! "Can't convert " ++ show int
+  in
+    xpWrap (\(val, ()) -> Single val, revfunc)
+           (xpElem (gxFromString "Interval")
+                   (xpAttr (gxFromString "value") xpPrim)
+                   xpUnit)
+
+minPickler :: (GenericXMLString tag, Show tag,
+               GenericXMLString text, Show text,
+               Show n, Read n) =>
+              PU [NodeG [] tag text] (Interval n)
+minPickler =
+  let
+    revfunc (Min lo) = ((lo, ()), ())
+    revfunc int = error $! "Can't convert " ++ show int
+  in
+    xpWrap (\((lo, ()), ()) -> Min lo, revfunc)
+           (xpElem (gxFromString "Interval")
+                   (xpPair (xpAttr (gxFromString "low") xpPrim)
+                           (xpAttrFixed (gxFromString "high")
+                                        (gxFromString "infinity")))
+                   xpUnit)
+
+maxPickler :: (GenericXMLString tag, Show tag,
+               GenericXMLString text, Show text,
+               Show n, Read n) =>
+              PU [NodeG [] tag text] (Interval n)
+maxPickler =
+  let
+    revfunc (Max hi) = (((), hi), ())
+    revfunc int = error $! "Can't convert " ++ show int
+  in
+    xpWrap (\(((), hi), ()) -> Min hi, revfunc)
+           (xpElem (gxFromString "Interval")
+                   (xpPair (xpAttrFixed (gxFromString "low")
+                                        (gxFromString "-infinity"))
+                           (xpAttr (gxFromString "high") xpPrim))
+                   xpUnit)
+
+instance (GenericXMLString tag, Show tag,
+          GenericXMLString text, Show text,
+          Read n, Show n) =>
+         XmlPickler [NodeG [] tag text] (Interval n) where
+  xpickle =
+    let
+      picker Min {} = 0
+      picker Max {} = 1
+      picker Single {} = 2
+      picker Interval {} = 2
+    in
+      xpAlt picker [minPickler, maxPickler, singlePickler, intervalPickler]
