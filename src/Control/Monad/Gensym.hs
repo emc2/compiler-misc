@@ -157,14 +157,15 @@ nextSym =
 symbol' :: MonadIO m => ByteString -> (StateT Bounds (ReaderT Tables m)) Symbol
 symbol' str =
   do
-    Tables { fwdTable = tab } <- ask
-    sym <- liftIO (HashTable.lookup tab str)
+    Tables { fwdTable = fwdtab, revTable = revtab } <- ask
+    sym <- liftIO (HashTable.lookup fwdtab str)
     case sym of
       Just out -> return out
       Nothing ->
         do
           newsym <- nextSym
-          liftIO (HashTable.insert tab str newsym)
+          liftIO (HashTable.insert fwdtab str newsym)
+          liftIO (HashTable.insert revtab newsym str)
           return newsym
 
 nullSym' :: Monad m => StateT Bounds (ReaderT Tables m) Symbol
