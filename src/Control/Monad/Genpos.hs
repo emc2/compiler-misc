@@ -55,6 +55,7 @@ import Data.ByteString.Char8 hiding (map, empty)
 import Data.HashTable.IO(BasicHashTable)
 import Data.Position
 import Data.PositionInfo
+import Data.Maybe
 import Data.Word
 
 import qualified Data.HashTable.IO as HashTable
@@ -131,6 +132,14 @@ position' fname line col =
                                                      srcColumn = col })
     return hi
 
+positionInfo' :: MonadIO m => Position ->
+                 (StateT Bounds (ReaderT Table m)) PositionInfo
+positionInfo' pos =
+  do
+    tab <- ask
+    res <- liftIO (HashTable.lookup tab pos)
+    return (fromJust res)
+
 instance Monad m => Monad (GenposT m) where
   return = GenposT . return
   s >>= f = GenposT $ unpackGenposT s >>= unpackGenposT . f
@@ -157,6 +166,9 @@ instance MonadCommentBuffer m => MonadCommentBuffer (GenposT m) where
   saveCommentsAsPreceeding = lift . saveCommentsAsPreceeding
   clearComments = lift clearComments
 
+instance MonadIO m => MonadPositions (GenposT m) where
+  positionInfo = GenposT . positionInfo'
+
 instance MonadIO m => MonadIO (GenposT m) where
   liftIO = GenposT . liftIO
 
@@ -179,9 +191,6 @@ instance MonadGensym m => MonadGensym (GenposT m) where
 
 instance MonadKeywords t m => MonadKeywords t (GenposT m) where
   mkKeyword p = lift . mkKeyword p
-
-instance MonadPositions m => MonadPositions (GenposT m) where
-  positionInfo = lift . positionInfo
 
 instance MonadSourceFiles m => MonadSourceFiles (GenposT m) where
   sourceFile = lift . sourceFile
