@@ -35,7 +35,6 @@ module Control.Monad.Genpos.Class(
 import Control.Monad.Cont
 import Control.Monad.Error
 import Control.Monad.List
-import Control.Monad.Positions.Class
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer
@@ -45,7 +44,7 @@ import Data.Word
 
 -- | An extension to the 'MonadPositions' class that adds the ability
 -- to create new 'Position's.
-class MonadPositions m => MonadGenpos m where
+class Monad m => MonadGenpos m where
   -- | Create a 'Position' from raw data.
   position :: ByteString
            -- ^ The name of the file.
