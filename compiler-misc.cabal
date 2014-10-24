@@ -44,6 +44,7 @@ Library
                         Control.Monad.CommentBuffer.Class
                         Control.Monad.Comments
                         Control.Monad.Comments.Class
+                        Control.Monad.Genpos
                         Control.Monad.Genpos.Class
                         Control.Monad.Gensym
                         Control.Monad.Gensym.Class
