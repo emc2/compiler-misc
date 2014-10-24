@@ -38,7 +38,9 @@ import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer
+import Data.Array
 import Data.ByteString.Lazy
+import Data.Word
 
 -- | Class of monads that load source files.  Instances of this class
 -- will typically also implement @SourceFiles@, in order to give
@@ -47,14 +49,15 @@ class Monad m => MonadSourceLoader m where
   -- | Load a source file at the given location.
   loadSourceFile :: FilePath
                  -- ^ Path of the file to load.
-                 -> m [ByteString]
+                 -> m (Array Word ByteString)
                  -- ^ The contents of the file.  May also raise any
                  -- exception that can be raised by @readFile@.
 
 instance MonadSourceLoader m => MonadSourceLoader (ContT r m) where
   loadSourceFile = lift . loadSourceFile
 
-instance (MonadSourceLoader m, Error e) => MonadSourceLoader (ErrorT e m) where
+instance (MonadSourceLoader m, Error e) =>
+         MonadSourceLoader (ErrorT e m) where
   loadSourceFile = lift . loadSourceFile
 
 instance MonadSourceLoader m => MonadSourceLoader (ListT m) where
@@ -66,5 +69,6 @@ instance MonadSourceLoader m => MonadSourceLoader (ReaderT r m) where
 instance MonadSourceLoader m => MonadSourceLoader (StateT s m) where
   loadSourceFile = lift . loadSourceFile
 
-instance (MonadSourceLoader m, Monoid w) => MonadSourceLoader (WriterT w m) where
+instance (MonadSourceLoader m, Monoid w) =>
+         MonadSourceLoader (WriterT w m) where
   loadSourceFile = lift . loadSourceFile

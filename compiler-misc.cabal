@@ -53,6 +53,7 @@ Library
                         Control.Monad.Positions
                         Control.Monad.Positions.Class
                         Control.Monad.SkipComments
+                        Control.Monad.SourceFiles
                         Control.Monad.SourceFiles.Class
                         Control.Monad.SourceLoader
                         Control.Monad.SourceLoader.Class
