@@ -172,7 +172,7 @@ instance MonadPositions m => MonadPositions (CommentBufferT m) where
   positionInfo = lift . positionInfo
 
 instance MonadSourceFiles m => MonadSourceFiles (CommentBufferT m) where
-  sourceLines = lift . sourceLines
+  sourceFile = lift . sourceFile
 
 instance MonadSourceLoader m => MonadSourceLoader (CommentBufferT m) where
   loadSourceFile = lift . loadSourceFile

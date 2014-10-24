@@ -39,27 +39,32 @@ import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer
+import Data.Array
 import Data.ByteString.Lazy
+import Data.Word
 
 -- | Class of monads that have access to source code.
 class Monad m => MonadSourceFiles m where
   -- | Get all lines from the source file.
-  sourceLines :: FilePath -> m [ByteString]
+  sourceFile :: FilePath
+             -- ^ The path to the source file.
+             -> m (Array Word ByteString)
+             -- ^ An array of all lines in the source file.
 
 instance MonadSourceFiles m => MonadSourceFiles (ContT r m) where
-  sourceLines = lift . sourceLines
+  sourceFile = lift . sourceFile
 
 instance (MonadSourceFiles m, Error e) => MonadSourceFiles (ErrorT e m) where
-  sourceLines = lift . sourceLines
+  sourceFile = lift . sourceFile
 
 instance MonadSourceFiles m => MonadSourceFiles (ListT m) where
-  sourceLines = lift . sourceLines
+  sourceFile = lift . sourceFile
 
 instance MonadSourceFiles m => MonadSourceFiles (ReaderT r m) where
-  sourceLines = lift . sourceLines
+  sourceFile = lift . sourceFile
 
 instance MonadSourceFiles m => MonadSourceFiles (StateT s m) where
-  sourceLines = lift . sourceLines
+  sourceFile = lift . sourceFile
 
 instance (MonadSourceFiles m, Monoid w) => MonadSourceFiles (WriterT w m) where
-  sourceLines = lift . sourceLines
+  sourceFile = lift . sourceFile

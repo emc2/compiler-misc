@@ -104,7 +104,7 @@ mapSourceLoaderT :: (Monad m, Monad n) =>
 mapSourceLoaderT f = SourceLoaderT . mapReaderT f . unpackSourceLoaderT
 
 loadSourceFile' :: MonadIO m => FilePath ->
-                   (ReaderT SourceData m) [ByteString]
+                   (ReaderT SourceData m) (Array Word ByteString)
 loadSourceFile' filepath =
   do
     SourceData { sourcePaths = prefixes, sourceFiles = tab } <- ask
@@ -112,27 +112,27 @@ loadSourceFile' filepath =
     entry <- liftIO (HashTable.lookup tab filepath)
     case entry of
       -- If we already have the source, then just return it
-      Just out -> return (elems out)
+      Just out -> return out
       -- Otherwise, try looking for the file using the source paths
       Nothing ->
         let
           -- Try to load the file, using the given source path
-          tryLoad :: FilePath -> IO (Maybe [ByteString])
+          tryLoad :: FilePath -> IO (Maybe (Array Word ByteString))
           tryLoad prefix =
             let
               -- Add the source path on to the file path
               combined = combine prefix filepath
 
-              doLoad :: IO [ByteString]
+              doLoad :: IO (Array Word ByteString)
               doLoad =
                 do
                   -- Pull in the contents, split them up by lines
-                  contents <- liftM lines
-                                    (readFile combined)
+                  contents <- liftM lines (readFile combined)
+                  arr <- return (listArray (1, fromIntegral (length contents))
+                                           contents)
                   -- Add the contents to the cache
-                  HashTable.insert tab filepath
-                    (listArray (1, fromIntegral (length contents)) contents)
-                  return contents
+                  HashTable.insert tab filepath arr
+                  return arr
             in
               liftM Just doLoad
                 `catch`
@@ -177,7 +177,7 @@ instance MonadIO m => MonadSourceLoader (SourceLoaderT m) where
   loadSourceFile = SourceLoaderT . loadSourceFile'
 
 instance MonadIO m => MonadSourceFiles (SourceLoaderT m) where
-  sourceLines = SourceLoaderT . loadSourceFile'
+  sourceFile = SourceLoaderT . loadSourceFile'
 
 instance MonadIO m => MonadIO (SourceLoaderT m) where
   liftIO = SourceLoaderT . liftIO

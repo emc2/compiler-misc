@@ -184,7 +184,7 @@ instance MonadPositions m => MonadPositions (GenposT m) where
   positionInfo = lift . positionInfo
 
 instance MonadSourceFiles m => MonadSourceFiles (GenposT m) where
-  sourceLines = lift . sourceLines
+  sourceFile = lift . sourceFile
 
 instance MonadSourceLoader m => MonadSourceLoader (GenposT m) where
   loadSourceFile = lift . loadSourceFile

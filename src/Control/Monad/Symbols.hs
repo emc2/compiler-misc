@@ -155,7 +155,7 @@ instance MonadPositions m => MonadPositions (SymbolsT m) where
   positionInfo = lift . positionInfo
 
 instance MonadSourceFiles m => MonadSourceFiles (SymbolsT m) where
-  sourceLines = lift . sourceLines
+  sourceFile = lift . sourceFile
 
 instance MonadSourceLoader m => MonadSourceLoader (SymbolsT m) where
   loadSourceFile = lift . loadSourceFile

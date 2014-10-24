@@ -116,7 +116,7 @@ instance MonadPositions m => MonadPositions (SkipCommentsT m) where
   positionInfo = lift . positionInfo
 
 instance MonadSourceFiles m => MonadSourceFiles (SkipCommentsT m) where
-  sourceLines = lift . sourceLines
+  sourceFile = lift . sourceFile
 
 instance MonadSourceLoader m => MonadSourceLoader (SkipCommentsT m) where
   loadSourceFile = lift . loadSourceFile

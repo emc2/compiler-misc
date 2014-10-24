@@ -257,7 +257,7 @@ instance MonadPositions m => MonadPositions (GensymT m) where
   positionInfo = lift . positionInfo
 
 instance MonadSourceFiles m => MonadSourceFiles (GensymT m) where
-  sourceLines = lift . sourceLines
+  sourceFile = lift . sourceFile
 
 instance MonadSourceLoader m => MonadSourceLoader (GensymT m) where
   loadSourceFile = lift . loadSourceFile

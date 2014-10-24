@@ -146,7 +146,7 @@ instance MonadKeywords t m => MonadKeywords t (PositionsT m) where
   mkKeyword p = lift . mkKeyword p
 
 instance MonadSourceFiles m => MonadSourceFiles (PositionsT m) where
-  sourceLines = lift . sourceLines
+  sourceFile = lift . sourceFile
 
 instance MonadSourceLoader m => MonadSourceLoader (PositionsT m) where
   loadSourceFile = lift . loadSourceFile
