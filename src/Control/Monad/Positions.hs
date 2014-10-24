@@ -44,6 +44,7 @@ import Control.Monad.Cont
 import Control.Monad.Error
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
+import Control.Monad.Keywords.Class
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
 import Control.Monad.SourceFiles.Class
@@ -140,6 +141,9 @@ instance MonadGenpos m => MonadGenpos (PositionsT m) where
 
 instance MonadGensym m => MonadGensym (PositionsT m) where
   symbol = lift . symbol
+
+instance MonadKeywords t m => MonadKeywords t (PositionsT m) where
+  mkKeyword p = lift . mkKeyword p
 
 instance MonadSourceFiles m => MonadSourceFiles (PositionsT m) where
   sourceLines = lift . sourceLines

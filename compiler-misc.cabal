@@ -48,6 +48,7 @@ Library
                         Control.Monad.Genpos.Class
                         Control.Monad.Gensym
                         Control.Monad.Gensym.Class
+                        Control.Monad.Keywords.Class
                         Control.Monad.Positions
                         Control.Monad.Positions.Class
                         Control.Monad.SkipComments

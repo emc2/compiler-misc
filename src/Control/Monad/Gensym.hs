@@ -46,6 +46,7 @@ import Control.Monad.Cont
 import Control.Monad.Error
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
+import Control.Monad.Keywords.Class
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
 import Control.Monad.SourceFiles.Class
@@ -248,6 +249,9 @@ instance (Error e, MonadError e m) => MonadError e (GensymT m) where
   throwError = lift . throwError
   m `catchError` h =
     GensymT (unpackGensymT m `catchError` (unpackGensymT . h))
+
+instance MonadKeywords t m => MonadKeywords t (GensymT m) where
+  mkKeyword p = lift . mkKeyword p
 
 instance MonadPositions m => MonadPositions (GensymT m) where
   positionInfo = lift . positionInfo
