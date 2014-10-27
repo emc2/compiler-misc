@@ -127,9 +127,8 @@ position' fname line col =
     tab <- ask
     bounds @ Bounds { hiBound = hi } <- get
     put bounds { hiBound = succ hi }
-    liftIO (HashTable.insert tab hi SourcePosition { srcFile = fname,
-                                                     srcLine = line,
-                                                     srcColumn = col })
+    liftIO (HashTable.insert tab hi Point { pointFile = fname, pointLine = line,
+                                            pointColumn = col })
     return hi
 
 positionInfo' :: MonadIO m => Position ->

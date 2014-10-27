@@ -43,14 +43,27 @@ import Text.XML.Expat.Tree
 
 -- | Datatype for information about source element positions.
 data PositionInfo =
-    -- | A specific line and column in a source file.
-    SourcePosition {
-      -- | The line number, starting at 1.
-      srcLine :: !Word,
-      -- | The column number, staring at 1.
-      srcColumn :: !Word,
+    -- | A range in a source file.
+    Range {
       -- | The name of the source file.
-      srcFile :: !ByteString
+      rangeFile :: !ByteString,
+      -- | The starting line number, starting at 1.
+      rangeStartLine :: !Word,
+      -- | The starting column number, staring at 1.
+      rangeStartColumn :: !Word,
+      -- | The ending line number, starting at 1.
+      rangeEndLine :: !Word,
+      -- | The ending column number, staring at 1.
+      rangeEndColumn :: !Word
+    }
+    -- | A specific line and column in a source file.
+  | Point {
+      -- | The name of the source file.
+      pointFile :: !ByteString,
+      -- | The line number, starting at 1.
+      pointLine :: !Word,
+      -- | The column number, staring at 1.
+      pointColumn :: !Word
     }
     -- | A position representing the end of input for a file.
   | EndOfFile {
@@ -65,38 +78,87 @@ data PositionInfo =
   deriving (Ord, Eq)
 
 instance Show PositionInfo where
-  show SourcePosition { srcLine = line, srcColumn = col, srcFile = fname } =
+  show Range { rangeStartLine = startline, rangeStartColumn = startcol,
+               rangeEndLine = endline, rangeEndColumn = endcol,
+               rangeFile = fname }
+    | startline == endline = show fname ++ ":" ++ show startline ++ "." ++
+                             show startcol ++ "-" ++ show endcol
+    | otherwise = show fname ++ ":" ++ show startline ++ "." ++ show startcol ++
+                  "-" ++ show endline ++ "." ++ show endcol
+  show Point { pointLine = line, pointColumn = col, pointFile = fname } =
     show fname ++ ":" ++ show line ++ "." ++ show col
   show EndOfFile { eofFile = fname } = show fname ++ ": end of input"
   show Synthetic { synthDesc = desc } = show desc
 
 instance Hashable PositionInfo where
-  hashWithSalt s SourcePosition { srcLine = line, srcColumn = col,
-                                  srcFile = fname } =
-    s `hashWithSalt` (0 :: Word) `hashWithSalt`
+  hashWithSalt s Range { rangeStartLine = startline, rangeEndLine = endline,
+                         rangeStartColumn = startcol, rangeEndColumn = endcol,
+                         rangeFile = fname } =
+    s `hashWithSalt` (0 :: Word) `hashWithSalt` fname `hashWithSalt`
+    startline `hashWithSalt` startcol `hashWithSalt`
+    endline `hashWithSalt` endcol
+  hashWithSalt s Point { pointLine = line, pointColumn = col,
+                         pointFile = fname } =
+    s `hashWithSalt` (1 :: Word) `hashWithSalt`
     line `hashWithSalt` col `hashWithSalt` fname
   hashWithSalt s EndOfFile { eofFile = fname } =
-    s `hashWithSalt` (1 :: Word) `hashWithSalt` fname
+    s `hashWithSalt` (2 :: Word) `hashWithSalt` fname
   hashWithSalt s Synthetic { synthDesc = desc } =
-    s `hashWithSalt` (2 :: Word) `hashWithSalt` desc
+    s `hashWithSalt` (3 :: Word) `hashWithSalt` desc
 
-srcPosPickler :: (GenericXMLString tag, Show tag,
-                  GenericXMLString text, Show text) =>
-                    PU [NodeG [] tag text] PositionInfo
-srcPosPickler =
+rangePickler :: (GenericXMLString tag, Show tag,
+                 GenericXMLString text, Show text) =>
+                PU [NodeG [] tag text] PositionInfo
+rangePickler =
   let
-    fwdfunc ((), (line, col, fname)) =
-      SourcePosition { srcFile = fname, srcLine = line, srcColumn = col }
+    fwdfunc ((), (startline, startcol, endline, endcol, fname)) =
+      Range { rangeStartLine = startline, rangeStartColumn = startcol,
+              rangeEndLine = endline, rangeEndColumn = endcol,
+              rangeFile = fname }
 
-    revfunc SourcePosition { srcFile = fname, srcLine = line,
-                             srcColumn = col } = ((), (line, col, fname))
+    revfunc Range { rangeStartLine = startline, rangeStartColumn = startcol,
+                    rangeEndLine = endline, rangeEndColumn = endcol,
+                    rangeFile = fname} =
+      ((), (startline, startcol, endline, endcol, fname))
     revfunc pinfo = error $! "Can't convert " ++ show pinfo
   in
     xpWrap (fwdfunc, revfunc)
            (xpElem (gxFromString "PositionInfo")
                    (xpAttrFixed (gxFromString "kind")
-                                (gxFromString "SourcePosition"))
-                   (xpContent xpPrim))
+                                (gxFromString "Range"))
+                   (xp5Tuple (xpElemNodes (gxFromString "start-line")
+                                          (xpContent xpPrim))
+                             (xpElemNodes (gxFromString "start-column")
+                                          (xpContent xpPrim))
+                             (xpElemNodes (gxFromString "end-line")
+                                          (xpContent xpPrim))
+                             (xpElemNodes (gxFromString "end-column")
+                                          (xpContent xpPrim))
+                             (xpElemNodes (gxFromString "file")
+                                          (xpContent xpPrim))))
+
+pointPickler :: (GenericXMLString tag, Show tag,
+                 GenericXMLString text, Show text) =>
+                PU [NodeG [] tag text] PositionInfo
+pointPickler =
+  let
+    fwdfunc ((), (line, col, fname)) =
+      Point { pointFile = fname, pointLine = line, pointColumn = col }
+
+    revfunc Point { pointFile = fname, pointLine = line, pointColumn = col } =
+      ((), (line, col, fname))
+    revfunc pinfo = error $! "Can't convert " ++ show pinfo
+  in
+    xpWrap (fwdfunc, revfunc)
+           (xpElem (gxFromString "PositionInfo")
+                   (xpAttrFixed (gxFromString "kind")
+                                (gxFromString "Point"))
+                   (xpTriple (xpElemNodes (gxFromString "line")
+                                          (xpContent xpPrim))
+                             (xpElemNodes (gxFromString "column")
+                                          (xpContent xpPrim))
+                             (xpElemNodes (gxFromString "file")
+                                          (xpContent xpPrim))))
 
 eofPickler :: (GenericXMLString tag, Show tag,
                GenericXMLString text, Show text) =>
@@ -110,7 +172,8 @@ eofPickler =
            (xpElem (gxFromString "PositionInfo")
                    (xpAttrFixed (gxFromString "kind")
                                 (gxFromString "EndOfFile"))
-                   (xpContent xpPrim))
+                   (xpElemNodes (gxFromString "file")
+                                (xpContent xpPrim)))
 
 syntheticPickler :: (GenericXMLString tag, Show tag,
                      GenericXMLString text, Show text) =>
@@ -124,14 +187,16 @@ syntheticPickler =
            (xpElem (gxFromString "PositionInfo")
                    (xpAttrFixed (gxFromString "kind")
                                 (gxFromString "Synthetic"))
-                   (xpContent xpPrim))
+                   (xpElemNodes (gxFromString "description")
+                                (xpContent xpPrim)))
 
 instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
          XmlPickler [NodeG [] tag text] PositionInfo where
   xpickle =
     let
-      picker SourcePosition {} = 0
-      picker EndOfFile {} = 1
-      picker Synthetic {} = 2
+      picker Range {} = 0
+      picker Point {} = 1
+      picker EndOfFile {} = 2
+      picker Synthetic {} = 3
     in
-      xpAlt picker [srcPosPickler, eofPickler, syntheticPickler]
+      xpAlt picker [rangePickler, pointPickler, eofPickler, syntheticPickler]
