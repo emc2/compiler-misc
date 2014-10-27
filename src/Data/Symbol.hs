@@ -79,5 +79,5 @@ instance Hashable Symbol where
 
 instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
          XmlPickler [NodeG [] tag text] Symbol where
-  xpickle = xpWrap (Symbol . snd, \pos -> ((), number pos))
-                   (xpElem (gxFromString "Symbol") xpUnit (xpContent xpPrim))
+  xpickle = xpWrap (Symbol, number) (xpElemNodes (gxFromString "Symbol")
+                                                 (xpContent xpPrim))

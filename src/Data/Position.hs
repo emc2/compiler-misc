@@ -79,5 +79,5 @@ instance Hashable Position where
 
 instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
          XmlPickler [NodeG [] tag text] Position where
-  xpickle = xpWrap (Position . snd, \pos -> ((), idx pos))
-                   (xpElem (gxFromString "Position") xpUnit (xpContent xpPrim))
+  xpickle = xpWrap (Position, idx) (xpElemNodes (gxFromString "Position")
+                                                (xpContent xpPrim))
