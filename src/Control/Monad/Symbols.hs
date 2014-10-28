@@ -146,7 +146,7 @@ instance (Error e, MonadError e m) => MonadError e (SymbolsT m) where
     SymbolsT (unpackSymbolsT m `catchError` (unpackSymbolsT . h))
 
 instance MonadGenpos m => MonadGenpos (SymbolsT m) where
-  position fname line = lift . position fname line
+  position = lift . position
 
 instance MonadGensym m => MonadGensym (SymbolsT m) where
   symbol = lift . symbol

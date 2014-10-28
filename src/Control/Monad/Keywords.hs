@@ -147,7 +147,7 @@ instance (Error e, MonadError e m) => MonadError e (KeywordsT t m) where
     KeywordsT (unpackKeywordsT m `catchError` (unpackKeywordsT . h))
 
 instance MonadGenpos m => MonadGenpos (KeywordsT t m) where
-  position fname line = lift . position fname line
+  position = lift . position
 
 instance MonadGensym m => MonadGensym (KeywordsT t m) where
   symbol = lift . symbol

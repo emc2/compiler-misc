@@ -51,12 +51,10 @@ import Control.Monad.SourceFiles.Class
 import Control.Monad.SourceLoader.Class
 import Control.Monad.State
 import Control.Monad.Symbols.Class
-import Data.ByteString.Char8 hiding (map, empty)
 import Data.HashTable.IO(BasicHashTable)
 import Data.Position
 import Data.PositionInfo
 import Data.Maybe
-import Data.Word
 
 import qualified Data.HashTable.IO as HashTable
 
@@ -118,17 +116,14 @@ startGenposT s =
   runGenposT s initBounds []
 
 position' :: MonadIO m =>
-           ByteString
-        -> Word
-        -> Word
-        -> (StateT Bounds (ReaderT Table m)) Position
-position' fname line col =
+             PositionInfo
+          -> (StateT Bounds (ReaderT Table m)) Position
+position' pos =
   do
     tab <- ask
     bounds @ Bounds { hiBound = hi } <- get
     put bounds { hiBound = succ hi }
-    liftIO (HashTable.insert tab hi Point { pointFile = fname, pointLine = line,
-                                            pointColumn = col })
+    liftIO (HashTable.insert tab hi pos)
     return hi
 
 positionInfo' :: MonadIO m => Position ->
@@ -155,7 +150,7 @@ instance Functor (GenposT m) where
   fmap = fmap
 
 instance MonadIO m => MonadGenpos (GenposT m) where
-  position fname line = GenposT . position' fname line
+  position = GenposT . position'
 
 instance MonadCommentBuffer m => MonadCommentBuffer (GenposT m) where
   startComment = lift startComment

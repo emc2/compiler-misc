@@ -120,7 +120,7 @@ instance (Error e, MonadError e m) => MonadError e (CommentsT m) where
     CommentsT (unpackCommentsT m `catchError` (unpackCommentsT . h))
 
 instance MonadGenpos m => MonadGenpos (CommentsT m) where
-  position fname line = lift . position fname line
+  position = lift . position
 
 instance MonadGensym m => MonadGensym (CommentsT m) where
   symbol = lift . symbol

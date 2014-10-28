@@ -201,7 +201,7 @@ instance MonadCont m => MonadCont (SourceLoaderT m) where
     SourceLoaderT (callCC (\c -> unpackSourceLoaderT (f (SourceLoaderT . c))))
 
 instance MonadGenpos m => MonadGenpos (SourceLoaderT m) where
-  position fname line = lift . position fname line
+  position = lift . position
 
 instance MonadGensym m => MonadGensym (SourceLoaderT m) where
   symbol = SourceLoaderT . symbol

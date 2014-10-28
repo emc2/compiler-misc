@@ -160,7 +160,7 @@ instance (Error e, MonadError e m) => MonadError e (CommentBufferT m) where
                     (unpackCommentBufferT . h))
 
 instance MonadGenpos m => MonadGenpos (CommentBufferT m) where
-  position fname line = lift . position fname line
+  position = lift . position
 
 instance MonadGensym m => MonadGensym (CommentBufferT m) where
   symbol = lift . symbol

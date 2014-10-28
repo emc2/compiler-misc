@@ -228,7 +228,7 @@ instance MonadCommentBuffer m => MonadCommentBuffer (GensymT m) where
   clearComments = lift clearComments
 
 instance MonadGenpos m => MonadGenpos (GensymT m) where
-  position fname line = lift . position fname line
+  position = lift . position
 
 instance MonadIO m => MonadGensym (GensymT m) where
   symbol = GensymT . symbol'

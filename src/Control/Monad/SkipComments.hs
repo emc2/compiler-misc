@@ -104,7 +104,7 @@ instance (Error e, MonadError e m) => MonadError e (SkipCommentsT m) where
                     (runSkipCommentsT . h))
 
 instance MonadGenpos m => MonadGenpos (SkipCommentsT m) where
-  position fname line = lift . position fname line
+  position = lift . position
 
 instance MonadGensym m => MonadGensym (SkipCommentsT m) where
   symbol = lift . symbol

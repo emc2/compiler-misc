@@ -139,7 +139,7 @@ instance (Error e, MonadError e m) => MonadError e (SourceFilesT m) where
     SourceFilesT (unpackSourceFilesT m `catchError` (unpackSourceFilesT . h))
 
 instance MonadGenpos m => MonadGenpos (SourceFilesT m) where
-  position fname line = lift . position fname line
+  position = lift . position
 
 instance MonadGensym m => MonadGensym (SourceFilesT m) where
   symbol = lift . symbol
@@ -149,7 +149,6 @@ instance MonadKeywords t m => MonadKeywords t (SourceFilesT m) where
 
 instance MonadPositions m => MonadPositions (SourceFilesT m) where
   positionInfo = lift . positionInfo
-
 
 instance MonadSourceLoader m => MonadSourceLoader (SourceFilesT m) where
   loadSourceFile = lift . loadSourceFile

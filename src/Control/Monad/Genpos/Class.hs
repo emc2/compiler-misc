@@ -40,34 +40,71 @@ import Control.Monad.State
 import Control.Monad.Writer
 import Data.ByteString
 import Data.Position
+import Data.PositionInfo
 import Data.Word
 
 -- | An extension to the 'MonadPositions' class that adds the ability
 -- to create new 'Position's.
 class Monad m => MonadGenpos m where
   -- | Create a 'Position' from raw data.
-  position :: ByteString
+  position :: PositionInfo
            -- ^ The name of the file.
-           -> Word
-           -- ^ The line number.
-           -> Word
-           -- ^ The column number.
            -> m Position
 
+  -- | Create a span position from raw data.
+  span :: ByteString
+       -- ^ The file name.
+       -> Word
+       -- ^ The start line number.
+       -> Word
+       -- ^ The start column number.
+       -> Word
+       -- ^ The end line number.
+       -> Word
+       -- ^ The end column number.
+       -> m Position
+  span fname startline startcol endline endcol =
+    position Span { spanStartLine = startline, spanStartColumn = startcol,
+                    spanEndLine = endline, spanEndColumn = endcol,
+                    spanFile = fname }
+
+  -- | Create a point position from raw data.
+  point :: ByteString
+        -- ^ The file name.
+        -> Word
+        -- ^ The line number.
+        -> Word
+        -- ^ The column number.
+        -> m Position
+  point fname line col = position Point { pointFile = fname, pointLine = line,
+                                          pointColumn = col }
+
+  -- | Create an EOF position from raw data.
+  eof :: ByteString
+      -- ^ The file name.
+      -> m Position
+  eof = position . EndOfFile
+
+  -- | Create a synthetic position from raw data.
+  synthetic :: ByteString
+            -- ^ The description.
+            -> m Position
+  synthetic = position . Synthetic
+
 instance MonadGenpos m => MonadGenpos (ContT r m) where
-  position fname line = lift . position fname line
+  position = lift . position
 
 instance (Error e, MonadGenpos m) => MonadGenpos (ErrorT e m) where
-  position fname line = lift . position fname line
+  position = lift . position
 
 instance MonadGenpos m => MonadGenpos (ListT m) where
-  position fname line = lift . position fname line
+  position = lift . position
 
 instance MonadGenpos m => MonadGenpos (ReaderT r m) where
-  position fname line = lift . position fname line
+  position = lift . position
 
 instance MonadGenpos m => MonadGenpos (StateT s m) where
-  position fname line = lift . position fname line
+  position = lift . position
 
 instance (Monoid w, MonadGenpos m) => MonadGenpos (WriterT w m) where
-  position fname line = lift . position fname line
+  position = lift . position
