@@ -41,7 +41,7 @@ import Control.Monad.State
 import Control.Monad.Writer hiding ((<>))
 import Data.ByteString
 import Data.Position
-import Data.PositionInfo
+import Data.PositionInfo hiding (start, end)
 import Data.Semigroup
 import Data.Word
 

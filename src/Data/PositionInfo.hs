@@ -33,9 +33,12 @@
 -- | Defines datatype for information about source element positions.
 module Data.PositionInfo(
        PositionInfo(..),
+       filepath,
+       start,
+       end
        ) where
 
-import Data.ByteString
+import Data.ByteString.Char8
 import Data.Hashable
 import Data.Semigroup
 import Data.Word
@@ -77,6 +80,22 @@ data PositionInfo =
       synthDesc :: !ByteString
     }
   deriving (Ord, Eq)
+
+filepath :: PositionInfo -> FilePath
+filepath Span { spanFile = fname } = unpack fname
+filepath Point { pointFile = fname } = unpack fname
+filepath EndOfFile { eofFile = fname } = unpack fname
+filepath pos = error $! "Position " ++ show pos ++ " has no file name"
+
+start :: PositionInfo -> (Word, Word)
+start Point { pointLine = line, pointColumn = col } = (line, col)
+start Span { spanStartLine = line, spanStartColumn = col } = (line, col)
+start pos = error $! "Position " ++ show pos ++ " has no starting point"
+
+end :: PositionInfo -> (Word, Word)
+end Point { pointLine = line, pointColumn = col } = (line, col)
+end Span { spanEndLine = line, spanEndColumn = col } = (line, col)
+end pos = error $! "Position " ++ show pos ++ " has no ending point"
 
 instance Semigroup PositionInfo where
   Point { pointFile = fname1, pointLine = line1, pointColumn = col1 } <>
