@@ -32,11 +32,12 @@
 
 -- | Defines datatype for information about source element positions.
 module Data.PositionInfo(
-       PositionInfo(..)
+       PositionInfo(..),
        ) where
 
 import Data.ByteString
 import Data.Hashable
+import Data.Semigroup
 import Data.Word
 import Text.XML.Expat.Pickle
 import Text.XML.Expat.Tree
@@ -76,6 +77,33 @@ data PositionInfo =
       synthDesc :: !ByteString
     }
   deriving (Ord, Eq)
+
+instance Semigroup PositionInfo where
+  Point { pointFile = fname1, pointLine = line1, pointColumn = col1 } <>
+    Point { pointFile = fname2, pointLine = line2, pointColumn = col2 }
+    | fname1 == fname2 = Span { spanStartLine = line1, spanStartColumn = col1,
+                                spanEndLine = line2, spanEndColumn = col2,
+                                spanFile = fname1 }
+    | otherwise = error "Cannot combine positions in different files"
+  Span { spanFile = fname1, spanStartLine = line1, spanStartColumn = col1 } <>
+    Point { pointFile = fname2, pointLine = line2, pointColumn = col2 }
+    | fname1 == fname2 = Span { spanStartLine = line1, spanStartColumn = col1,
+                                spanEndLine = line2, spanEndColumn = col2,
+                                spanFile = fname1 }
+    | otherwise = error "Cannot combine positions in different files"
+  Point { pointFile = fname1, pointLine = line1, pointColumn = col1 } <>
+    Span { spanFile = fname2, spanEndLine = line2, spanEndColumn = col2 }
+    | fname1 == fname2 = Span { spanStartLine = line1, spanStartColumn = col1,
+                                spanEndLine = line2, spanEndColumn = col2,
+                                spanFile = fname1 }
+    | otherwise = error "Cannot combine positions in different files"
+  Span { spanFile = fname1, spanStartLine = line1, spanStartColumn = col1 } <>
+    Span { spanFile = fname2, spanEndLine = line2, spanEndColumn = col2 }
+    | fname1 == fname2 = Span { spanStartLine = line1, spanStartColumn = col1,
+                                spanEndLine = line2, spanEndColumn = col2,
+                                spanFile = fname1 }
+    | otherwise = error "Cannot combine positions in different files"
+  p1 <> p2 = error $! "Cannot combine positions " ++ show p1 ++ ", " ++ show p2
 
 instance Show PositionInfo where
   show Span { spanStartLine = startline, spanStartColumn = startcol,

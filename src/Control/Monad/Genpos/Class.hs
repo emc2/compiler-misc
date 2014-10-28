@@ -35,38 +35,35 @@ module Control.Monad.Genpos.Class(
 import Control.Monad.Cont
 import Control.Monad.Error
 import Control.Monad.List
+import Control.Monad.Positions.Class
 import Control.Monad.Reader
 import Control.Monad.State
-import Control.Monad.Writer
+import Control.Monad.Writer hiding ((<>))
 import Data.ByteString
 import Data.Position
 import Data.PositionInfo
+import Data.Semigroup
 import Data.Word
 
 -- | An extension to the 'MonadPositions' class that adds the ability
 -- to create new 'Position's.
-class Monad m => MonadGenpos m where
+class MonadPositions m => MonadGenpos m where
   -- | Create a 'Position' from raw data.
   position :: PositionInfo
            -- ^ The name of the file.
            -> m Position
 
-  -- | Create a span position from raw data.
-  span :: ByteString
-       -- ^ The file name.
-       -> Word
-       -- ^ The start line number.
-       -> Word
-       -- ^ The start column number.
-       -> Word
-       -- ^ The end line number.
-       -> Word
-       -- ^ The end column number.
+  -- | Create a span position from two existing positions.
+  span :: Position
+       -- ^ The start position.
+       -> Position
+       -- ^ The end position.
        -> m Position
-  span fname startline startcol endline endcol =
-    position Span { spanStartLine = startline, spanStartColumn = startcol,
-                    spanEndLine = endline, spanEndColumn = endcol,
-                    spanFile = fname }
+  span start end =
+    do
+      startpos <- positionInfo start
+      endpos <- positionInfo end
+      position (startpos <> endpos)
 
   -- | Create a point position from raw data.
   point :: ByteString
