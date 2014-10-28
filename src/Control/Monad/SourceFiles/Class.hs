@@ -40,7 +40,7 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer
 import Data.Array
-import Data.ByteString.Lazy
+import Data.ByteString.Lazy hiding (map)
 import Data.Word
 
 -- | Class of monads that have access to source code.
@@ -50,6 +50,18 @@ class Monad m => MonadSourceFiles m where
              -- ^ The path to the source file.
              -> m (Array Word ByteString)
              -- ^ An array of all lines in the source file.
+
+  sourceFileSpan :: FilePath
+                 -- ^ The path to the source file.
+                 -> Word
+                 -- ^ The starting line
+                 -> Word
+                 -- ^ The ending line
+                 -> m [ByteString]
+  sourceFileSpan fpath start end =
+    do
+      fdata <- sourceFile fpath
+      return $! map (fdata !) [start..end]
 
 instance MonadSourceFiles m => MonadSourceFiles (ContT r m) where
   sourceFile = lift . sourceFile
