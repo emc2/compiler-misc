@@ -61,6 +61,7 @@ Library
                         Control.Monad.Symbols.Class
                         Data.Hashable.ExtraInstances
                         Data.Interval
+                        Data.Message
                         Data.Position
                         Data.PositionInfo
                         Data.Symbol
