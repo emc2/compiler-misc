@@ -43,18 +43,18 @@ import Text.XML.Expat.Tree
 
 -- | Datatype for information about source element positions.
 data PositionInfo =
-    -- | A range in a source file.
-    Range {
+    -- | A span in a source file.
+    Span {
       -- | The name of the source file.
-      rangeFile :: !ByteString,
+      spanFile :: !ByteString,
       -- | The starting line number, starting at 1.
-      rangeStartLine :: !Word,
+      spanStartLine :: !Word,
       -- | The starting column number, staring at 1.
-      rangeStartColumn :: !Word,
+      spanStartColumn :: !Word,
       -- | The ending line number, starting at 1.
-      rangeEndLine :: !Word,
+      spanEndLine :: !Word,
       -- | The ending column number, staring at 1.
-      rangeEndColumn :: !Word
+      spanEndColumn :: !Word
     }
     -- | A specific line and column in a source file.
   | Point {
@@ -78,9 +78,9 @@ data PositionInfo =
   deriving (Ord, Eq)
 
 instance Show PositionInfo where
-  show Range { rangeStartLine = startline, rangeStartColumn = startcol,
-               rangeEndLine = endline, rangeEndColumn = endcol,
-               rangeFile = fname }
+  show Span { spanStartLine = startline, spanStartColumn = startcol,
+              spanEndLine = endline, spanEndColumn = endcol,
+              spanFile = fname }
     | startline == endline = show fname ++ ":" ++ show startline ++ "." ++
                              show startcol ++ "-" ++ show endcol
     | otherwise = show fname ++ ":" ++ show startline ++ "." ++ show startcol ++
@@ -91,9 +91,9 @@ instance Show PositionInfo where
   show Synthetic { synthDesc = desc } = show desc
 
 instance Hashable PositionInfo where
-  hashWithSalt s Range { rangeStartLine = startline, rangeEndLine = endline,
-                         rangeStartColumn = startcol, rangeEndColumn = endcol,
-                         rangeFile = fname } =
+  hashWithSalt s Span { spanStartLine = startline, spanEndLine = endline,
+                        spanStartColumn = startcol, spanEndColumn = endcol,
+                        spanFile = fname } =
     s `hashWithSalt` (0 :: Word) `hashWithSalt` fname `hashWithSalt`
     startline `hashWithSalt` startcol `hashWithSalt`
     endline `hashWithSalt` endcol
@@ -106,26 +106,26 @@ instance Hashable PositionInfo where
   hashWithSalt s Synthetic { synthDesc = desc } =
     s `hashWithSalt` (3 :: Word) `hashWithSalt` desc
 
-rangePickler :: (GenericXMLString tag, Show tag,
-                 GenericXMLString text, Show text) =>
-                PU [NodeG [] tag text] PositionInfo
-rangePickler =
+spanPickler :: (GenericXMLString tag, Show tag,
+                GenericXMLString text, Show text) =>
+               PU [NodeG [] tag text] PositionInfo
+spanPickler =
   let
     fwdfunc ((), (startline, startcol, endline, endcol, fname)) =
-      Range { rangeStartLine = startline, rangeStartColumn = startcol,
-              rangeEndLine = endline, rangeEndColumn = endcol,
-              rangeFile = fname }
+      Span { spanStartLine = startline, spanStartColumn = startcol,
+             spanEndLine = endline, spanEndColumn = endcol,
+             spanFile = fname }
 
-    revfunc Range { rangeStartLine = startline, rangeStartColumn = startcol,
-                    rangeEndLine = endline, rangeEndColumn = endcol,
-                    rangeFile = fname} =
+    revfunc Span { spanStartLine = startline, spanStartColumn = startcol,
+                   spanEndLine = endline, spanEndColumn = endcol,
+                   spanFile = fname} =
       ((), (startline, startcol, endline, endcol, fname))
     revfunc pinfo = error $! "Can't convert " ++ show pinfo
   in
     xpWrap (fwdfunc, revfunc)
            (xpElem (gxFromString "PositionInfo")
                    (xpAttrFixed (gxFromString "kind")
-                                (gxFromString "Range"))
+                                (gxFromString "Span"))
                    (xp5Tuple (xpElemNodes (gxFromString "start-line")
                                           (xpContent xpPrim))
                              (xpElemNodes (gxFromString "start-column")
@@ -194,9 +194,9 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
          XmlPickler [NodeG [] tag text] PositionInfo where
   xpickle =
     let
-      picker Range {} = 0
+      picker Span {} = 0
       picker Point {} = 1
       picker EndOfFile {} = 2
       picker Synthetic {} = 3
     in
-      xpAlt picker [rangePickler, pointPickler, eofPickler, syntheticPickler]
+      xpAlt picker [spanPickler, pointPickler, eofPickler, syntheticPickler]
