@@ -28,7 +28,7 @@ Test-Suite UnitTest
   build-depends:        base >= 4.4.0 && < 5, Cabal >= 1.16.0, pretty, containers,
                         hashable, prelude-extras, hashable-extras, bound, bytestring,
                         array, mtl, unordered-containers, HUnit-Plus, hashtables,
-                        filepath, utf8-string, hexpat, hexpat-pickle
+                        filepath, utf8-string, hexpat, hexpat-pickle, semigroups
   ghc-options:          -fhpc
 
 Library
@@ -37,7 +37,7 @@ Library
   build-depends:        base >= 4.4.0 && < 5, Cabal >= 1.16.0, pretty, containers,
                         hashable, prelude-extras, hashable-extras, bound, bytestring,
                         array, mtl, unordered-containers, hashtables, filepath, utf8-string,
-                        hexpat, hexpat-pickle
+                        hexpat, hexpat-pickle, semigroups
   exposed-modules:      Bound.Scope.ExtraInstances
                         Bound.Var.ExtraInstances
                         Control.Monad.CommentBuffer
