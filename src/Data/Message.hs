@@ -41,7 +41,8 @@ module Data.Message(
        messageContent,
        putMessageContent,
        putMessage,
-       putMessages
+       putMessages,
+       putMessagesXML
        ) where
 
 import Control.Monad.Positions.Class
@@ -205,9 +206,25 @@ putMessage handle msg =
     contents <- messageContent msg
     liftIO (putMessageContent handle contents)
 
+-- | Output a collection of messages to a given 'Handle' as text.
 putMessages :: (MonadPositions m, MonadSourceFiles m, MonadIO m, Message msg) =>
                Handle -> [msg] -> m ()
 putMessages handle = mapM_ (putMessage handle)
+
+-- | Output a collection of messages to a given 'Handle' as XML.
+putMessagesXML :: (MonadPositions m, MonadSourceFiles m,
+                   MonadIO m, Message msg) =>
+                  Handle -> [msg] -> m ()
+putMessagesXML handle msgs =
+  let
+    pickler :: PU (UNode ByteString) [MessageContent]
+    pickler = xpRoot (xpElemNodes (gxFromString "messages") (xpList xpickle))
+  in do
+    contents <- mapM messageContent msgs
+    liftIO (Lazy.hPut handle
+                      (pickleXML pickler
+                                 contents))
+    liftIO (hPutStr handle (show nativeNewline))
 
 instance Hashable Severity where
   hashWithSalt s Internal = s `hashWithSalt` (0 :: Word)
