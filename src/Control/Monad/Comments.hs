@@ -63,7 +63,10 @@ import Control.Monad.Symbols.Class
 import Control.Monad.Writer
 import Data.ByteString(ByteString)
 import Data.HashTable.IO(BasicHashTable)
+import Data.Maybe
 import Data.Position
+
+import qualified Data.HashTable.IO as HashTable
 
 -- | Monad transformer which provides access to saved comments.
 newtype CommentsT m a =
@@ -91,6 +94,15 @@ mapCommentsT :: (Monad m, Monad n) =>
                 (m a -> n b) -> CommentsT m a -> CommentsT n b
 mapCommentsT f = CommentsT . mapReaderT f . unpackCommentsT
 
+preceedingComments' :: MonadIO m => Position ->
+                       (ReaderT (BasicHashTable Position [ByteString]) m)
+                         [ByteString]
+preceedingComments' pos =
+  do
+    tab <- ask
+    entry <- liftIO (HashTable.lookup tab pos)
+    return (fromMaybe [] entry)
+
 instance Monad m => Monad (CommentsT m) where
   return = CommentsT . return
   s >>= f = CommentsT $ unpackCommentsT s >>= unpackCommentsT . f
@@ -111,6 +123,9 @@ instance MonadIO m => MonadIO (CommentsT m) where
 
 instance MonadTrans CommentsT where
   lift = CommentsT . lift
+
+instance MonadIO m => MonadComments (CommentsT m) where
+  preceedingComments = CommentsT . preceedingComments'
 
 instance MonadCont m => MonadCont (CommentsT m) where
   callCC f = CommentsT (callCC (\c -> unpackCommentsT (f (CommentsT . c))))
