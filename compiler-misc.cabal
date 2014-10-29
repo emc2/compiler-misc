@@ -50,6 +50,7 @@ Library
                         Control.Monad.Gensym.Class
                         Control.Monad.Keywords
                         Control.Monad.Keywords.Class
+                        Control.Monad.Messages.Class
                         Control.Monad.Positions
                         Control.Monad.Positions.Class
                         Control.Monad.SkipComments

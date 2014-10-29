@@ -44,6 +44,7 @@ import Control.Monad.Cont
 import Control.Monad.Error
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
+import Control.Monad.Messages.Class
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
 import Control.Monad.SourceFiles.Class
@@ -150,6 +151,10 @@ instance MonadGenpos m => MonadGenpos (SymbolsT m) where
 
 instance MonadGensym m => MonadGensym (SymbolsT m) where
   symbol = lift . symbol
+
+instance MonadMessages msg m => MonadMessages msg (SymbolsT m) where
+  message = lift . message
+  messages = lift messages
 
 instance MonadPositions m => MonadPositions (SymbolsT m) where
   positionInfo = lift . positionInfo

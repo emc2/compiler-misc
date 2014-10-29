@@ -43,6 +43,7 @@ import Control.Monad.Error
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
 import Control.Monad.Keywords.Class
+import Control.Monad.Messages.Class
 import Control.Monad.Positions.Class
 import Control.Monad.SourceFiles.Class
 import Control.Monad.SourceLoader.Class
@@ -167,6 +168,10 @@ instance MonadGensym m => MonadGensym (CommentBufferT m) where
 
 instance MonadKeywords t m => MonadKeywords t (CommentBufferT m) where
   mkKeyword p = lift . mkKeyword p
+
+instance MonadMessages msg m => MonadMessages msg (CommentBufferT m) where
+  message = lift . message
+  messages = lift messages
 
 instance MonadPositions m => MonadPositions (CommentBufferT m) where
   positionInfo = lift . positionInfo
