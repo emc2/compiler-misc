@@ -118,7 +118,6 @@ instance MonadPositions m => MonadPositions (SkipCommentsT m) where
 
 instance MonadMessages msg m => MonadMessages msg (SkipCommentsT m) where
   message = lift . message
-  messages = lift messages
 
 instance MonadSourceFiles m => MonadSourceFiles (SkipCommentsT m) where
   sourceFile = lift . sourceFile

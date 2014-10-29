@@ -146,7 +146,6 @@ instance MonadKeywords t m => MonadKeywords t (CommentsT m) where
 
 instance MonadMessages msg m => MonadMessages msg (CommentsT m) where
   message = lift . message
-  messages = lift messages
 
 instance MonadPositions m => MonadPositions (CommentsT m) where
   positionInfo = lift . positionInfo

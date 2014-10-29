@@ -217,7 +217,6 @@ instance MonadKeywords t m => MonadKeywords t (SourceLoaderT m) where
 
 instance MonadMessages msg m => MonadMessages msg (SourceLoaderT m) where
   message = lift . message
-  messages = lift messages
 
 instance MonadPositions m => MonadPositions (SourceLoaderT m) where
   positionInfo = lift . positionInfo

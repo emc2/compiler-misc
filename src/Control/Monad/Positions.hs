@@ -144,7 +144,6 @@ instance MonadKeywords t m => MonadKeywords t (PositionsT m) where
 
 instance MonadMessages msg m => MonadMessages msg (PositionsT m) where
   message = lift . message
-  messages = lift messages
 
 instance MonadSourceFiles m => MonadSourceFiles (PositionsT m) where
   sourceFile = lift . sourceFile

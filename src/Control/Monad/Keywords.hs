@@ -155,7 +155,6 @@ instance MonadGensym m => MonadGensym (KeywordsT t m) where
 
 instance MonadMessages msg m => MonadMessages msg (KeywordsT t m) where
   message = lift . message
-  messages = lift messages
 
 instance MonadPositions m => MonadPositions (KeywordsT t m) where
   positionInfo = lift . positionInfo

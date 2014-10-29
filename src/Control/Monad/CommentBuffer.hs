@@ -171,7 +171,6 @@ instance MonadKeywords t m => MonadKeywords t (CommentBufferT m) where
 
 instance MonadMessages msg m => MonadMessages msg (CommentBufferT m) where
   message = lift . message
-  messages = lift messages
 
 instance MonadPositions m => MonadPositions (CommentBufferT m) where
   positionInfo = lift . positionInfo

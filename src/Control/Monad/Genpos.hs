@@ -161,10 +161,6 @@ instance MonadCommentBuffer m => MonadCommentBuffer (GenposT m) where
   saveCommentsAsPreceeding = lift . saveCommentsAsPreceeding
   clearComments = lift clearComments
 
-instance MonadMessages msg m => MonadMessages msg (GenposT m) where
-  message = lift . message
-  messages = lift messages
-
 instance MonadIO m => MonadPositions (GenposT m) where
   positionInfo = GenposT . positionInfo'
 
@@ -190,6 +186,9 @@ instance MonadGensym m => MonadGensym (GenposT m) where
 
 instance MonadKeywords t m => MonadKeywords t (GenposT m) where
   mkKeyword p = lift . mkKeyword p
+
+instance MonadMessages msg m => MonadMessages msg (GenposT m) where
+  message = lift . message
 
 instance MonadSourceFiles m => MonadSourceFiles (GenposT m) where
   sourceFile = lift . sourceFile
