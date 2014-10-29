@@ -59,9 +59,9 @@ import Data.HashTable.IO(BasicHashTable)
 
 import qualified Data.HashTable.IO as HashTable
 
-type TokenMaker tok = (Position, Position) -> tok
+type TokenMaker tok = Position -> tok
 
-type Table tok = BasicHashTable ByteString ((Position, Position) -> tok)
+type Table tok = BasicHashTable ByteString (TokenMaker tok)
 
 newtype KeywordsT tok m a =
   KeywordsT { unpackKeywordsT :: (ReaderT (Table tok) m) a }
@@ -94,7 +94,7 @@ mapKeywordsT :: (Monad m, Monad n) =>
                 (m a -> n b) -> KeywordsT t m a -> KeywordsT t n b
 mapKeywordsT f = KeywordsT . mapReaderT f . unpackKeywordsT
 
-mkKeyword' :: MonadIO m => (Position, Position) -> ByteString ->
+mkKeyword' :: MonadIO m => Position -> ByteString ->
               (ReaderT (Table tok) m) (Maybe tok)
 mkKeyword' pos text =
   do
