@@ -146,6 +146,7 @@ class (Monoid msgs, Message msg) => Messages msg msgs | msgs -> msg where
   maxSeverity :: msgs -> Severity
   maxSeverity = mconcat . map severity . messages
 
+-- | Translate a 'Message' into 'MessageContent'
 messageContent :: (MonadPositions m, MonadSourceFiles m, Message msg) =>
                   msg -> m MessageContent
 messageContent msg =
@@ -213,15 +214,15 @@ putMessages :: (MonadPositions m, MonadSourceFiles m, MonadIO m,
 putMessages handle = mapM_ (putMessage handle) . messages
 
 -- | Output a collection of messages to a given 'Handle' as XML.
-putMessagesXML :: (MonadPositions m, MonadSourceFiles m,
-                   MonadIO m, Message msg) =>
-                  Handle -> [msg] -> m ()
+putMessagesXML :: (MonadPositions m, MonadSourceFiles m, MonadIO m,
+                   Messages msg msgs, Message msg) =>
+                  Handle -> msgs -> m ()
 putMessagesXML handle msgs =
   let
     pickler :: PU (UNode ByteString) [MessageContent]
     pickler = xpRoot (xpElemNodes (gxFromString "messages") (xpList xpickle))
   in do
-    contents <- mapM messageContent msgs
+    contents <- mapM messageContent (messages msgs)
     liftIO (Lazy.hPut handle
                       (pickleXML pickler
                                  contents))
