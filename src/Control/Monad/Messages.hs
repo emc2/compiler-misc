@@ -36,7 +36,9 @@ module Control.Monad.Messages(
        Messages,
        runMessagesT,
        runMessages,
-       mapMessagesT
+       mapMessagesT,
+       putMessagesT,
+       putMessagesTXML
        ) where
 
 import Control.Applicative
@@ -55,6 +57,7 @@ import Control.Monad.SourceLoader.Class
 import Control.Monad.State
 import Control.Monad.Symbols.Class
 import Control.Monad.Writer
+import System.IO
 
 import qualified Data.Message as Message
 
@@ -81,6 +84,42 @@ runMessagesT m = runWriterT (unpackMessagesT m)
 runMessages :: Messages msgs msg a
             -> IO (a, MessageState msgs)
 runMessages = runMessagesT
+
+-- | Execute the computation wrapped in a MessagesT monad transformer,
+-- output all messages generated to the given handle, return the
+-- result only if the maximum severity is below a certain level.
+putMessagesT :: (Message.Messages msg msgs, MonadSourceFiles m,
+                 MonadPositions m, MonadIO m) =>
+                Handle
+             -> Message.Severity
+             -> MessagesT msgs msg m a
+             -> m (Maybe a)
+putMessagesT handle maxsev m =
+  do
+    (res, MessageState { msSeverity = sev, msMessages = msgs }) <-
+      runMessagesT m
+    Message.putMessages handle msgs
+    if sev < maxsev
+      then return (Just res)
+      else return Nothing
+
+-- | Execute the computation wrapped in a MessagesT monad transformer,
+-- output all messages generated to the given handle, return the
+-- result only if the maximum severity is below a certain level.
+putMessagesTXML :: (Message.Messages msg msgs, MonadSourceFiles m,
+                    MonadPositions m, MonadIO m) =>
+                   Handle
+                -> Message.Severity
+                -> MessagesT msgs msg m a
+                -> m (Maybe a)
+putMessagesTXML handle maxsev m =
+  do
+    (res, MessageState { msSeverity = sev, msMessages = msgs }) <-
+      runMessagesT m
+    Message.putMessagesXML handle msgs
+    if sev < maxsev
+      then return (Just res)
+      else return Nothing
 
 mapMessagesT :: (Monad m, Monad n) =>
                 (m (a, MessageState msgsa) -> n (b, MessageState msgsb)) ->
