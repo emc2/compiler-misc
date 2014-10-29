@@ -207,9 +207,10 @@ putMessage handle msg =
     liftIO (putMessageContent handle contents)
 
 -- | Output a collection of messages to a given 'Handle' as text.
-putMessages :: (MonadPositions m, MonadSourceFiles m, MonadIO m, Message msg) =>
-               Handle -> [msg] -> m ()
-putMessages handle = mapM_ (putMessage handle)
+putMessages :: (MonadPositions m, MonadSourceFiles m, MonadIO m,
+                Messages msg msgs, Message msg) =>
+               Handle -> msgs -> m ()
+putMessages handle = mapM_ (putMessage handle) . messages
 
 -- | Output a collection of messages to a given 'Handle' as XML.
 putMessagesXML :: (MonadPositions m, MonadSourceFiles m,
