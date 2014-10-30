@@ -228,6 +228,10 @@ putMessagesXML handle msgs =
                                  contents))
     liftIO (hPutStr handle (show nativeNewline))
 
+instance Message msg => Messages msg [msg] where
+  singleton msg = [msg]
+  messages = id
+
 instance Hashable Severity where
   hashWithSalt s Internal = s `hashWithSalt` (0 :: Word)
   hashWithSalt s Error = s `hashWithSalt` (1 :: Word)
