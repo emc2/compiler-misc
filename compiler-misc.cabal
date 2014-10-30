@@ -68,6 +68,7 @@ Library
                         Data.PositionInfo
                         Data.Symbol
                         Prelude.Extras.ExtraInstances
+                        Text.AlexHelper
                         Text.Format
                         Text.Escapes
                         Text.Numbers
