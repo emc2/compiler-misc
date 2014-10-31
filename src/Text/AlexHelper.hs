@@ -39,7 +39,6 @@ module Text.AlexHelper(
        -- * Internal definitions used by Alex
        AlexPosn(..),
        AlexInput,
-       ignorePendingBytes,
        alexInputPrevChar,
        alexGetByte,
        alexStartPos,
@@ -50,22 +49,28 @@ module Text.AlexHelper(
        alexSetInput,
        alexGetStartCode,
        alexSetStartCode,
-       mkAlexActions
+       alexGetUserState,
+       alexSetUserState,
+       mkAlexActions,
+       andBegin,
+       token
        ) where
 
 import Control.Monad.State
+import Control.Monad.Genpos.Class
+import Data.Position
 import Data.Word (Word8)
-import qualified Data.ByteString.Lazy     as ByteString
+import Prelude hiding (span)
+
+import qualified Data.ByteString.Lazy as ByteString
 import qualified Data.ByteString.Internal as ByteString (w2c)
+import qualified Data.ByteString as Strict
 
 type Byte = Word8
 
 type AlexInput = (AlexPosn,     -- current position,
                   Char,         -- previous char
                   ByteString.ByteString)        -- current input string
-
-ignorePendingBytes :: AlexInput -> AlexInput
-ignorePendingBytes i = i   -- no pending bytes when lexing bytestrings
 
 alexInputPrevChar :: AlexInput -> Char
 alexInputPrevChar (_,c,_) = c
@@ -101,6 +106,7 @@ data AlexInternalState userstate =
     alex_inp :: ByteString.ByteString,      -- the current input
     alex_chr :: !Char,      -- the character before the input
     alex_scd :: !Int,        -- the current startcode
+    alex_fname :: !Strict.ByteString,
     alex_ust :: !userstate -- AlexUserState will be defined in the user program
   }
 
@@ -116,11 +122,29 @@ alexSetInput (pos, c, inp) =
     st <- get
     put st { alex_pos = pos, alex_chr = c, alex_inp = inp }
 
+alexGetUserState :: MonadState (AlexInternalState us) m => m us
+alexGetUserState =
+  do
+    AlexState { alex_ust = ust } <- get
+    return ust
+
+alexSetUserState :: MonadState (AlexInternalState us) m => us -> m ()
+alexSetUserState ust =
+  do
+    st <- get
+    put st { alex_ust = ust }
+
 alexGetStartCode :: MonadState (AlexInternalState us) m => m Int
 alexGetStartCode =
   do
     AlexState { alex_scd = sc } <- get
     return sc
+
+alexGetFileName :: MonadState (AlexInternalState us) m => m Strict.ByteString
+alexGetFileName =
+  do
+    AlexState { alex_fname = fname } <- get
+    return fname
 
 alexSetStartCode :: MonadState (AlexInternalState us) m => Int -> m ()
 alexSetStartCode sc =
@@ -131,7 +155,8 @@ alexSetStartCode sc =
 -- | Alex defines a type @AlexAction@, which in the monad wrappers, is
 -- @AlexInput -> Int -> Alex result@.  This type allows the monad to
 -- be generalized.
-type AlexMonadAction m result = AlexInput -> Int -> m result
+type AlexMonadAction m result =
+  AlexPosn -> AlexPosn -> ByteString.ByteString -> m result
 
 data AlexActions m result =
   AlexActions {
@@ -140,11 +165,7 @@ data AlexActions m result =
     -- | The value for the @skip@ definition that alex generates.
     actSkip :: AlexMonadAction m result,
     -- | The value for the @begin@ definition that alex generates.
-    actBegin :: Int -> AlexMonadAction m result,
-    -- | The value for the @andBegin@ definition that alex generates.
-    actAndBegin :: AlexMonadAction m result -> Int -> AlexMonadAction m result,
-    -- | The value for the @token@ definition that alex generates.
-    actToken :: (AlexInput -> Int -> result) -> AlexMonadAction m result
+    actBegin :: Int -> AlexMonadAction m result
   }
 
 -- | A set of handlers for the possible values of the @AlexResult@
@@ -177,7 +198,7 @@ mkAlexActions scanWrapper alexError alexEOF =
     alexMonadScan :: m result
     alexMonadScan =
       do
-        inp @ (_, _, str) <- alexGetInput
+        inp @ (startpos, _, str) <- alexGetInput
         sc <- alexGetStartCode
         scanWrapper AlexResultHandlers { handleEOF = alexEOF,
                                          handleError = alexError,
@@ -187,33 +208,42 @@ mkAlexActions scanWrapper alexError alexEOF =
                                              alexSetInput inp'
                                              alexMonadScan,
                                          handleToken =
-                                           \inp' @ (_, _, str') _ action ->
+                                           \inp' @ (endpos, _, str') _ action ->
                                            let
                                              len = fromIntegral
                                                    (ByteString.length str -
                                                       ByteString.length str')
+                                             tokstr = ByteString.take len str
                                            in do
                                              alexSetInput inp'
-                                             action (ignorePendingBytes inp) len
+                                             action startpos endpos tokstr
                                        } inp sc
 
     skip :: AlexMonadAction m result
-    skip _ _ = alexMonadScan
+    skip _ _ _ = alexMonadScan
 
     begin :: Int -> AlexMonadAction m result
-    begin code _ _ =
+    begin code _ _ _ =
       do
         alexSetStartCode code
         alexMonadScan
-
-    andBegin :: AlexMonadAction m result -> Int -> AlexMonadAction m result
-    (action `andBegin` code) input len =
-      do
-        alexSetStartCode code
-        action input len
-
-    token :: (AlexInput -> Int -> token) -> AlexMonadAction m token
-    token t input len = return (t input len)
   in
     AlexActions { actAlexMonadScan = alexMonadScan, actSkip = skip,
-                  actBegin = begin, actAndBegin = andBegin, actToken = token }
+                  actBegin = begin }
+
+andBegin :: MonadState (AlexInternalState us) m =>
+            AlexMonadAction m result -> Int -> AlexMonadAction m result
+(action `andBegin` code) startpos endpos tokstr =
+  do
+    alexSetStartCode code
+    action startpos endpos tokstr
+
+token :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
+         (ByteString.ByteString -> Position -> token) ->
+         AlexMonadAction m token
+token t (AlexPn _ startline startcol) (AlexPn _ endline endcol) bstr =
+  do
+    fname <- alexGetFileName
+    pos <- span fname (fromIntegral startline) (fromIntegral startcol)
+                (fromIntegral endline) (fromIntegral endcol)
+    return (t bstr pos)
