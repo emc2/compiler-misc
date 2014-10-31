@@ -59,6 +59,7 @@ module Text.AlexHelper(
 import Control.Monad.State
 import Control.Monad.Genpos.Class
 import Data.Position
+import Data.Int
 import Data.Word (Word8)
 import Prelude hiding (span)
 
@@ -182,13 +183,25 @@ data AlexResultHandlers m result =
     handleToken :: AlexInput -> Int -> AlexMonadAction m result -> m result
   }
 
-mkAlexActions :: forall us m result . MonadState (AlexInternalState us) m =>
+getLen :: AlexPosn -> AlexPosn -> Int64
+getLen (AlexPn start _ _) (AlexPn end _ _) = fromIntegral (start - end)
+
+mkPosition :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
+              AlexPosn -> AlexPosn -> m Position
+mkPosition (AlexPn _ startline startcol) (AlexPn _ endline endcol) =
+  do
+    fname <- alexGetFileName
+    span fname (fromIntegral startline) (fromIntegral startcol)
+         (fromIntegral endline) (fromIntegral endcol)
+
+mkAlexActions :: forall us m result .
+                 (MonadState (AlexInternalState us) m, MonadGenpos m) =>
                  (AlexResultHandlers m result -> AlexInput -> Int -> m result)
               -- ^ A wrapper around the @alexScan@ function.  This
               -- should be a simple call to @alexScan@, followed by a
               -- case statement that calls the appropriate action in
               -- the 'AlexResultHandlers' structure.
-              -> (AlexInput -> m result)
+              -> (ByteString.ByteString -> Position -> m result)
               -- ^ An action to be taken when a lexical error occurs.
               -> m result
               -- ^ An action to be taken at the end of input.
@@ -201,18 +214,24 @@ mkAlexActions scanWrapper alexError alexEOF =
         inp @ (startpos, _, str) <- alexGetInput
         sc <- alexGetStartCode
         scanWrapper AlexResultHandlers { handleEOF = alexEOF,
-                                         handleError = alexError,
+                                         handleError =
+                                           \inp' @ (endpos, _, _) ->
+                                           let
+                                             len = getLen startpos endpos
+                                             tokstr = ByteString.take len str
+                                           in do
+                                             alexSetInput inp'
+                                             pos <- mkPosition startpos endpos
+                                             alexError tokstr pos,
                                          handleSkip =
                                            \inp' _ ->
                                            do
                                              alexSetInput inp'
                                              alexMonadScan,
                                          handleToken =
-                                           \inp' @ (endpos, _, str') _ action ->
+                                           \inp' @ (endpos, _, _) _ action ->
                                            let
-                                             len = fromIntegral
-                                                   (ByteString.length str -
-                                                      ByteString.length str')
+                                             len = getLen startpos endpos
                                              tokstr = ByteString.take len str
                                            in do
                                              alexSetInput inp'
@@ -241,9 +260,7 @@ andBegin :: MonadState (AlexInternalState us) m =>
 token :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
          (ByteString.ByteString -> Position -> token) ->
          AlexMonadAction m token
-token t (AlexPn _ startline startcol) (AlexPn _ endline endcol) bstr =
+token t startpos endpos bstr =
   do
-    fname <- alexGetFileName
-    pos <- span fname (fromIntegral startline) (fromIntegral startcol)
-                (fromIntegral endline) (fromIntegral endcol)
+    pos <- mkPosition startpos endpos
     return (t bstr pos)
