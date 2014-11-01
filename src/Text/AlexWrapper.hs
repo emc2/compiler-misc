@@ -30,7 +30,9 @@
 {-# OPTIONS_GHC -Wall -Werror #-}
 {-# LANGUAGE FlexibleContexts, ScopedTypeVariables #-}
 
-module Text.AlexHelper(
+module Text.AlexWrapper(
+       AlexT,
+       Alex,
        AlexInternalState(..),
        AlexMonadAction,
        AlexActions(..),
@@ -53,7 +55,8 @@ module Text.AlexHelper(
        alexSetUserState,
        mkAlexActions,
        andBegin,
-       token
+       token,
+       runAlexT
        ) where
 
 import Control.Monad.State
@@ -66,8 +69,13 @@ import Prelude hiding (span)
 import qualified Data.ByteString.Lazy as ByteString
 import qualified Data.ByteString.Internal as ByteString (w2c)
 import qualified Data.ByteString as Strict
+import qualified Data.ByteString.Lazy.Char8 as Char8
 
 type Byte = Word8
+
+type AlexT us m = StateT (AlexInternalState us) m
+
+type Alex us = AlexT us IO
 
 type AlexInput = (AlexPosn,     -- current position,
                   Char,         -- previous char
@@ -94,6 +102,23 @@ alexMove (AlexPn a l c) '\t' = AlexPn (a+1)  l     (((c+7) `div` 8)*8+1)
 alexMove (AlexPn a l _) '\n' = AlexPn (a+1) (l+1)   1
 alexMove (AlexPn a l c) _    = AlexPn (a+1)  l     (c+1)
 
+runAlexT :: Monad m =>
+            AlexT us m a
+         -> ByteString.ByteString
+         -> Strict.ByteString
+         -> us
+         -> m a
+runAlexT alex input fname userstate =
+  do
+    (out, _) <- runStateT alex AlexState { alex_pos = alexStartPos,
+                                           alex_inp = input,
+                                           alex_chr = '\n',
+                                           alex_scd = 0,
+                                           alex_fname = fname,
+                                           alex_badchars = Nothing,
+                                           alex_ust = userstate }
+    return out
+
 -- | Alex (with the monadUserState-bytestring wrapper) generates this
 -- data structure, except named @AlexState @ with
 -- @alex_ust :: AlexUserState@ (@AlexUserState@ is defined by user code).
@@ -108,6 +133,7 @@ data AlexInternalState userstate =
     alex_chr :: !Char,      -- the character before the input
     alex_scd :: !Int,        -- the current startcode
     alex_fname :: !Strict.ByteString,
+    alex_badchars :: Maybe (ByteString.ByteString, Int, AlexPosn, AlexPosn),
     alex_ust :: !userstate -- AlexUserState will be defined in the user program
   }
 
@@ -183,16 +209,13 @@ data AlexResultHandlers m result =
     handleToken :: AlexInput -> Int -> AlexMonadAction m result -> m result
   }
 
-getLen :: AlexPosn -> AlexPosn -> Int64
-getLen (AlexPn start _ _) (AlexPn end _ _) = fromIntegral (start - end)
-
 mkPosition :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
               AlexPosn -> AlexPosn -> m Position
 mkPosition (AlexPn _ startline startcol) (AlexPn _ endline endcol) =
   do
     fname <- alexGetFileName
     span fname (fromIntegral startline) (fromIntegral startcol)
-         (fromIntegral endline) (fromIntegral endcol)
+         (fromIntegral endline) (fromIntegral (endcol - 1))
 
 mkAlexActions :: forall us m result .
                  (MonadState (AlexInternalState us) m, MonadGenpos m) =>
@@ -201,39 +224,67 @@ mkAlexActions :: forall us m result .
               -- should be a simple call to @alexScan@, followed by a
               -- case statement that calls the appropriate action in
               -- the 'AlexResultHandlers' structure.
-              -> (ByteString.ByteString -> Position -> m result)
+              -> (ByteString.ByteString -> Position -> m ())
               -- ^ An action to be taken when a lexical error occurs.
               -> m result
               -- ^ An action to be taken at the end of input.
               -> AlexActions m result
 mkAlexActions scanWrapper alexError alexEOF =
   let
+    reportBadChars :: m ()
+    reportBadChars =
+      do
+        st @ AlexState { alex_badchars = badchars } <- get
+        case badchars of
+          Nothing -> return ()
+          Just (chars, len, AlexPn _ startline startcol,
+                AlexPn _ endline endcol) ->
+            do
+              put st { alex_badchars = Nothing }
+              fname <- alexGetFileName
+              pos <- span fname (fromIntegral startline) (fromIntegral startcol)
+                          (fromIntegral endline) (fromIntegral endcol)
+              alexError (Char8.take (fromIntegral len) chars) pos
+
+    bufferBadChars :: ByteString.ByteString -> AlexPosn -> m ()
+    bufferBadChars chars pos =
+      do
+        st @ AlexState { alex_badchars = badchars } <- get
+        case badchars of
+          Nothing -> put st { alex_badchars = Just (chars, 1, pos, pos) }
+          Just (chars', len, startpos, _) ->
+            put st { alex_badchars = Just (chars', len + 1, startpos, pos) }
+
     alexMonadScan :: m result
     alexMonadScan =
       do
         inp @ (startpos, _, str) <- alexGetInput
         sc <- alexGetStartCode
-        scanWrapper AlexResultHandlers { handleEOF = alexEOF,
+        scanWrapper AlexResultHandlers { handleEOF = reportBadChars >> alexEOF,
                                          handleError =
-                                           \inp' @ (endpos, _, _) ->
+                                           \_ ->
                                            let
-                                             len = getLen startpos endpos
-                                             tokstr = ByteString.take len str
+                                             char = Char8.head str
+                                             rest = Char8.tail str
+                                             newpos = alexMove startpos char
                                            in do
-                                             alexSetInput inp'
-                                             pos <- mkPosition startpos endpos
-                                             alexError tokstr pos,
+                                             alexSetInput (newpos, char, rest)
+                                             bufferBadChars str startpos
+                                             alexMonadScan,
                                          handleSkip =
                                            \inp' _ ->
                                            do
+                                             reportBadChars
                                              alexSetInput inp'
                                              alexMonadScan,
                                          handleToken =
-                                           \inp' @ (endpos, _, _) _ action ->
+                                           \inp' @ (endpos, _, _) len action ->
                                            let
-                                             len = getLen startpos endpos
-                                             tokstr = ByteString.take len str
+                                             longlen = fromIntegral len
+                                             tokstr = ByteString.take longlen
+                                                                      str
                                            in do
+                                             reportBadChars
                                              alexSetInput inp'
                                              action startpos endpos tokstr
                                        } inp sc
