@@ -38,7 +38,9 @@ module Control.Monad.Messages(
        runMessages,
        mapMessagesT,
        putMessagesT,
-       putMessagesTXML
+       putMessagesTNoContext,
+       putMessagesTXML,
+       putMessagesTXMLNoContext
        ) where
 
 import Control.Applicative
@@ -104,6 +106,25 @@ putMessagesT handle maxsev m =
       else return Nothing
 
 -- | Execute the computation wrapped in a MessagesT monad transformer,
+-- output all messages generated to the given handle without context
+-- strings, return the result only if the maximum severity is below a
+-- certain level.
+putMessagesTNoContext :: (Message.Messages msg msgs,
+                          MonadPositions m, MonadIO m) =>
+                         Handle
+                      -> Message.Severity
+                      -> MessagesT msgs msg m a
+                      -> m (Maybe a)
+putMessagesTNoContext handle maxsev m =
+  do
+    (res, MessageState { msSeverity = sev, msMessages = msgs }) <-
+      runMessagesT m
+    Message.putMessagesNoContext handle msgs
+    if sev < maxsev
+      then return (Just res)
+      else return Nothing
+
+-- | Execute the computation wrapped in a MessagesT monad transformer,
 -- output all messages generated to the given handle, return the
 -- result only if the maximum severity is below a certain level.
 putMessagesTXML :: (Message.Messages msg msgs, MonadSourceFiles m,
@@ -117,6 +138,24 @@ putMessagesTXML handle maxsev m =
     (res, MessageState { msSeverity = sev, msMessages = msgs }) <-
       runMessagesT m
     Message.putMessagesXML handle msgs
+    if sev < maxsev
+      then return (Just res)
+      else return Nothing
+
+-- | Execute the computation wrapped in a MessagesT monad transformer,
+-- output all messages generated to the given handle, return the
+-- result only if the maximum severity is below a certain level.
+putMessagesTXMLNoContext :: (Message.Messages msg msgs,
+                             MonadPositions m, MonadIO m) =>
+                            Handle
+                         -> Message.Severity
+                         -> MessagesT msgs msg m a
+                         -> m (Maybe a)
+putMessagesTXMLNoContext handle maxsev m =
+  do
+    (res, MessageState { msSeverity = sev, msMessages = msgs }) <-
+      runMessagesT m
+    Message.putMessagesXMLNoContext handle msgs
     if sev < maxsev
       then return (Just res)
       else return Nothing

@@ -39,12 +39,18 @@ module Data.Message(
        Message(..),
        Messages(..),
        messageContent,
+       messageContentNoContext,
        putMessageContent,
        putMessage,
+       putMessageNoContext,
        putMessages,
-       putMessagesXML
+       putMessagesNoContext,
+       putMessageContentsXML,
+       putMessagesXML,
+       putMessagesXMLNoContext
        ) where
 
+import Control.Monad
 import Control.Monad.Positions.Class
 import Control.Monad.SourceFiles.Class
 import Control.Monad.Trans
@@ -59,7 +65,7 @@ import System.IO
 import Text.XML.Expat.Pickle
 import Text.XML.Expat.Tree
 
-import qualified Data.ByteString.Lazy as Lazy
+import qualified Data.ByteString.Lazy.Char8 as Lazy
 
 -- | Datatype representing the severity category of a compiler
 -- message.  Use of these is up to an individual compiler, and it is
@@ -164,12 +170,33 @@ messageContent msg =
                             msgBrief = brief msg, msgDetails = details msg,
                             msgPosition = pinfo, msgContext = ctx }
 
+-- | Translate a 'Message' into 'MessageContent', without getting
+-- source context.
+messageContentNoContext :: (MonadPositions m, Message msg) =>
+                        msg -> m MessageContent
+messageContentNoContext msg =
+  do
+    pinfo <-
+      case position msg of
+        Nothing -> return Nothing
+        Just pos ->
+          do
+            pinfo <- positionInfo pos
+            return (Just pinfo)
+    return MessageContent { msgSeverity = severity msg, msgKind = kind msg,
+                            msgBrief = brief msg, msgDetails = details msg,
+                            msgPosition = pinfo, msgContext = Lazy.empty }
+
 putMessageContent :: Handle -> MessageContent -> IO ()
 putMessageContent handle =
   let
     putbstr = Lazy.hPut handle
-    putstr = hPutStr handle
-    putln = hPutStr handle (show nativeNewline)
+    putstr = putbstr . Lazy.pack
+    putln = putbstr (Lazy.singleton '\n')
+    putbstrln bstr =
+      do
+        putbstr bstr
+        putbstr (Lazy.singleton '\n')
 
     putPosition Nothing = return ()
     putPosition (Just pos) = putstr (show pos)
@@ -189,14 +216,13 @@ putMessageContent handle =
                                         msgContext = mctx } =
       do
         putSeverity msev
+        putstr " at "
         putPosition mpos
         putstr ": "
         putbstr mbrief
         putln
-        putbstr mctx
-        putstr "  "
-        putbstr mdetails
-        putln
+        unless (Lazy.null mctx) (putln >> putbstr mctx)
+        unless (Lazy.null mdetails) (putstr "  " >> putbstrln mdetails)
   in
     putMessageContent'
 
@@ -207,26 +233,54 @@ putMessage handle msg =
     contents <- messageContent msg
     liftIO (putMessageContent handle contents)
 
+putMessageNoContext :: (MonadPositions m, MonadIO m, Message msg) =>
+                       Handle -> msg -> m ()
+putMessageNoContext handle msg =
+  do
+    contents <- messageContentNoContext msg
+    liftIO (putMessageContent handle contents)
+
 -- | Output a collection of messages to a given 'Handle' as text.
 putMessages :: (MonadPositions m, MonadSourceFiles m, MonadIO m,
                 Messages msg msgs, Message msg) =>
                Handle -> msgs -> m ()
 putMessages handle = mapM_ (putMessage handle) . messages
 
+-- | Output a collection of messages to a given 'Handle' as text.
+putMessagesNoContext :: (MonadPositions m, MonadIO m,
+                         Messages msg msgs, Message msg) =>
+                     Handle -> msgs -> m ()
+putMessagesNoContext handle = mapM_ (putMessageNoContext handle) . messages
+
+putMessageContentsXML :: (MonadIO m) =>
+                         Handle
+                      -> [MessageContent]
+                      -> m ()
+putMessageContentsXML handle contents =
+  let
+    pickler :: PU (UNode ByteString) [MessageContent]
+    pickler = xpRoot (xpElemNodes (gxFromString "messages") (xpList xpickle))
+  in
+    liftIO (Lazy.hPut handle (pickleXML pickler contents))
+
 -- | Output a collection of messages to a given 'Handle' as XML.
 putMessagesXML :: (MonadPositions m, MonadSourceFiles m, MonadIO m,
                    Messages msg msgs, Message msg) =>
                   Handle -> msgs -> m ()
 putMessagesXML handle msgs =
-  let
-    pickler :: PU (UNode ByteString) [MessageContent]
-    pickler = xpRoot (xpElemNodes (gxFromString "messages") (xpList xpickle))
-  in do
+  do
     contents <- mapM messageContent (messages msgs)
-    liftIO (Lazy.hPut handle
-                      (pickleXML pickler
-                                 contents))
-    liftIO (hPutStr handle (show nativeNewline))
+    putMessageContentsXML handle contents
+
+-- | Output a collection of messages to a given 'Handle' as XML,
+-- without source context strings.
+putMessagesXMLNoContext :: (MonadPositions m, MonadIO m,
+                            Messages msg msgs, Message msg) =>
+                           Handle -> msgs -> m ()
+putMessagesXMLNoContext handle msgs =
+  do
+    contents <- mapM messageContentNoContext (messages msgs)
+    putMessageContentsXML handle contents
 
 instance Message msg => Messages msg [msg] where
   singleton msg = [msg]
