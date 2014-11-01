@@ -128,14 +128,14 @@ instance Show PositionInfo where
   show Span { spanStartLine = startline, spanStartColumn = startcol,
               spanEndLine = endline, spanEndColumn = endcol,
               spanFile = fname }
-    | startline == endline = show fname ++ ":" ++ show startline ++ "." ++
+    | startline == endline = unpack fname ++ ":" ++ show startline ++ "." ++
                              show startcol ++ "-" ++ show endcol
     | otherwise = show fname ++ ":" ++ show startline ++ "." ++ show startcol ++
                   "-" ++ show endline ++ "." ++ show endcol
   show Point { pointLine = line, pointColumn = col, pointFile = fname } =
-    show fname ++ ":" ++ show line ++ "." ++ show col
-  show EndOfFile { eofFile = fname } = show fname ++ ": end of input"
-  show Synthetic { synthDesc = desc } = show desc
+    unpack fname ++ ":" ++ show line ++ "." ++ show col
+  show EndOfFile { eofFile = fname } = unpack fname ++ ": end of input"
+  show Synthetic { synthDesc = desc } = unpack desc
 
 instance Hashable PositionInfo where
   hashWithSalt s Span { spanStartLine = startline, spanEndLine = endline,
