@@ -94,9 +94,9 @@ mapKeywordsT :: (Monad m, Monad n) =>
                 (m a -> n b) -> KeywordsT t m a -> KeywordsT t n b
 mapKeywordsT f = KeywordsT . mapReaderT f . unpackKeywordsT
 
-mkKeyword' :: MonadIO m => Position -> ByteString ->
+mkKeyword' :: MonadIO m => ByteString -> Position ->
               (ReaderT (Table tok) m) (Maybe tok)
-mkKeyword' pos text =
+mkKeyword' text pos =
   do
     tab <- ask
     entry <- liftIO (HashTable.lookup tab text)

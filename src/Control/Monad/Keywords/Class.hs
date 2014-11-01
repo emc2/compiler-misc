@@ -50,31 +50,31 @@ import Data.Symbol
 -- | Class of monads encapsulating a keyword table.
 class Monad m => MonadKeywords tok m where
   -- | Get information about a 'Position'
-  mkKeyword :: Position
-            -- ^ Start and end 'Position'.
-            -> ByteString
+  mkKeyword :: ByteString
             -- ^ The text.
+            -> Position
+            -- ^ Start and end 'Position'.
             -> m (Maybe tok)
 
   -- | Make a keyword token if the given text is a keyword; otherwise,
   -- make a token using a supplied constructor.
   mkToken :: (MonadGensym m) =>
-               (Position -> Symbol -> tok)
+               (Symbol -> Position -> tok)
              -- ^ Function used to construct tokens.
-             -> Position
-             -- ^ Position of the token.
              -> ByteString
              -- ^ The text.
+             -> Position
+             -- ^ Position of the token.
              -> m tok
-  mkToken func pos text =
+  mkToken func text pos =
     do
-      keyword <- mkKeyword pos text
+      keyword <- mkKeyword text pos
       case keyword of
         Just out -> return out
         Nothing ->
           do
             sym <- symbol text
-            return (func pos sym)
+            return (func sym pos)
 
 instance MonadKeywords t m => MonadKeywords t (ContT r m) where
   mkKeyword p = lift . mkKeyword p
