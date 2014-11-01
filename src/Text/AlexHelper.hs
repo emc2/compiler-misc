@@ -258,9 +258,9 @@ andBegin :: MonadState (AlexInternalState us) m =>
     action startpos endpos tokstr
 
 token :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
-         (ByteString.ByteString -> Position -> token) ->
+         (ByteString.ByteString -> Position -> m token) ->
          AlexMonadAction m token
 token t startpos endpos bstr =
   do
     pos <- mkPosition startpos endpos
-    return (t bstr pos)
+    t bstr pos
