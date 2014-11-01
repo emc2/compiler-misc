@@ -29,6 +29,7 @@
 
 module Control.Monad.Genpos(
        MonadGenpos(..),
+       MonadPositions(..),
        GenposT,
        Genpos,
        runGenposT,
