@@ -34,6 +34,7 @@
 -- used in lexers to implement more efficient keyword lexing.
 module Control.Monad.Keywords.Class(
        MonadKeywords(..),
+       keywordOrToken
        ) where
 
 import Control.Monad.Cont
@@ -47,6 +48,8 @@ import Data.ByteString
 import Data.Position
 import Data.Symbol
 
+import qualified Data.ByteString.Lazy as Lazy
+
 -- | Class of monads encapsulating a keyword table.
 class Monad m => MonadKeywords tok m where
   -- | Get information about a 'Position'
@@ -56,25 +59,27 @@ class Monad m => MonadKeywords tok m where
             -- ^ Start and end 'Position'.
             -> m (Maybe tok)
 
-  -- | Make a keyword token if the given text is a keyword; otherwise,
-  -- make a token using a supplied constructor.
-  mkToken :: (MonadGensym m) =>
-               (Symbol -> Position -> tok)
-             -- ^ Function used to construct tokens.
-             -> ByteString
-             -- ^ The text.
-             -> Position
-             -- ^ Position of the token.
-             -> m tok
-  mkToken func text pos =
-    do
-      keyword <- mkKeyword text pos
-      case keyword of
-        Just out -> return out
-        Nothing ->
-          do
-            sym <- symbol text
-            return (func sym pos)
+-- | Make a keyword token if the given text is a keyword; otherwise,
+-- make a token using a supplied constructor.
+keywordOrToken :: (MonadGensym m, MonadKeywords tok m) =>
+                  (Symbol -> Position -> tok)
+               -- ^ Function used to construct tokens.
+               -> Lazy.ByteString
+               -- ^ The text.
+               -> Position
+               -- ^ Position of the token.
+               -> m tok
+keywordOrToken func lazytext pos =
+  let
+    text = Lazy.toStrict lazytext
+  in do
+    keyword <- mkKeyword text pos
+    case keyword of
+      Just out -> return out
+      Nothing ->
+        do
+          sym <- symbol text
+          return (func sym pos)
 
 instance MonadKeywords t m => MonadKeywords t (ContT r m) where
   mkKeyword p = lift . mkKeyword p

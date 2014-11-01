@@ -34,7 +34,8 @@ module Control.Monad.Keywords(
        Keywords,
        runKeywordsT,
        runKeywords,
-       mapKeywordsT
+       mapKeywordsT,
+       keywordOrToken
        ) where
 
 import Control.Applicative
