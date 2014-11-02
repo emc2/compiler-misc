@@ -53,13 +53,13 @@ import Control.Monad.State
 import Control.Monad.Symbols.Class
 import Data.HashTable.IO(BasicHashTable)
 import Data.Array
+import Data.ByteString(ByteString)
 import Data.Word
 import System.IO.Error
 
 import qualified Data.HashTable.IO as HashTable
-import qualified Data.ByteString.Lazy as Lazy
 
-type Table = BasicHashTable FilePath (Array Word Lazy.ByteString)
+type Table = BasicHashTable FilePath (Array Word ByteString)
 
 newtype SourceFilesT m a =
   SourceFilesT { unpackSourceFilesT :: ReaderT Table m a }
@@ -84,7 +84,7 @@ runSourceFilesT :: MonadIO m =>
 runSourceFilesT s = runReaderT (unpackSourceFilesT s)
 
 sourceFile' :: MonadIO m =>
-               FilePath -> ReaderT Table m (Array Word Lazy.ByteString)
+               ByteString -> ReaderT Table m (Array Word ByteString)
 sourceFile' path =
   do
     tab <- ask

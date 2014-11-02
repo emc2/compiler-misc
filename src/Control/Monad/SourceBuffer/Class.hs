@@ -37,7 +37,9 @@ import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer
-import Data.ByteString.Lazy
+import Data.ByteString
+
+import qualified Data.ByteString.Lazy as Lazy
 
 -- | Class of monads that store source file contents during lexing and
 -- split it into lines, which are then subsequently stored and
@@ -50,7 +52,7 @@ class Monad m => MonadSourceBuffer m where
   -- | Start a new file.
   startFile :: ByteString
             -- ^ The file name.
-            -> ByteString
+            -> Lazy.ByteString
             -- ^ The file contents.
             -> m ()
   -- | Complete the file, adding the last line, and storing the split
