@@ -48,7 +48,6 @@ import Control.Monad.Messages.Class
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
 import Control.Monad.SourceFiles.Class
-import Control.Monad.SourceLoader.Class
 import Control.Monad.State
 import Control.Monad.Symbols.Class
 import Data.HashTable.IO(BasicHashTable)
@@ -153,9 +152,6 @@ instance MonadMessages msg m => MonadMessages msg (SourceFilesT m) where
 
 instance MonadPositions m => MonadPositions (SourceFilesT m) where
   positionInfo = lift . positionInfo
-
-instance MonadSourceLoader m => MonadSourceLoader (SourceFilesT m) where
-  loadSourceFile = lift . loadSourceFile
 
 instance MonadState s m => MonadState s (SourceFilesT m) where
   get = lift get
