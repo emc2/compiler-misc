@@ -53,12 +53,13 @@ import Control.Monad.Symbols.Class
 import Data.HashTable.IO(BasicHashTable)
 import Data.Array
 import Data.ByteString(ByteString)
+import Data.ByteString.Char8(unpack)
 import Data.Word
 import System.IO.Error
 
 import qualified Data.HashTable.IO as HashTable
 
-type Table = BasicHashTable FilePath (Array Word ByteString)
+type Table = BasicHashTable ByteString (Array Word ByteString)
 
 newtype SourceFilesT m a =
   SourceFilesT { unpackSourceFilesT :: ReaderT Table m a }
@@ -92,7 +93,7 @@ sourceFile' path =
       Just out -> return out
       Nothing -> throw (mkIOError doesNotExistErrorType
                                   "Cannot locate source file"
-                                  Nothing (Just path))
+                                  Nothing (Just (unpack path)))
 
 instance Monad m => Monad (SourceFilesT m) where
   return = SourceFilesT . return

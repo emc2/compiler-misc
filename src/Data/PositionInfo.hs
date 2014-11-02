@@ -81,10 +81,10 @@ data PositionInfo =
     }
   deriving (Ord, Eq)
 
-filepath :: PositionInfo -> FilePath
-filepath Span { spanFile = fname } = unpack fname
-filepath Point { pointFile = fname } = unpack fname
-filepath EndOfFile { eofFile = fname } = unpack fname
+filepath :: PositionInfo -> ByteString
+filepath Span { spanFile = fname } = fname
+filepath Point { pointFile = fname } = fname
+filepath EndOfFile { eofFile = fname } = fname
 filepath pos = error $! "Position " ++ show pos ++ " has no file name"
 
 start :: PositionInfo -> (Word, Word)

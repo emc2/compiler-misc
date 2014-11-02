@@ -65,6 +65,7 @@ import System.IO
 import Text.XML.Expat.Pickle
 import Text.XML.Expat.Tree
 
+import qualified Data.ByteString as ByteString
 import qualified Data.ByteString.Lazy.Char8 as Lazy
 
 -- | Datatype representing the severity category of a compiler
@@ -124,7 +125,7 @@ data MessageContent =
     -- | A detailed description of the nature of the message.
     msgDetails :: !Lazy.ByteString,
     -- | The source code context of the message.
-    msgContext :: !Lazy.ByteString
+    msgContext :: !ByteString
   }
 
 -- | Class of types representing compiler messages.
@@ -159,13 +160,13 @@ messageContent msg =
   do
     (pinfo, ctx) <-
       case position msg of
-        Nothing -> return (Nothing, Lazy.empty)
+        Nothing -> return (Nothing, ByteString.empty)
         Just pos ->
           do
             pinfo <- positionInfo pos
             ctx <- sourceFileSpan (filepath pinfo) (fst (start pinfo))
                                   (fst (end pinfo))
-            return (Just pinfo, Lazy.concat ctx)
+            return (Just pinfo, ByteString.concat ctx)
     return MessageContent { msgSeverity = severity msg, msgKind = kind msg,
                             msgBrief = brief msg, msgDetails = details msg,
                             msgPosition = pinfo, msgContext = ctx }
@@ -185,7 +186,7 @@ messageContentNoContext msg =
             return (Just pinfo)
     return MessageContent { msgSeverity = severity msg, msgKind = kind msg,
                             msgBrief = brief msg, msgDetails = details msg,
-                            msgPosition = pinfo, msgContext = Lazy.empty }
+                            msgPosition = pinfo, msgContext = ByteString.empty }
 
 putMessageContent :: Handle -> MessageContent -> IO ()
 putMessageContent handle =
@@ -221,7 +222,7 @@ putMessageContent handle =
         putstr ": "
         putbstr mbrief
         putln
-        unless (Lazy.null mctx) (putln >> putbstr mctx)
+        unless (ByteString.null mctx) (putln >> putbstr (Lazy.fromStrict mctx))
         unless (Lazy.null mdetails) (putstr "  " >> putbstrln mdetails)
   in
     putMessageContent'
@@ -367,14 +368,21 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
       unpackStr (Just bstr) = Lazy.fromStrict (gxToByteString bstr)
       unpackStr Nothing = Lazy.empty
 
+      packStrict bstr
+        | bstr /= ByteString.empty = Just (gxFromByteString bstr)
+        | otherwise = Nothing
+
+      unpackStrict (Just bstr) = gxToByteString bstr
+      unpackStrict Nothing = ByteString.empty
+
       packMsgContent MessageContent { msgSeverity = msev, msgContext = mctx,
                                       msgPosition = pos, msgBrief = mbrief,
                                       msgDetails = mdetails, msgKind = mkind } =
         ((msev, gxFromByteString mkind), (pos, packStr mbrief, packStr mdetails,
-                                        packStr mctx))
+                                        packStrict mctx))
 
       unpackMsgContent ((msev, mkind), (pos, mbrief, mdetails, mctx)) =
-        MessageContent { msgSeverity = msev, msgContext = unpackStr mctx,
+        MessageContent { msgSeverity = msev, msgContext =  unpackStrict mctx,
                          msgPosition = pos, msgBrief = unpackStr mbrief,
                          msgKind = gxToByteString mkind,
                          msgDetails = unpackStr mdetails }
