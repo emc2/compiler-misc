@@ -122,14 +122,22 @@ startFile' fname fcontents =
 
 finishFile' :: MonadIO m => (StateT BufferState (ReaderT Table m)) ()
 finishFile' =
-  do
+  let
+    finish :: Lazy.ByteString -> ByteString
+    finish remaining = Lazy.toStrict (Lazy.snoc remaining '\n')
+    in do
     BufferState { stFileName = fname, stContents = remaining,
                   stBuffer = buf } <- get
     tab <- ask
-    liftIO (HashTable.insert tab fname
-                             (listArray (1, fromIntegral (length buf) + 1)
-                                        (reverse (Lazy.toStrict remaining :
-                                                  buf))))
+    if Lazy.null remaining
+      then
+        liftIO (HashTable.insert tab fname
+                                 (listArray (1, fromIntegral (length buf))
+                                  (reverse buf)))
+      else
+        liftIO (HashTable.insert tab fname
+                                 (listArray (1, fromIntegral (length buf) + 1)
+                                            (reverse (finish remaining : buf))))
 
 linebreak' :: Monad m => Int -> (StateT BufferState (ReaderT Table m)) ()
 linebreak' intoff =
@@ -138,8 +146,9 @@ linebreak' intoff =
   in do
     st @ BufferState { stContents = contents, stOffset = oldoff,
                        stBuffer = buf } <- get
-    put st { stContents = Lazy.drop ((off - oldoff) + 1) contents,
-             stBuffer = Lazy.toStrict (Lazy.take (off - oldoff) contents) : buf,
+    put st { stContents = Lazy.drop (off - oldoff) contents,
+             stBuffer = Lazy.toStrict (Lazy.take (off - oldoff) contents) :
+                        buf,
              stOffset = off }
 
 instance Monad m => Monad (SourceBufferT m) where
@@ -157,14 +166,12 @@ instance (MonadPlus m, Alternative m) => Alternative (SourceBufferT m) where
 instance Functor (SourceBufferT m) where
   fmap = fmap
 
-instance (MonadIO m, MonadSourceFiles m) =>
-         MonadSourceBuffer (SourceBufferT m) where
+instance MonadIO m => MonadSourceBuffer (SourceBufferT m) where
   startFile fname = SourceBufferT . startFile' fname
   finishFile = SourceBufferT finishFile'
   linebreak = SourceBufferT . linebreak'
 
-instance (MonadIO m, MonadSourceFiles m) =>
-         MonadSourceFiles (SourceBufferT m) where
+instance MonadIO m => MonadSourceFiles (SourceBufferT m) where
   sourceFile = SourceBufferT . sourceFile'
 
 instance MonadIO m => MonadIO (SourceBufferT m) where
