@@ -5,7 +5,9 @@ module SimpleLexer where
 
 import Control.Monad.Lexer
 import Control.Monad.Keywords
-import Control.Monad.Symbols.Class
+import Control.Monad.Messages
+import Control.Monad.SourceBuffer
+import Control.Monad.Symbols
 import Control.Monad.Trans
 import Data.LexicalError
 import Data.Message
@@ -22,7 +24,12 @@ import Text.AlexWrapper
 
 tokens :-
 
-[ \t\r\n]+           { skip }
+\n                   { \startpos endpos @ (AlexPn off _ _) tokstr ->
+                          do
+			    linebreak off
+			    skip startpos endpos tokstr
+                     }
+[\ \t\r\f]+          { skip }
 [\+\-\*\/]+          { token (keywordOrToken Operator) }
 [0-9]+               { token (\bstr -> return . (Number (read (Lazy.unpack bstr)))) }
 [a-zA-Z][a-zA-Z0-9]* { token (keywordOrToken Name) }
@@ -64,7 +71,8 @@ instance Message LexerMessage where
 instance LexicalError LexerMessage where
   mkInvalidChars = BadChars
 
-type SimpleLexer = AlexT () (Lexer Token LexerMessage [LexerMessage])
+type SimpleLexer =
+  AlexT () (MessagesT [LexerMessage] LexerMessage (Lexer Token))
 
 putToken :: Token -> SimpleLexer ()
 putToken (Plus pos) =
@@ -119,7 +127,16 @@ printTokens =
 run :: Lazy.ByteString -> IO ()
 run input =
   let
-    lexerm = runAlexT printTokens input (Strict.pack "stdin") ()
+    stdinName = (Strict.pack "stdin")
+
+    run' =
+      do
+        startFile stdinName input
+        printTokens
+        finishFile
+
+    messages = runAlexT run' input stdinName ()
+    lexerm = putMessagesT stderr Error messages
   in do
     runLexerT lexerm keywords
     return ()
