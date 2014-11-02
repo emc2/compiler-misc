@@ -50,8 +50,6 @@ import Data.PositionInfo
 import Data.Symbol
 import Data.Word
 
-import qualified Data.ByteString.Lazy as Lazy
-
 -- | A monad transformer representing all context information that
 -- would be gathered by the frontend.
 type ContextT m a = (CommentsT (PositionsT (SymbolsT (SourceFilesT m)))) a
@@ -63,7 +61,7 @@ type Context a = ContextT IO a
 runContextT :: MonadIO m =>
                ContextT m a
             -- ^ The context monad transformer to execute.
-            -> BasicHashTable FilePath (Array Word Lazy.ByteString)
+            -> BasicHashTable ByteString (Array Word ByteString)
             -- ^ A hash table from 'FilePath's to source file contents.
             -> BasicHashTable Position [ByteString]
             -- ^ A hash table from 'Position's to comment data.
