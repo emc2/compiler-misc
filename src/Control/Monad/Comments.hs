@@ -57,7 +57,7 @@ import Control.Monad.Messages.Class
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
 import Control.Monad.SourceFiles.Class
-import Control.Monad.SourceLoader.Class
+import Control.Monad.SourceBuffer.Class
 import Control.Monad.State
 import Control.Monad.Symbols.Class
 import Control.Monad.Writer
@@ -153,8 +153,10 @@ instance MonadPositions m => MonadPositions (CommentsT m) where
 instance MonadSourceFiles m => MonadSourceFiles (CommentsT m) where
   sourceFile = lift . sourceFile
 
-instance MonadSourceLoader m => MonadSourceLoader (CommentsT m) where
-  loadSourceFile = lift . loadSourceFile
+instance MonadSourceBuffer m => MonadSourceBuffer (CommentsT m) where
+  linebreak = lift . linebreak
+  startFile fname = lift . startFile fname
+  finishFile = lift finishFile
 
 instance MonadState s m => MonadState s (CommentsT m) where
   get = lift get

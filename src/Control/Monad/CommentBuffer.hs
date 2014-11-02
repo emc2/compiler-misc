@@ -46,7 +46,7 @@ import Control.Monad.Keywords.Class
 import Control.Monad.Messages.Class
 import Control.Monad.Positions.Class
 import Control.Monad.SourceFiles.Class
-import Control.Monad.SourceLoader.Class
+import Control.Monad.SourceBuffer.Class
 import Control.Monad.State
 import Control.Monad.Symbols.Class
 import Data.ByteString hiding (reverse, empty)
@@ -178,8 +178,10 @@ instance MonadPositions m => MonadPositions (CommentBufferT m) where
 instance MonadSourceFiles m => MonadSourceFiles (CommentBufferT m) where
   sourceFile = lift . sourceFile
 
-instance MonadSourceLoader m => MonadSourceLoader (CommentBufferT m) where
-  loadSourceFile = lift . loadSourceFile
+instance MonadSourceBuffer m => MonadSourceBuffer (CommentBufferT m) where
+  linebreak = lift . linebreak
+  startFile fname = lift . startFile fname
+  finishFile = lift finishFile
 
 instance MonadState s m => MonadState s (CommentBufferT m) where
   get = lift get
