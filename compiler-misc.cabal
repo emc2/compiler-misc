@@ -7,8 +7,8 @@ Author:                 Eric McCorkle
 Maintainer:             Eric McCorkle <emc2@metricspace.net>
 Stability:              Pre-alpha
 Synopsis:               A Haskell library containing miscellaneous components useful for building compilers and language frontends.
-Homepage:               https://github.com/emc2/arith-encode
-Bug-Reports:            https://github.com/emc2/arith-encode/issues
+Homepage:               https://github.com/emc2/compiler-misc
+Bug-Reports:            https://github.com/emc2/compiler-misc/issues
 Copyright:              Copyright (c) 2014 Eric McCorkle.  All rights reserved.
 Description:
   This library provides a collection of miscellaneous bits of
@@ -18,7 +18,7 @@ Cabal-version:          >= 1.16
 
 Source-Repository head
   Type: git
-  Location: git@github.com:emc2/arith-encode.git
+  Location: git@github.com:emc2/compiler-misc.git
 
 Test-Suite UnitTest
   default-language:     Haskell2010
@@ -47,7 +47,7 @@ Library
   build-depends:        base >= 4.4.0 && < 5, Cabal >= 1.16.0, pretty, containers,
                         hashable, prelude-extras, hashable-extras, bound, bytestring,
                         array, mtl, unordered-containers, hashtables, filepath, utf8-string,
-                        hexpat, hexpat-pickle, semigroups
+                        hexpat, hexpat-pickle, semigroups, blaze-builder
   exposed-modules:      Bound.Scope.ExtraInstances
                         Bound.Var.ExtraInstances
                         Control.Monad.CommentBuffer
