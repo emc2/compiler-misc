@@ -81,3 +81,7 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
          XmlPickler [NodeG [] tag text] Position where
   xpickle = xpWrap (Position, idx) (xpElemNodes (gxFromString "Position")
                                                 (xpContent xpPrim))
+
+instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
+         XmlPickler (Attributes tag text) Position where
+  xpickle = xpWrap (Position, idx) (xpAttr (gxFromString "pos") xpPrim)
