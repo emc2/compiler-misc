@@ -158,7 +158,7 @@ spanPickler :: (GenericXMLString tag, Show tag,
                PU [NodeG [] tag text] PositionInfo
 spanPickler =
   let
-    fwdfunc ((), (startline, startcol, endline, endcol, fname)) =
+    fwdfunc (((), startline, startcol, endline, endcol), fname) =
       Span { spanStartLine = startline, spanStartColumn = startcol,
              spanEndLine = endline, spanEndColumn = endcol,
              spanFile = fname }
@@ -166,46 +166,38 @@ spanPickler =
     revfunc Span { spanStartLine = startline, spanStartColumn = startcol,
                    spanEndLine = endline, spanEndColumn = endcol,
                    spanFile = fname} =
-      ((), (startline, startcol, endline, endcol, fname))
+      (((), startline, startcol, endline, endcol), fname)
     revfunc pinfo = error $! "Can't convert " ++ show pinfo
   in
     xpWrap (fwdfunc, revfunc)
            (xpElem (gxFromString "PositionInfo")
-                   (xpAttrFixed (gxFromString "kind")
-                                (gxFromString "Span"))
-                   (xp5Tuple (xpElemNodes (gxFromString "start-line")
-                                          (xpContent xpPrim))
-                             (xpElemNodes (gxFromString "start-column")
-                                          (xpContent xpPrim))
-                             (xpElemNodes (gxFromString "end-line")
-                                          (xpContent xpPrim))
-                             (xpElemNodes (gxFromString "end-column")
-                                          (xpContent xpPrim))
-                             (xpElemNodes (gxFromString "file")
-                                          (xpContent xpPrim))))
+                   (xp5Tuple (xpAttrFixed (gxFromString "kind")
+                                          (gxFromString "Span"))
+                             (xpAttr (gxFromString "start-line") xpPrim)
+                             (xpAttr (gxFromString "start-column") xpPrim)
+                             (xpAttr (gxFromString "end-line") xpPrim)
+                             (xpAttr (gxFromString "end-column") xpPrim))
+                   (xpElemNodes (gxFromString "file") (xpContent xpPrim)))
 
 pointPickler :: (GenericXMLString tag, Show tag,
                  GenericXMLString text, Show text) =>
                 PU [NodeG [] tag text] PositionInfo
 pointPickler =
   let
-    fwdfunc ((), (line, col, fname)) =
+    fwdfunc (((), line, col), fname) =
       Point { pointFile = fname, pointLine = line, pointColumn = col }
 
     revfunc Point { pointFile = fname, pointLine = line, pointColumn = col } =
-      ((), (line, col, fname))
+      (((), line, col), fname)
     revfunc pinfo = error $! "Can't convert " ++ show pinfo
   in
     xpWrap (fwdfunc, revfunc)
            (xpElem (gxFromString "PositionInfo")
-                   (xpAttrFixed (gxFromString "kind")
-                                (gxFromString "Point"))
-                   (xpTriple (xpElemNodes (gxFromString "line")
-                                          (xpContent xpPrim))
-                             (xpElemNodes (gxFromString "column")
-                                          (xpContent xpPrim))
-                             (xpElemNodes (gxFromString "file")
-                                          (xpContent xpPrim))))
+                   (xpTriple (xpAttrFixed (gxFromString "kind")
+                                          (gxFromString "Point"))
+                             (xpAttr (gxFromString "column") xpPrim)
+                             (xpAttr (gxFromString "line") xpPrim))
+                   (xpElemNodes (gxFromString "file") (xpContent xpPrim)))
 
 eofPickler :: (GenericXMLString tag, Show tag,
                GenericXMLString text, Show text) =>
