@@ -29,7 +29,7 @@ Test-Suite UnitTest
                         hashable, prelude-extras, hashable-extras, bound, bytestring,
                         array, mtl, unordered-containers, HUnit-Plus, hashtables,
                         filepath, utf8-string, hexpat, hexpat-pickle, semigroups,
-                        blaze-builder
+                        blaze-builder, ansi-terminal
   ghc-options:          -fhpc
 
 --Executable SimpleLexer
@@ -48,7 +48,7 @@ Library
   build-depends:        base >= 4.4.0 && < 5, Cabal >= 1.16.0, pretty, containers,
                         hashable, prelude-extras, hashable-extras, bound, bytestring,
                         array, mtl, unordered-containers, hashtables, filepath, utf8-string,
-                        hexpat, hexpat-pickle, semigroups, blaze-builder
+                        hexpat, hexpat-pickle, semigroups, blaze-builder, ansi-terminal
   exposed-modules:      Bound.Scope.ExtraInstances
                         Bound.Var.ExtraInstances
                         Control.Monad.CommentBuffer
