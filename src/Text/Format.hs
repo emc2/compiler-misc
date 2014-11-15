@@ -27,6 +27,14 @@
 {-# OPTIONS_GHC -Wall -Werror -funbox-strict-fields #-}
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 
+-- | A pretty printer implementation, based loosely on the
+-- Wadler-Leijin pretty printer, but redesigned to facilitate a
+-- dynamic programming optimal layout algorithm.
+--
+-- This pretty printer module trades some of the generality of the
+-- Wadler-Leijin scheme in order to facilitate an efficient optimizing
+-- layout engine.  The nesting, column, and width combinators are
+-- removed.
 module Text.Format(
        -- * Basic Definitions
        -- ** Types
@@ -40,15 +48,16 @@ module Text.Format(
 
        -- *** Basic
        empty,
-       char,
-       bytestring,
-       lazyBytestring,
        line,
        linebreak,
        softline,
+       softbreak,
 
        -- *** From datatypes
+       char,
        string,
+       bytestring,
+       lazyBytestring,
 
        -- *** Literals
        lparen,
@@ -57,6 +66,8 @@ module Text.Format(
        rbrack,
        lbrace,
        rbrace,
+       langle,
+       rangle,
        squote,
        dquote,
        backquote,
@@ -72,16 +83,25 @@ module Text.Format(
        align,
        squoted,
        dquoted,
+       parens,
+       brackets,
+       braces,
+       angles,
 
        -- ** Combining @Doc@s
+
+       -- *** Basic
+       beside,
+       concat,
+       choose,
+
+       -- *** Derived
        (<>),
        (<+>),
        (<$>),
        (<$$>),
        (</>),
        (<//>),
-       beside,
-       concat,
        hsep,
        hcat,
        vsep,
@@ -90,7 +110,9 @@ module Text.Format(
        cat,
        fillSep,
        fillCat,
+       enclose,
        punctuate,
+       encloseSep,
 
        -- ** Transforming @Doc@s
        flatten,
@@ -167,10 +189,39 @@ data Doc =
 empty :: Doc
 empty = Empty
 
+-- | A 'Doc' consisting of a linebreak, that is not turned into a
+-- space when erased by a 'group'.
+line :: Doc
+line = Line { insertSpace = False }
+
+-- | A 'Doc' consisting of a linebreak, that is turned into a space
+-- when erased by a 'group'.
+linebreak :: Doc
+linebreak = Line { insertSpace = True }
+
+-- | A 'Doc' consisting of a space character, that can be turned into
+-- a linebreak in order to break lines that are too long.
+softline :: Doc
+softline = Choose { chooseOptions = [ char ' ', linebreak ] }
+
+-- | An empty 'Doc' that can be turned into a linebreak in order to
+-- break lines that are too long.
+softbreak :: Doc
+softbreak = Choose { chooseOptions = [ empty, line ] }
+
 -- | A 'Doc' containing a single character.
 char :: Char -> Doc
 char '\n' = line
 char chr = Char { charContent = chr }
+
+-- | Create a 'Doc' containing a string.
+string :: String -> Doc
+string str =
+  let
+    len = length str
+    bstr = Strict.UTF8.fromString str
+  in
+    Bytestring { bsLength = len, bsContent = bstr }
 
 -- | Create a 'Doc' containing a bytestring.
 bytestring :: Strict.ByteString -> Doc
@@ -185,15 +236,6 @@ lazyBytestring txt
   | Lazy.null txt = Empty
   | otherwise = LazyBytestring { lbsLength = Lazy.UTF8.length txt,
                                  lbsContent = txt }
-
--- | Create a 'Doc' containing a string.
-string :: String -> Doc
-string str =
-  let
-    len = length str
-    bstr = Strict.UTF8.fromString str
-  in
-    Bytestring { bsLength = len, bsContent = bstr }
 
 -- | The character @(@
 lparen :: Doc
@@ -218,6 +260,14 @@ lbrace = char '{'
 -- | The character @}@
 rbrace :: Doc
 rbrace = char '}'
+
+-- | The character @<@
+langle :: Doc
+langle = char '<'
+
+-- | The character @>@
+rangle :: Doc
+rangle = char '>'
 
 -- | The character @'@
 squote :: Doc
@@ -259,91 +309,6 @@ space = char ' '
 equals :: Doc
 equals = char '='
 
--- | A 'Doc' consisting of a linebreak, that is not turned into a
--- space when erased by a 'group'.
-line :: Doc
-line = Line { insertSpace = False }
-
--- | A 'Doc' consisting of a linebreak, that is turned into a space
--- when erased by a 'group'.
-linebreak :: Doc
-linebreak = Line { insertSpace = True }
-
-softline :: Doc
-softline = Choose { chooseOptions = [ char ' ', linebreak ] }
-
-softbreak :: Doc
-softbreak = Choose { chooseOptions = [ empty, line ] }
-
--- | Concatenate two 'Doc's with no space in between.
-beside :: Doc -> Doc -> Doc
-beside Empty doc = doc
-beside doc Empty = doc
-beside Cat { catDocs = left } Cat { catDocs = right } =
-  Cat { catDocs = left ++ right }
-beside left Cat { catDocs = right } = Cat { catDocs = left : right }
-beside Cat { catDocs = left } right = Cat { catDocs = left ++ [right] }
-beside left right = Cat { catDocs = [left, right] }
-
--- | Concatenate two 'Doc's with no space in between.
-(<>) :: Doc -> Doc -> Doc
-(<>) = beside
-
-(<$>) :: Doc -> Doc -> Doc
-left <$> right = left <> line <> right
-
-(<$$>) :: Doc -> Doc -> Doc
-left <$$> right = left <> linebreak <> right
-
-(</>) :: Doc -> Doc -> Doc
-left </> right = left <> softline <> right
-
-(<//>) :: Doc -> Doc -> Doc
-left <//> right = left <> softbreak <> right
-
--- | Concatenate two 'Doc's with a space in between.
-(<+>) :: Doc -> Doc -> Doc
-left <+> right = left <> space <> right
-
--- | Concatenate a list of 'Doc's on the same line, separated by spaces
-hsep :: [Doc] -> Doc
-hsep = mconcat . intersperse space
-
-hcat :: [Doc] -> Doc
-hcat docs = Cat { catDocs = docs }
-
-vsep :: [Doc] -> Doc
-vsep = mconcat . intersperse line
-
-vcat :: [Doc] -> Doc
-vcat = mconcat . intersperse linebreak
-
-sep :: [Doc] -> Doc
-sep docs = Choose { chooseOptions = [hsep docs, vsep docs] }
-
-cat :: [Doc] -> Doc
-cat docs = Choose { chooseOptions = [hcat docs, vcat docs] }
-
-fillSep :: [Doc] -> Doc
-fillSep = mconcat . intersperse softline
-
-fillCat :: [Doc] -> Doc
-fillCat = mconcat . intersperse softbreak
-
--- | Concatenate a list of 'Doc's into a single doc, with each element
--- separated from the others by a given 'Doc' representing
--- punctuation.
-punctuate :: Doc -> [Doc] -> Doc
-punctuate _ [] = Empty
-punctuate _ [doc] = doc
-punctuate punc docs = Cat { catDocs = intersperse punc docs }
-
--- | Concatenate a list of 'Doc's.  This is generally more efficient
--- than repeatedly using 'beside'.
-concat :: [Doc] -> Doc
-concat [] = Empty
-concat docs = Cat { catDocs = docs }
-
 -- | Increase the indentation level of a document by some amount.
 nest :: Int -> Doc -> Doc
 nest _ Empty = Empty
@@ -354,9 +319,138 @@ nest lvl content = Nest { nestLevel = lvl, nestDoc = content }
 align :: Doc -> Doc
 align inner = Align { alignDoc = inner }
 
-group :: Doc -> Doc
-group doc = Choose { chooseOptions = [ doc, flatten doc ] }
+-- | Enclose a 'Doc' in single quotes
+squoted :: Doc -> Doc
+squoted = enclose squote squote
 
+-- | Enclose a 'Doc' in double quotes
+dquoted :: Doc -> Doc
+dquoted = enclose dquote dquote
+
+-- | Enclose a 'Doc' in paretheses
+parens :: Doc -> Doc
+parens = enclose lparen rparen
+
+-- | Enclose a 'Doc' in brackets
+brackets :: Doc -> Doc
+brackets = enclose lbrack rbrack
+
+-- | Enclose a 'Doc' in braces
+braces :: Doc -> Doc
+braces = enclose lbrace rbrace
+
+-- | Enclose a 'Doc' in angles
+angles :: Doc -> Doc
+angles = enclose langle rangle
+
+-- | Join two 'Doc's with no space in between.
+(<>) :: Doc -> Doc -> Doc
+(<>) = beside
+
+-- | Join two 'Doc's with a space in between them.
+(<+>) :: Doc -> Doc -> Doc
+left <+> right = left <> space <> right
+
+-- | Join two 'Doc's with a 'line' in between them.
+(<$>) :: Doc -> Doc -> Doc
+left <$> right = left <> line <> right
+
+-- | Join two 'Doc's with a 'linebreak' in between them.
+(<$$>) :: Doc -> Doc -> Doc
+left <$$> right = left <> linebreak <> right
+
+-- | Join two 'Doc's with a 'softline' in between them.
+(</>) :: Doc -> Doc -> Doc
+left </> right = left <> softline <> right
+
+-- | Join two 'Doc's with a 'softbreak' in between them.
+(<//>) :: Doc -> Doc -> Doc
+left <//> right = left <> softbreak <> right
+
+-- | Joun 'Doc's with no space in between them.
+beside :: Doc -> Doc -> Doc
+beside Empty doc = doc
+beside doc Empty = doc
+beside Cat { catDocs = left } Cat { catDocs = right } =
+  Cat { catDocs = left ++ right }
+beside left Cat { catDocs = right } = Cat { catDocs = left : right }
+beside Cat { catDocs = left } right = Cat { catDocs = left ++ [right] }
+beside left right = Cat { catDocs = [left, right] }
+
+-- | Concatenate a list of 'Doc's.  This is generally more efficient
+-- than repeatedly using 'beside' or '<>'.
+concat :: [Doc] -> Doc
+concat [] = Empty
+concat docs = Cat { catDocs = docs }
+
+-- | A choice of several options.  Only one of these will be chosen
+-- and used to render the final document.
+choose :: [Doc] -> Doc
+choose [] = Empty
+choose [doc] = doc
+choose docs = Choose { chooseOptions = docs }
+
+-- | Concatenate a list of 'Doc's.  This is generally more efficient
+-- than repeatedly using 'beside' or '<>'.
+hcat :: [Doc] -> Doc
+hcat docs = Cat { catDocs = docs }
+
+-- | Join a list of 'Doc's with spaces in between each.  This is
+-- generally more efficient than repeatedly using '<+>'.
+hsep :: [Doc] -> Doc
+hsep = mconcat . intersperse space
+
+-- | Join a list of 'Doc's with 'line's in between each.  This is
+-- generally more efficient than repeatedly using '<$$>'.
+vsep :: [Doc] -> Doc
+vsep = mconcat . intersperse line
+
+-- | Join a list of 'Doc's with 'linebreak's in between each.  This is
+-- generally more efficient than repeatedly using '<$>'.
+vcat :: [Doc] -> Doc
+vcat = mconcat . intersperse linebreak
+
+-- | Join a list of 'Doc's using either 'hsep' or 'vsep'.
+sep :: [Doc] -> Doc
+sep docs = Choose { chooseOptions = [hsep docs, vsep docs] }
+
+-- | Join a list of 'Doc's using either 'hcat' or 'vcat'.
+cat :: [Doc] -> Doc
+cat docs = Choose { chooseOptions = [hcat docs, vcat docs] }
+
+-- | Join a list of 'Doc's with 'softline's in between each.  This is
+-- generally more efficient than repeatedly using '</>'.
+fillSep :: [Doc] -> Doc
+fillSep = mconcat . intersperse softline
+
+-- | Join a list of 'Doc's with 'softline's in between each.  This is
+-- generally more efficient than repeatedly using '<//>'.
+fillCat :: [Doc] -> Doc
+fillCat = mconcat . intersperse softbreak
+
+-- | Enclose a 'Doc' within two other 'Doc's
+enclose :: Doc -> Doc -> Doc -> Doc
+enclose left right middle = hcat [left, middle, right]
+
+-- | Concatenate a list of 'Doc's into a single doc, with each element
+-- separated from the others by a given 'Doc' representing
+-- punctuation.
+punctuate :: Doc -> [Doc] -> Doc
+punctuate punc = concat . intersperse punc
+
+-- | Enclose a list of 'Doc's, separated by punctuation, and align
+-- nesting of the contents to the end of the left enclosing 'Doc'
+encloseSep :: Doc -> Doc -> Doc -> [Doc] -> Doc
+encloseSep left right _ [] = left <> right
+encloseSep left right _ [doc] = left <> doc <> right
+encloseSep left right middle docs =
+  left <> align (punctuate middle docs) <> right
+
+list :: [Doc] -> Doc
+list = group . encloseSep lbrack rbrack (comma <> line)
+
+-- | Erase all linebreaks in a 'Doc' and replace them with either
+-- spaces or nothing, depending on the kind of linebreak.
 flatten :: Doc -> Doc
 flatten Line { insertSpace = True } = Char { charContent = ' ' }
 flatten Line { insertSpace = False } = Empty
@@ -367,20 +461,10 @@ flatten n @ Nest { nestDoc = inner } = n { nestDoc = flatten inner }
 flatten Align { alignDoc = inner } = Align { alignDoc = flatten inner }
 flatten doc = doc
 
-squoted :: Doc -> Doc
-squoted doc = squote <> doc <> squote
-
-dquoted :: Doc -> Doc
-dquoted doc = dquote <> doc <> dquote
-
-encloseSep :: Doc -> Doc -> Doc -> [Doc] -> Doc
-encloseSep left right _ [] = left <> right
-encloseSep left right _ [doc] = left <> doc <> right
-encloseSep left right middle docs =
-  left <> mconcat (intersperse middle docs) <> right
-
-list :: [Doc] -> Doc
-list = encloseSep lbrack rbrack comma
+-- | A 'Doc' that 'choose's between the unmodified argument, or the
+-- 'flatten'ed version of the argument.
+group :: Doc -> Doc
+group doc = Choose { chooseOptions = [ doc, flatten doc ] }
 
 buildOneLine :: Doc -> Builder
 buildOneLine Empty = mempty
@@ -432,34 +516,41 @@ data Render =
 -- | Column data type.  Represents how rendered documents affect the
 -- current column.
 data Column =
-    Fixed !Int
-  | Relative !Int
+    -- | An absolute column offset.
+    Fixed { fixedOffset :: !Int }
+    -- | A relative column offset.
+  | Relative { relOffset :: !Int }
 
 instance Hashable Column where
-  hashWithSalt s (Fixed n) = s `hashWithSalt` (0 :: Int) `hashWithSalt` n
-  hashWithSalt s (Relative n) = s `hashWithSalt` (1 :: Int) `hashWithSalt` n
+  hashWithSalt s Fixed { fixedOffset = n } =
+    s `hashWithSalt` (0 :: Int) `hashWithSalt` n
+  hashWithSalt s Relative { relOffset = n } =
+    s `hashWithSalt` (1 :: Int) `hashWithSalt` n
 
 instance Ord Column where
-  compare (Fixed n1) (Fixed n2) = compare n1 n2
-  compare (Fixed n1) (Relative n2) =
+  compare Fixed { fixedOffset = n1 } Fixed { fixedOffset = n2 } = compare n1 n2
+  compare Fixed { fixedOffset = n1 } Relative { relOffset = n2 } =
     case compare n1 n2 of
       EQ -> LT
       out -> out
-  compare (Relative n1) (Fixed n2) =
+  compare Relative { relOffset = n1 } Fixed { fixedOffset = n2 } =
     case compare n1 n2 of
       EQ -> GT
       out -> out
-  compare (Relative n1) (Relative n2) = compare n1 n2
+  compare Relative { relOffset = n1 } Relative { relOffset = n2 } =
+    compare n1 n2
 
 instance Eq Column where
   c1 == c2 = compare c1 c2 == EQ
 
--- | Given a starting column and an ending column, return a column
--- that represents advancing to the end.
+-- | Given a starting column and an ending column, give a column
+-- representing the combination of the two.
 advance :: Column -> Column -> Column
-advance _ f @ (Fixed _) = f
-advance (Fixed start) (Relative n) = Fixed (start + n)
-advance (Relative start) (Relative n) = Relative (start + n)
+advance _ f @ Fixed {} = f
+advance Fixed { fixedOffset = start } Relative { relOffset = n } =
+  Fixed { fixedOffset = start + n }
+advance Relative { relOffset = start } Relative { relOffset = n } =
+  Relative { relOffset = start + n }
 
 data Offsets =
   Offsets {
@@ -518,8 +609,7 @@ bestRenderInOpts =
     -- | Compare two Renders.  Less than means better.
     compareRenders Render { renderLines = lines1, renderOverrun = overrun1 }
                    Render { renderLines = lines2, renderOverrun = overrun2 } =
-      -- This reversal is intentional.  Less overrun is better
-      case compare overrun2 overrun1 of
+      case compare overrun1 overrun2 of
         EQ -> compare lines1 lines2
         out -> out
   in
@@ -534,14 +624,20 @@ appendOne (upper1, col1, Render { renderBuilder = build1,
                                   renderLines = lines2,
                                   renderOverrun = overrun2 }) =
   let
-    newupper = case col1 of
-      Relative n -> min upper1 (upper2 - n)
-      Fixed _ -> upper1
+    (newupper, newbuild) = case col1 of
+      Fixed { fixedOffset = n } ->
+        (upper1, \col -> build1 col `mappend` build2 n)
+      Relative { relOffset = n } ->
+        (min upper1 (upper2 - n),
+         \col -> build1 col `mappend` (build2 $! col + n))
 
-    newoverrun = if newupper < 0 then Relative (abs newupper) else Fixed 0
+    newoverrun =
+      if newupper < 0
+        then Relative { relOffset = abs newupper }
+        else Fixed { fixedOffset = 0 }
   in
     (newupper, col1 `advance` col2,
-     Render { renderBuilder = build1 `mappend` build2,
+     Render { renderBuilder = newbuild,
               renderOverrun = max (max overrun1 overrun2) newoverrun,
               renderLines = lines1 + lines2 })
 
@@ -632,6 +728,9 @@ mergeResults m @ Multi {} s @ Single {} = mergeResults s m
 mergeResults Multi { multiOptions = opts1 } Multi { multiOptions = opts2 } =
   Multi { multiOptions = HashMap.unionWith bestRender opts1 opts2 }
 
+makespaces :: Int -> Builder
+makespaces n = fromLazyByteString (Lazy.Char8.replicate (fromIntegral n) ' ')
+
 renderDynamic :: Int
               -- ^ The maximum number of columns.
               -> Doc
@@ -639,61 +738,70 @@ renderDynamic :: Int
               -> Lazy.ByteString
 renderDynamic maxcol doc =
   let
-
     buildDynamic :: Column -> Doc -> Result
     -- The empty document has only one rendering option.
     buildDynamic _ Empty =
       Single {
-        singleRender = Render { renderLines = 0, renderOverrun = Fixed 0,
-                                renderBuilder = const mempty },
+        singleRender = Render { renderOverrun = Fixed { fixedOffset = 0 },
+                                renderBuilder = const mempty,
+                                renderLines = 0 },
         singleCol = Relative 0,
         singleUpper = maxcol
       }
     -- For char, bytestring, and lazy bytestring,
     buildDynamic _ Char { charContent = chr } =
-      Single {
-        singleRender = Render { renderLines = 0, renderOverrun = Fixed 0,
-                                renderBuilder = const (fromChar chr) },
-        singleCol = Relative 1,
-        singleUpper = maxcol - 1
-      }
-    buildDynamic _ Bytestring { bsContent = txt, bsLength = len } =
-      Single {
-        singleRender = Render { renderBuilder = const (fromByteString txt),
-                                renderOverrun = Fixed 0, renderLines = 0 },
-        singleCol = Relative len,
-        singleUpper = maxcol - len
-      }
-    buildDynamic _ LazyBytestring { lbsContent = txt,
-                                            lbsLength = len } =
-      Single {
-        singleRender = Render { renderBuilder = const (fromLazyByteString txt),
-                                renderOverrun = Fixed 0, renderLines = 0 },
-        singleCol = Relative len,
-        singleUpper = maxcol - len
-      }
-    buildDynamic nesting Line {} =
       let
-        makebytestring n =
-          fromLazyByteString (Lazy.Char8.replicate (fromIntegral n) ' ')
-
-        builder =
-          case nesting of
-            Relative n ->
-              \len -> fromChar '\n' `mappend` makebytestring (len + n)
-            Fixed n -> const (fromChar '\n' `mappend` makebytestring n)
+        overrun = if maxcol >= 1 then Relative 0 else Relative (maxcol - 1)
       in
         Single {
-          singleRender = Render { renderOverrun = Fixed 0, renderLines = 1,
-                                  renderBuilder = builder },
+          singleRender = Render { renderLines = 0, renderOverrun = overrun,
+                                  renderBuilder = const (fromChar chr) },
+          singleCol = Relative 1,
+          singleUpper = maxcol - 1
+        }
+    buildDynamic _ Bytestring { bsContent = txt, bsLength = len } =
+      let
+        overrun = if maxcol >= len then Relative 0 else Relative (len - maxcol)
+      in
+        Single {
+          singleRender = Render { renderBuilder = const (fromByteString txt),
+                                  renderOverrun = overrun, renderLines = 0 },
+          singleCol = Relative len,
+          singleUpper = maxcol - len
+        }
+    buildDynamic _ LazyBytestring { lbsContent = txt, lbsLength = len } =
+      let
+        overrun = if maxcol >= len then Relative 0 else Relative (len - maxcol)
+      in
+        Single {
+          singleRender =
+             Render { renderBuilder = const (fromLazyByteString txt),
+                      renderOverrun = overrun, renderLines = 0 },
+          singleCol = Relative len,
+          singleUpper = maxcol - len
+        }
+    buildDynamic nesting Line {} =
+      let
+        builder =
+          case nesting of
+            Relative { relOffset = n } ->
+              \len -> fromChar '\n' `mappend` makespaces (len + n)
+            Fixed { fixedOffset = n } ->
+              const (fromChar '\n' `mappend` makespaces n)
+      in
+        Single {
+          singleRender = Render { renderOverrun = Fixed { fixedOffset = 0 },
+                                  renderBuilder = builder,
+                                  renderLines = 1 },
           singleCol = nesting,
           singleUpper = maxcol
         }
     buildDynamic _ Cat { catDocs = [] } =
       Single {
-        singleRender = Render { renderLines = 0, renderOverrun = Fixed 0,
-                                renderBuilder = const mempty },
-        singleCol = Relative 0,
+        singleRender = Render { renderOverrun = Fixed { fixedOffset = 0 },
+                                renderBuilder = const mempty,
+                                renderLines = 0 },
+        singleCol = Relative { relOffset = 0 },
         singleUpper = maxcol
       }
     buildDynamic nesting Cat { catDocs = first : rest } =
@@ -705,8 +813,8 @@ renderDynamic maxcol doc =
     buildDynamic nesting Nest { nestLevel = inc, nestDoc = inner } =
       let
         newnesting = case nesting of
-          Fixed n -> Fixed (n + inc)
-          Relative n -> Relative (n + inc)
+          Fixed { fixedOffset = n } -> Fixed { fixedOffset = n + inc }
+          Relative { relOffset = n } -> Relative { relOffset = n + inc }
       in
        buildDynamic newnesting inner
     buildDynamic nesting Choose { chooseOptions = options } =
@@ -718,7 +826,7 @@ renderDynamic maxcol doc =
       buildDynamic (Relative 0) inner
 
     Render { renderBuilder = result } =
-      case buildDynamic (Fixed 0) doc of
+      case buildDynamic Fixed { fixedOffset = 0 } doc of
         Single { singleRender = render } -> render
         Multi opts -> bestRenderInOpts opts
   in
@@ -742,3 +850,12 @@ instance Format a => Format [a] where
 
 instance Format Doc where
   format = id
+
+instance Format String where
+  format = string
+
+instance Format Strict.ByteString where
+  format = bytestring
+
+instance Format Lazy.ByteString where
+  format = lazyBytestring
