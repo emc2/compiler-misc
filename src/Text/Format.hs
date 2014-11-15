@@ -39,6 +39,7 @@ module Text.Format(
        -- * Basic Definitions
        -- ** Types
        Doc,
+       Graphics(..),
        -- ** Type Classes
        Format(..),
 
@@ -88,6 +89,25 @@ module Text.Format(
        braces,
        angles,
 
+       -- *** Graphics Mode
+       graphics,
+       dullWhite,
+       dullRed,
+       dullYellow,
+       dullGreen,
+       dullBlue,
+       dullCyan,
+       dullMagenta,
+       dullBlack,
+       vividWhite,
+       vividRed,
+       vividYellow,
+       vividGreen,
+       vividBlue,
+       vividCyan,
+       vividMagenta,
+       vividBlack,
+
        -- ** Combining @Doc@s
 
        -- *** Basic
@@ -129,9 +149,11 @@ import Blaze.ByteString.Builder.Char.Utf8
 import Data.Hashable
 import Data.HashMap.Strict(HashMap)
 import Data.List(intersperse, minimumBy)
+import Data.Maybe
 import Data.Monoid hiding ((<>))
 import Data.Word
 import Prelude hiding (concat)
+import System.Console.ANSI
 
 import qualified Data.ByteString as Strict
 import qualified Data.ByteString.UTF8 as Strict.UTF8
@@ -184,6 +206,96 @@ data Doc =
   | Align {
       alignDoc :: Doc
     }
+    -- | Set graphics mode options when rendering this doc.
+  | Graphics {
+      graphicsSGR :: !Graphics,
+      graphicsDoc :: Doc
+    }
+
+-- | Graphics options for ANSI terminals.
+data Graphics =
+    -- | Set options on the terminal, or keep the current setting in
+    -- the case of 'Nothing'.
+    Options {
+      consoleIntensity :: !(Maybe ConsoleIntensity),
+      underlining :: !(Maybe Underlining),
+      blinkSpeed :: !(Maybe BlinkSpeed),
+      foreground :: !(Maybe (Color, ColorIntensity)),
+      background :: !(Maybe (Color, ColorIntensity)),
+      swapForegroundBackground :: !(Maybe Bool)
+    }
+    -- | Reset the terminal in this mode.
+  | Default
+
+-- | Generate a 'Doc' representing a graphics mode switch.
+switchGraphics :: Graphics -> Graphics -> Builder
+switchGraphics _ Default = fromString (setSGRCode [Reset])
+switchGraphics Default Options { consoleIntensity = consIntensity,
+                                 swapForegroundBackground = swap,
+                                 underlining = underline,
+                                 foreground = fore,
+                                 background = back,
+                                 blinkSpeed = blink } =
+  let
+    withConsIntensity = maybe [] ((: []) . SetConsoleIntensity) consIntensity
+    withUnderline = maybe withConsIntensity ((: withConsIntensity) .
+                                             SetUnderlining)
+                          underline
+    withBlink = maybe withUnderline ((: withUnderline) . SetBlinkSpeed) blink
+    withSwap = maybe withBlink ((: withBlink) . SetSwapForegroundBackground)
+                     swap
+    withForeground =
+      maybe withSwap (\(color, intensity) -> SetColor Foreground intensity
+                                             color : withSwap) fore
+    withBackground =
+      maybe withForeground (\(color, intensity) -> SetColor Background intensity
+                                                   color : withForeground) back
+  in
+    fromString (setSGRCode withBackground)
+switchGraphics Options { consoleIntensity = consIntensity1,
+                         swapForegroundBackground = swap1,
+                         underlining = underline1,
+                         foreground = fore1,
+                         background = back1,
+                         blinkSpeed = blink1 }
+               Options { consoleIntensity = consIntensity2,
+                         swapForegroundBackground = swap2,
+                         underlining = underline2,
+                         foreground = fore2,
+                         background = back2,
+                         blinkSpeed = blink2 } =
+  let
+    withConsIntensity =
+      if consIntensity1 /= consIntensity2
+        then maybe [] ((: []) . SetConsoleIntensity) consIntensity2
+        else []
+    withUnderline =
+      if underline1 /= underline2
+        then maybe withConsIntensity ((: withConsIntensity) . SetUnderlining)
+                   underline2
+        else withConsIntensity
+    withBlink =
+      if blink1 /= blink2
+        then maybe withUnderline ((: withUnderline) . SetBlinkSpeed) blink2
+        else withUnderline
+    withSwap =
+      if swap1 /= swap2
+        then maybe withBlink ((: withBlink) . SetSwapForegroundBackground) swap2
+        else withBlink
+    withForeground =
+      if fore1 /= fore2
+        then maybe withSwap (\(color, intensity) ->
+                              SetColor Foreground intensity color : withSwap)
+                   fore2
+        else withSwap
+    withBackground =
+      if back1 /= back2
+        then maybe withSwap (\(color, intensity) ->
+                              SetColor Background intensity color :
+                              withForeground) back2
+        else withForeground
+  in
+    fromString (setSGRCode withBackground)
 
 -- | An empty 'Doc'.
 empty :: Doc
@@ -343,6 +455,154 @@ braces = enclose lbrace rbrace
 angles :: Doc -> Doc
 angles = enclose langle rangle
 
+-- | Set the graphics mode on a document.
+graphics :: Graphics -> Doc -> Doc
+graphics sgr doc = Graphics { graphicsDoc = doc, graphicsSGR = sgr }
+
+-- | Color a 'Doc' dull white.
+dullWhite :: Doc -> Doc
+dullWhite = graphics Options { consoleIntensity = Nothing,
+                               underlining = Nothing,
+                               blinkSpeed = Nothing,
+                               foreground = Just (White, Dull),
+                               background = Nothing,
+                               swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc' dull red.
+dullRed :: Doc -> Doc
+dullRed = graphics Options { consoleIntensity = Nothing,
+                             underlining = Nothing,
+                             blinkSpeed = Nothing,
+                             foreground = Just (Red, Dull),
+                             background = Nothing,
+                             swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc' dull yellow.
+dullYellow :: Doc -> Doc
+dullYellow = graphics Options { consoleIntensity = Nothing,
+                                underlining = Nothing,
+                                blinkSpeed = Nothing,
+                                foreground = Just (Yellow, Dull),
+                                background = Nothing,
+                                swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc' dull green.
+dullGreen :: Doc -> Doc
+dullGreen = graphics Options { consoleIntensity = Nothing,
+                               underlining = Nothing,
+                               blinkSpeed = Nothing,
+                               foreground = Just (Green, Dull),
+                               background = Nothing,
+                               swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc' dull blue.
+dullBlue :: Doc -> Doc
+dullBlue = graphics Options { consoleIntensity = Nothing,
+                              underlining = Nothing,
+                              blinkSpeed = Nothing,
+                              foreground = Just (Blue, Dull),
+                              background = Nothing,
+                              swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc' dull cyan.
+dullCyan :: Doc -> Doc
+dullCyan = graphics Options { consoleIntensity = Nothing,
+                              underlining = Nothing,
+                              blinkSpeed = Nothing,
+                              foreground = Just (Cyan, Dull),
+                              background = Nothing,
+                              swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc' dull magenta.
+dullMagenta :: Doc -> Doc
+dullMagenta = graphics Options { consoleIntensity = Nothing,
+                                 underlining = Nothing,
+                                 blinkSpeed = Nothing,
+                                 foreground = Just (Magenta, Dull),
+                                 background = Nothing,
+                                 swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc' dull black.
+dullBlack :: Doc -> Doc
+dullBlack = graphics Options { consoleIntensity = Nothing,
+                               underlining = Nothing,
+                               blinkSpeed = Nothing,
+                               foreground = Just (Black, Dull),
+                               background = Nothing,
+                               swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc' vivid white.
+vividWhite :: Doc -> Doc
+vividWhite = graphics Options { consoleIntensity = Nothing,
+                                underlining = Nothing,
+                                blinkSpeed = Nothing,
+                                foreground = Just (White, Vivid),
+                                background = Nothing,
+                                swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc' vivid red.
+vividRed :: Doc -> Doc
+vividRed = graphics Options { consoleIntensity = Nothing,
+                              underlining = Nothing,
+                              blinkSpeed = Nothing,
+                              foreground = Just (Red, Vivid),
+                              background = Nothing,
+                              swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc' vivid yellow.
+vividYellow :: Doc -> Doc
+vividYellow = graphics Options { consoleIntensity = Nothing,
+                                 underlining = Nothing,
+                                 blinkSpeed = Nothing,
+                                 foreground = Just (Yellow, Vivid),
+                                 background = Nothing,
+                                 swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc' vivid green.
+vividGreen :: Doc -> Doc
+vividGreen = graphics Options { consoleIntensity = Nothing,
+                                underlining = Nothing,
+                                blinkSpeed = Nothing,
+                                foreground = Just (Green, Vivid),
+                                background = Nothing,
+                                swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc' vivid blue.
+vividBlue :: Doc -> Doc
+vividBlue = graphics Options { consoleIntensity = Nothing,
+                               underlining = Nothing,
+                               blinkSpeed = Nothing,
+                               foreground = Just (Blue, Vivid),
+                               background = Nothing,
+                               swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc' vivid cyan.
+vividCyan :: Doc -> Doc
+vividCyan = graphics Options { consoleIntensity = Nothing,
+                               underlining = Nothing,
+                               blinkSpeed = Nothing,
+                               foreground = Just (Cyan, Vivid),
+                               background = Nothing,
+                               swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc' vivid magenta.
+vividMagenta :: Doc -> Doc
+vividMagenta = graphics Options { consoleIntensity = Nothing,
+                                  underlining = Nothing,
+                                  blinkSpeed = Nothing,
+                                  foreground = Just (Magenta, Vivid),
+                                  background = Nothing,
+                                  swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc' vivid black.
+vividBlack :: Doc -> Doc
+vividBlack = graphics Options { consoleIntensity = Nothing,
+                                underlining = Nothing,
+                                blinkSpeed = Nothing,
+                                foreground = Just (Black, Vivid),
+                                background = Nothing,
+                                swapForegroundBackground = Nothing }
+
 -- | Join two 'Doc's with no space in between.
 (<>) :: Doc -> Doc -> Doc
 (<>) = beside
@@ -478,6 +738,7 @@ buildOneLine Nest { nestDoc = inner } = buildOneLine inner
 buildOneLine Choose { chooseOptions = first : _ } = buildOneLine first
 buildOneLine Choose {} = error "Choose with no options"
 buildOneLine Align { alignDoc = inner } = buildOneLine inner
+buildOneLine Graphics { graphicsDoc = inner } = buildOneLine inner
 
 -- | Render the entire document to one line.  Good for output that
 -- will be read only by a machine, where newlines are not important at all
@@ -495,6 +756,7 @@ buildFast Nest { nestDoc = inner } = buildFast inner
 buildFast Choose { chooseOptions = first : _ } = buildFast first
 buildFast Choose {} = error "Choose with no options"
 buildFast Align { alignDoc = inner } = buildFast inner
+buildFast Graphics { graphicsDoc = inner } = buildFast inner
 
 -- | Render the entire document, preserving newlines, but without any
 -- indentation.  Good for output that will be read only by machine,
@@ -733,14 +995,16 @@ makespaces n = fromLazyByteString (Lazy.Char8.replicate (fromIntegral n) ' ')
 
 renderDynamic :: Int
               -- ^ The maximum number of columns.
+              -> Bool
+              -- ^ Whether or not to render with ANSI terminal options.
               -> Doc
               -- ^ The document to render.
               -> Lazy.ByteString
-renderDynamic maxcol doc =
+renderDynamic maxcol ansiterm doc =
   let
-    buildDynamic :: Column -> Doc -> Result
+    buildDynamic :: Graphics -> Column -> Doc -> Result
     -- The empty document has only one rendering option.
-    buildDynamic _ Empty =
+    buildDynamic _ _ Empty =
       Single {
         singleRender = Render { renderOverrun = Fixed { fixedOffset = 0 },
                                 renderBuilder = const mempty,
@@ -749,7 +1013,7 @@ renderDynamic maxcol doc =
         singleUpper = maxcol
       }
     -- For char, bytestring, and lazy bytestring,
-    buildDynamic _ Char { charContent = chr } =
+    buildDynamic _ _ Char { charContent = chr } =
       let
         overrun = if maxcol >= 1 then Relative 0 else Relative (maxcol - 1)
       in
@@ -759,7 +1023,7 @@ renderDynamic maxcol doc =
           singleCol = Relative 1,
           singleUpper = maxcol - 1
         }
-    buildDynamic _ Bytestring { bsContent = txt, bsLength = len } =
+    buildDynamic _ _ Bytestring { bsContent = txt, bsLength = len } =
       let
         overrun = if maxcol >= len then Relative 0 else Relative (len - maxcol)
       in
@@ -769,7 +1033,7 @@ renderDynamic maxcol doc =
           singleCol = Relative len,
           singleUpper = maxcol - len
         }
-    buildDynamic _ LazyBytestring { lbsContent = txt, lbsLength = len } =
+    buildDynamic _ _ LazyBytestring { lbsContent = txt, lbsLength = len } =
       let
         overrun = if maxcol >= len then Relative 0 else Relative (len - maxcol)
       in
@@ -780,7 +1044,7 @@ renderDynamic maxcol doc =
           singleCol = Relative len,
           singleUpper = maxcol - len
         }
-    buildDynamic nesting Line {} =
+    buildDynamic _ nesting Line {} =
       let
         builder =
           case nesting of
@@ -796,7 +1060,7 @@ renderDynamic maxcol doc =
           singleCol = nesting,
           singleUpper = maxcol
         }
-    buildDynamic _ Cat { catDocs = [] } =
+    buildDynamic _ _ Cat { catDocs = [] } =
       Single {
         singleRender = Render { renderOverrun = Fixed { fixedOffset = 0 },
                                 renderBuilder = const mempty,
@@ -804,29 +1068,43 @@ renderDynamic maxcol doc =
         singleCol = Relative { relOffset = 0 },
         singleUpper = maxcol
       }
-    buildDynamic nesting Cat { catDocs = first : rest } =
+    buildDynamic sgr nesting Cat { catDocs = first : rest } =
       let
-        firstres = buildDynamic nesting first
-        restres = map (buildDynamic nesting) rest
+        firstres = buildDynamic sgr nesting first
+        restres = map (buildDynamic sgr nesting) rest
       in
         foldl appendResults firstres restres
-    buildDynamic nesting Nest { nestLevel = inc, nestDoc = inner } =
+    buildDynamic sgr nesting Nest { nestLevel = inc, nestDoc = inner } =
       let
         newnesting = case nesting of
           Fixed { fixedOffset = n } -> Fixed { fixedOffset = n + inc }
           Relative { relOffset = n } -> Relative { relOffset = n + inc }
       in
-       buildDynamic newnesting inner
-    buildDynamic nesting Choose { chooseOptions = options } =
+       buildDynamic sgr newnesting inner
+    buildDynamic sgr nesting Choose { chooseOptions = options } =
       let
-        results = map (buildDynamic nesting) options
+        results = map (buildDynamic sgr nesting) options
       in
         foldl1 mergeResults results
-    buildDynamic _ Align { alignDoc = inner } =
-      buildDynamic (Relative 0) inner
+    buildDynamic sgr _ Align { alignDoc = inner } =
+      buildDynamic sgr (Relative 0) inner
+    buildDynamic sgr1 nesting Graphics { graphicsSGR = sgr2,
+                                         graphicsDoc = inner }
+      | ansiterm =
+        let
+          wrapBuilder r @ Render { renderBuilder = build } =
+            r { renderBuilder = \col -> switchGraphics sgr1 sgr2 `mappend`
+                                        build col `mappend`
+                                        switchGraphics sgr2 sgr1 }
+        in case buildDynamic sgr2 nesting inner of
+          s @ Single { singleRender = render } ->
+            s { singleRender = wrapBuilder render }
+          m @ Multi { multiOptions = opts } ->
+            m { multiOptions = HashMap.map wrapBuilder opts }
+      | otherwise = buildDynamic sgr2 nesting inner
 
     Render { renderBuilder = result } =
-      case buildDynamic Fixed { fixedOffset = 0 } doc of
+      case buildDynamic Default Fixed { fixedOffset = 0 } doc of
         Single { singleRender = render } -> render
         Multi opts -> bestRenderInOpts opts
   in
@@ -859,3 +1137,18 @@ instance Format Strict.ByteString where
 
 instance Format Lazy.ByteString where
   format = lazyBytestring
+
+instance Format Int where
+  format = string . show
+
+instance Format Integer where
+  format = string . show
+
+instance Format Word where
+  format = string . show
+
+instance Format Float where
+  format = string . show
+
+instance Format Double where
+  format = string . show
