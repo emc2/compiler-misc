@@ -25,7 +25,7 @@
 -- OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 -- SUCH DAMAGE.
 {-# OPTIONS_GHC -Wall -Werror -funbox-strict-fields #-}
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses #-}
 
 -- | A pretty printer implementation, based loosely on the
 -- Wadler-Leijin pretty printer, but redesigned to facilitate a
@@ -42,6 +42,7 @@ module Text.Format(
        Graphics(..),
        -- ** Type Classes
        Format(..),
+       FormatM(..),
 
        -- * Creating @Doc@s
 
@@ -146,6 +147,7 @@ module Text.Format(
 
 import Blaze.ByteString.Builder
 import Blaze.ByteString.Builder.Char.Utf8
+import Control.Monad
 import Data.Hashable
 import Data.HashMap.Strict(HashMap)
 import Data.List(intersperse, minimumBy)
@@ -658,17 +660,17 @@ hcat docs = Cat { catDocs = docs }
 -- | Join a list of 'Doc's with spaces in between each.  This is
 -- generally more efficient than repeatedly using '<+>'.
 hsep :: [Doc] -> Doc
-hsep = mconcat . intersperse space
+hsep = concat . intersperse space
 
 -- | Join a list of 'Doc's with 'line's in between each.  This is
 -- generally more efficient than repeatedly using '<$$>'.
 vsep :: [Doc] -> Doc
-vsep = mconcat . intersperse line
+vsep = concat . intersperse line
 
 -- | Join a list of 'Doc's with 'linebreak's in between each.  This is
 -- generally more efficient than repeatedly using '<$>'.
 vcat :: [Doc] -> Doc
-vcat = mconcat . intersperse linebreak
+vcat = concat . intersperse linebreak
 
 -- | Join a list of 'Doc's using either 'hsep' or 'vsep'.
 sep :: [Doc] -> Doc
@@ -681,12 +683,12 @@ cat docs = Choose { chooseOptions = [hcat docs, vcat docs] }
 -- | Join a list of 'Doc's with 'softline's in between each.  This is
 -- generally more efficient than repeatedly using '</>'.
 fillSep :: [Doc] -> Doc
-fillSep = mconcat . intersperse softline
+fillSep = concat . intersperse softline
 
 -- | Join a list of 'Doc's with 'softline's in between each.  This is
 -- generally more efficient than repeatedly using '<//>'.
 fillCat :: [Doc] -> Doc
-fillCat = mconcat . intersperse softbreak
+fillCat = concat . intersperse softbreak
 
 -- | Enclose a 'Doc' within two other 'Doc's
 enclose :: Doc -> Doc -> Doc -> Doc
@@ -1110,18 +1112,24 @@ renderDynamic maxcol ansiterm doc =
   in
     toLazyByteString (result 0)
 
-instance Monoid Doc where
-  mempty = Empty
-  mappend = beside
-
 -- | A class representing datatypes that can be formatted as 'Doc's.
 class Format item where
   -- | Format an @item@ as a 'Doc'
   format :: item -> Doc
 
--- | Format a list of @item@s as a 'Doc'
+  -- | Format a list of @item@s as a 'Doc'
   formatList :: [item] -> Doc
   formatList = list . map format
+
+-- | A class representing datatypes that can be formatted as 'Doc's
+-- inside a monad.
+class Monad m => FormatM m item where
+  -- | Format an @item@ as a 'Doc' inside an @m@ monad
+  formatM :: item -> m Doc
+
+  -- | Format a list of @item@s as a 'Doc' inside an @m@ monad
+  formatListM :: [item] -> m Doc
+  formatListM = liftM list . mapM formatM
 
 instance Format a => Format [a] where
   format = formatList
@@ -1152,3 +1160,6 @@ instance Format Float where
 
 instance Format Double where
   format = string . show
+
+instance (Monad m, Format item) => FormatM m item where
+  formatM = return . format
