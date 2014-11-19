@@ -40,49 +40,69 @@ import qualified Data.ByteString.Lazy.UTF8 as Lazy
 
 renderDynamicTests :: [Test]
 renderDynamicTests = [
-    "empty" ~: Lazy.empty @=? renderDynamic 1 empty,
-    "char" ~: Lazy.singleton 'a' @=? renderDynamic 1 (char 'a'),
-    "string" ~: Lazy.fromString "hello" @=? renderDynamic 1 (string "hello"),
+    "empty" ~: Lazy.empty @=? renderDynamic 1 False empty,
+    "char" ~: Lazy.singleton 'a' @=? renderDynamic 1 False (char 'a'),
+    "string" ~: Lazy.fromString "hello" @=?
+      renderDynamic 1 False (string "hello"),
     "bytestring" ~: Lazy.fromString "hello" @=?
-      renderDynamic 1 (bytestring (Strict.fromString "hello")),
+      renderDynamic 1 False (bytestring (Strict.fromString "hello")),
     "lazyBytestring" ~: Lazy.fromString "hello" @=?
-      renderDynamic 1 (lazyBytestring (Lazy.fromString "hello")),
-    "line" ~: Lazy.singleton '\n' @?= renderDynamic 1 line,
+      renderDynamic 1 False (lazyBytestring (Lazy.fromString "hello")),
+    "line" ~: Lazy.singleton '\n' @?= renderDynamic 1 False line,
     "cat" ~: Lazy.fromString "helloworld" @=?
-      renderDynamic 1 (string "hello" <> string "world"),
+      renderDynamic 1 False (string "hello" <> string "world"),
     "nest" ~: Lazy.fromString "hello\n  world" @=?
-      renderDynamic 1 (string "hello" <> nest 2 (line <> string "world")),
+      renderDynamic 1 False (string "hello" <> nest 2 (line <> string "world")),
     "align" ~: Lazy.fromString "hello\n     world" @=?
-      renderDynamic 1 (string "hello" <> align (line <> string "world")),
+      renderDynamic 1 False (string "hello" <> align (line <> string "world")),
+    "align2" ~: Lazy.fromString "hello\n     world\n     today" @=?
+      renderDynamic 1 False (string "hello" <>
+                             align (line <> string "world" <>
+                                    line <> string "today")),
     "align3" ~: Lazy.fromString "hello\n     world\n          today" @=?
-      renderDynamic 1 (string "hello" <>
-                       align (line <> string "world" <>
-                              align (line <> string "today"))),
+      renderDynamic 1 False (string "hello" <>
+                             align (line <> string "world" <>
+                                    align (line <> string "today"))),
     "choose_lines" ~: Lazy.fromString "\n" @=?
-      renderDynamic 2 (choose [line <> line <> line, line, line <> line]),
+      renderDynamic 2 False (choose [line <> line <> line, line, line <> line]),
     "choose_overrun" ~: Lazy.fromString " " @=?
-      renderDynamic 1 (choose [string " ", string "  "]),
-    "choose_cat" ~: Lazy.fromString "hello\nworld" @=?
-      renderDynamic 8 (choose [string "hello ", string "hello" <> line] <>
+      renderDynamic 1 False (choose [string " ", string "  "]),
+    "choose_line_cat" ~: Lazy.fromString "hello\nworld" @=?
+      renderDynamic 8 False (choose [string "hello ", string "hello" <> line] <>
                        string "world"),
-    "choose_cat_nest" ~: Lazy.fromString "hello\n  world" @=?
-      renderDynamic 8 (choose [string "hello ",
+    "choose_nest_line_cat" ~: Lazy.fromString "hello\nworld" @=?
+      renderDynamic 8 False (choose [string "hello ",
                                string "hello" <> nest 2 line] <>
                        string "world"),
-    "choose_cat" ~: Lazy.fromString "hello\nworld" @=?
-      renderDynamic 8 (string "hello" <>
-                       choose [string " world", line <> string "world"]),
-    "choose_cat_nest" ~: Lazy.fromString "hello\n  world" @=?
-      renderDynamic 8 (string "hello" <>
-                       nest 2 (choose [string " world",
-                                       line <> string "world"])),
+    "cat_choose" ~: Lazy.fromString "hello\nworld" @=?
+      renderDynamic 8 False (string "hello" <>
+                             choose [string " world", line <> string "world"]),
+    "cat_nest_choose" ~: Lazy.fromString "hello\n  world" @=?
+      renderDynamic 8 False (string "hello" <>
+                             nest 2 (choose [string " world",
+                                             line <> string "world"])),
     "choose_choose" ~: Lazy.fromString "hello you" @=?
-      renderDynamic 9 (choose [string "hello ", string "hello" <> line] <>
+      renderDynamic 9 False (choose [string "hello ", string "hello" <> line] <>
                        choose [string "world", string "you"]),
     "softline_break" ~: Lazy.fromString "hello\nworld" @=?
-      renderDynamic 6 (string "hello" <> softline <> string "world"),
+      renderDynamic 6 False (string "hello" <> softline <> string "world"),
     "softline_space" ~: Lazy.fromString "hello world" @=?
-      renderDynamic 11 (string "hello" <> softline <> string "world")
+      renderDynamic 11 False (string "hello" <> softline <> string "world"),
+    "delay_indent" ~: Lazy.fromString "\n\n" @=?
+      renderDynamic 2 False (nest 2 (line <> line)),
+    "delay_indent2" ~: Lazy.fromString "\n\n  hello" @=?
+      renderDynamic 2 False (nest 2 (line <> line <> string "hello")),
+    "delay_indent_nest" ~: Lazy.fromString "\n\n    hello" @=?
+      renderDynamic 2 False (nest 2 (line <> nest 2 (line <> string "hello"))),
+    "align_delay_indent" ~: Lazy.fromString "  \n\n  hello" @=?
+      renderDynamic 2 False (string "  " <>
+                             align (line <> line <> string "hello")),
+    "align_delay_indent_nest" ~: Lazy.fromString "  \n\n    hello" @=?
+      renderDynamic 2 False (string "  " <>
+                             align (nest 2 (line <> line <> string "hello"))),
+    "align_delay_indent_line_nest" ~: Lazy.fromString "  \n\n    hello" @=?
+      renderDynamic 2 False (string "  " <>
+                             align (line <> nest 2 (line <> string "hello")))
   ]
 
 testlist :: [Test]

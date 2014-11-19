@@ -165,10 +165,8 @@ import qualified Data.ByteString.Lazy.UTF8 as Lazy.UTF8
 import qualified Data.HashMap.Strict as HashMap
 
 data Doc =
-    -- | An empty document.
-    Empty
     -- | A single character.  Cannot be a newline
-  | Char { charContent :: !Char }
+    Char { charContent :: !Char }
     -- | A ByteString.
   | Bytestring {
       -- | The length of the text
@@ -196,6 +194,9 @@ data Doc =
   | Nest {
       -- | Amount by which to increase nesting.
       nestLevel :: !Int,
+      -- | Whether to align to the current column, or the base nesting
+      -- level.
+      nestAlign :: !Bool,
       -- | Document whose nesting should be increased.
       nestDoc :: Doc
     }
@@ -204,13 +205,11 @@ data Doc =
       -- | The list of options.
       chooseOptions :: [Doc]
     }
-    -- | Set the nesting level of a document to the current column.
-  | Align {
-      alignDoc :: Doc
-    }
     -- | Set graphics mode options when rendering this doc.
   | Graphics {
+      -- | Graphics mode to set.
       graphicsSGR :: !Graphics,
+      -- | Document to render with graphic mode.
       graphicsDoc :: Doc
     }
 
@@ -301,7 +300,7 @@ switchGraphics Options { consoleIntensity = consIntensity1,
 
 -- | An empty 'Doc'.
 empty :: Doc
-empty = Empty
+empty = Cat { catDocs = [] }
 
 -- | A 'Doc' consisting of a linebreak, that is not turned into a
 -- space when erased by a 'group'.
@@ -340,14 +339,14 @@ string str =
 -- | Create a 'Doc' containing a bytestring.
 bytestring :: Strict.ByteString -> Doc
 bytestring txt
-  | Strict.null txt = Empty
+  | Strict.null txt = empty
   | otherwise = Bytestring { bsLength = Strict.UTF8.length txt,
                              bsContent = txt }
 
 -- | Create a 'Doc' containing a lazy bytestring
 lazyBytestring :: Lazy.ByteString -> Doc
 lazyBytestring txt
-  | Lazy.null txt = Empty
+  | Lazy.null txt = empty
   | otherwise = LazyBytestring { lbsLength = Lazy.UTF8.length txt,
                                  lbsContent = txt }
 
@@ -425,13 +424,13 @@ equals = char '='
 
 -- | Increase the indentation level of a document by some amount.
 nest :: Int -> Doc -> Doc
-nest _ Empty = Empty
+nest _ c @ Cat { catDocs = [] } = c
 nest lvl n @ Nest { nestLevel = lvl' } = n { nestLevel = lvl + lvl' }
-nest lvl content = Nest { nestLevel = lvl, nestDoc = content }
+nest lvl doc = Nest { nestLevel = lvl, nestDoc = doc, nestAlign = False }
 
 -- | Set the indentation level to the current column.
 align :: Doc -> Doc
-align inner = Align { alignDoc = inner }
+align inner = Nest { nestLevel = 0, nestAlign = True, nestDoc = inner }
 
 -- | Enclose a 'Doc' in single quotes
 squoted :: Doc -> Doc
@@ -631,8 +630,6 @@ left <//> right = left <> softbreak <> right
 
 -- | Joun 'Doc's with no space in between them.
 beside :: Doc -> Doc -> Doc
-beside Empty doc = doc
-beside doc Empty = doc
 beside Cat { catDocs = left } Cat { catDocs = right } =
   Cat { catDocs = left ++ right }
 beside left Cat { catDocs = right } = Cat { catDocs = left : right }
@@ -642,13 +639,12 @@ beside left right = Cat { catDocs = [left, right] }
 -- | Concatenate a list of 'Doc's.  This is generally more efficient
 -- than repeatedly using 'beside' or '<>'.
 concat :: [Doc] -> Doc
-concat [] = Empty
 concat docs = Cat { catDocs = docs }
 
 -- | A choice of several options.  Only one of these will be chosen
 -- and used to render the final document.
 choose :: [Doc] -> Doc
-choose [] = Empty
+choose [] = empty
 choose [doc] = doc
 choose docs = Choose { chooseOptions = docs }
 
@@ -715,12 +711,11 @@ list = group . encloseSep lbrack rbrack (comma <> line)
 -- spaces or nothing, depending on the kind of linebreak.
 flatten :: Doc -> Doc
 flatten Line { insertSpace = True } = Char { charContent = ' ' }
-flatten Line { insertSpace = False } = Empty
+flatten Line { insertSpace = False } = empty
 flatten Cat { catDocs = docs } = Cat { catDocs = map flatten docs }
 flatten Choose { chooseOptions = docs } =
   Choose { chooseOptions = map flatten docs }
 flatten n @ Nest { nestDoc = inner } = n { nestDoc = flatten inner }
-flatten Align { alignDoc = inner } = Align { alignDoc = flatten inner }
 flatten doc = doc
 
 -- | A 'Doc' that 'choose's between the unmodified argument, or the
@@ -729,7 +724,6 @@ group :: Doc -> Doc
 group doc = Choose { chooseOptions = [ doc, flatten doc ] }
 
 buildOneLine :: Doc -> Builder
-buildOneLine Empty = mempty
 buildOneLine Char { charContent = chr } = fromChar chr
 buildOneLine Bytestring { bsContent = txt } = fromByteString txt
 buildOneLine LazyBytestring { lbsContent = txt } = fromLazyByteString txt
@@ -739,7 +733,6 @@ buildOneLine Cat { catDocs = docs } = mconcat (map buildOneLine docs)
 buildOneLine Nest { nestDoc = inner } = buildOneLine inner
 buildOneLine Choose { chooseOptions = first : _ } = buildOneLine first
 buildOneLine Choose {} = error "Choose with no options"
-buildOneLine Align { alignDoc = inner } = buildOneLine inner
 buildOneLine Graphics { graphicsDoc = inner } = buildOneLine inner
 
 -- | Render the entire document to one line.  Good for output that
@@ -748,7 +741,6 @@ renderOneLine :: Doc -> Lazy.ByteString
 renderOneLine = toLazyByteString . buildOneLine
 
 buildFast :: Doc -> Builder
-buildFast Empty = mempty
 buildFast Char { charContent = chr } = fromChar chr
 buildFast Bytestring { bsContent = txt } = fromByteString txt
 buildFast LazyBytestring { lbsContent = txt } = fromLazyByteString txt
@@ -757,7 +749,6 @@ buildFast Cat { catDocs = docs } = mconcat (map buildFast docs)
 buildFast Nest { nestDoc = inner } = buildFast inner
 buildFast Choose { chooseOptions = first : _ } = buildFast first
 buildFast Choose {} = error "Choose with no options"
-buildFast Align { alignDoc = inner } = buildFast inner
 buildFast Graphics { graphicsDoc = inner } = buildFast inner
 
 -- | Render the entire document, preserving newlines, but without any
@@ -774,7 +765,10 @@ data Render =
     -- | The largest amount by which we've overrun.
     renderOverrun :: !Column,
     -- | A builder that constructs the document.
-    renderBuilder :: Int -> Builder
+    renderBuilder :: !(Int -> Int -> Builder),
+    -- | Whether or not to add indentation on the next non-empty
+    -- document.
+    renderIndent :: !Bool
   }
 
 -- | Column data type.  Represents how rendered documents affect the
@@ -827,7 +821,10 @@ instance Hashable Offsets where
   hashWithSalt s Offsets { offsetUpper = upper, offsetCol = col } =
     s `hashWithSalt` upper `hashWithSalt` col
 
+-- | A result.  This is split into 'Single' and 'Multi' in order to
+-- optimize for the common case of a single possible rendering.
 data Result =
+    -- | A single possible rendering.
     Single {
       -- | The rendered document.
       singleRender :: !Render,
@@ -836,6 +833,7 @@ data Result =
       -- | The current column at the end of rendering.
       singleCol :: !Column
     }
+    -- | Multiple possible renderings.
   | Multi {
       -- | A multi-level map.  The first map is indexed by the column
       -- upper-bound (meaning the first column at which using any of
@@ -843,6 +841,9 @@ data Result =
       -- indexed by the ending column.
       multiOptions :: !(HashMap Offsets Render)
     }
+
+makespaces :: Int -> Builder
+makespaces n = fromLazyByteString (Lazy.Char8.replicate (fromIntegral n) ' ')
 
 bestRender :: Render -> Render -> Render
 bestRender r1 @ Render { renderLines = lines1, renderOverrun = overrun1 }
@@ -886,84 +887,27 @@ appendOne (upper1, col1, Render { renderBuilder = build1,
                                   renderOverrun = overrun1 })
           (upper2, col2, Render { renderBuilder = build2,
                                   renderLines = lines2,
-                                  renderOverrun = overrun2 }) =
+                                  renderOverrun = overrun2,
+                                  renderIndent = indent }) =
   let
     (newupper, newbuild) = case col1 of
       Fixed { fixedOffset = n } ->
-        (upper1, \col -> build1 col `mappend` build2 n)
+        (upper1, \nesting col -> build1 nesting col `mappend` build2 nesting n)
       Relative { relOffset = n } ->
         (min upper1 (upper2 - n),
-         \col -> build1 col `mappend` (build2 $! col + n))
+         \nesting col -> build1 nesting col `mappend`
+                         (build2 nesting $! col + n))
 
     newoverrun =
       if newupper < 0
         then Relative { relOffset = abs newupper }
         else Fixed { fixedOffset = 0 }
+
   in
     (newupper, col1 `advance` col2,
-     Render { renderBuilder = newbuild,
+     Render { renderBuilder = newbuild, renderIndent = indent,
               renderOverrun = max (max overrun1 overrun2) newoverrun,
               renderLines = lines1 + lines2 })
-
-appendResults :: Result -> Result -> Result
-appendResults Single { singleUpper = upper1, singleCol = col1,
-                       singleRender = render1 }
-              Single { singleUpper = upper2, singleCol = col2,
-                       singleRender = render2 } =
-  let
-    (newupper, newcol, newrender) =
-      appendOne (upper1, col1, render1) (upper2, col2, render2)
-  in
-    Single { singleUpper = newupper, singleCol = newcol,
-             singleRender = newrender }
-appendResults Single { singleCol = col1, singleUpper = upper1,
-                       singleRender = render1 }
-              Multi { multiOptions = opts } =
-  let
-    foldfun :: HashMap Offsets Render -> Offsets -> Render ->
-               HashMap Offsets Render
-    foldfun accum Offsets { offsetUpper = upper2, offsetCol = col2 } render2 =
-      let
-         (newupper, newcol, newrender) = appendOne (upper1, col1, render1)
-                                                   (upper2, col2, render2)
-      in
-        insertRender newupper newcol newrender accum
-  in
-    packResult (HashMap.foldlWithKey' foldfun HashMap.empty opts)
-appendResults Multi { multiOptions = opts }
-              Single { singleUpper = upper2, singleCol = col2,
-                       singleRender = render2 } =
-  let
-    foldfun :: HashMap Offsets Render -> Offsets -> Render ->
-               HashMap Offsets Render
-    foldfun accum Offsets { offsetUpper = upper1, offsetCol = col1 } render1 =
-      let
-         (newupper, newcol, newrender) = appendOne (upper1, col1, render1)
-                                                   (upper2, col2, render2)
-      in
-        insertRender newupper newcol newrender accum
-  in
-    packResult (HashMap.foldlWithKey' foldfun HashMap.empty opts)
-appendResults Multi { multiOptions = opts1 } Multi { multiOptions = opts2 } =
-  let
-    outerfold :: HashMap Offsets Render -> Offsets -> Render ->
-                 HashMap Offsets Render
-    outerfold accum Offsets { offsetUpper = upper1, offsetCol = col1 }
-              render1 =
-      let
-        innerfold :: HashMap Offsets Render -> Offsets -> Render ->
-                     HashMap Offsets Render
-        innerfold accum' Offsets { offsetUpper = upper2, offsetCol = col2 }
-                  render2 =
-          let
-             (newupper, newcol, newrender) = appendOne (upper1, col1, render1)
-                                                       (upper2, col2, render2)
-          in
-            insertRender newupper newcol newrender accum'
-      in
-        HashMap.foldlWithKey' innerfold accum opts2
-  in
-    packResult (HashMap.foldlWithKey' outerfold HashMap.empty opts1)
 
 -- | Combine two results into an option
 mergeResults :: Result -> Result -> Result
@@ -992,9 +936,6 @@ mergeResults m @ Multi {} s @ Single {} = mergeResults s m
 mergeResults Multi { multiOptions = opts1 } Multi { multiOptions = opts2 } =
   Multi { multiOptions = HashMap.unionWith bestRender opts1 opts2 }
 
-makespaces :: Int -> Builder
-makespaces n = fromLazyByteString (Lazy.Char8.replicate (fromIntegral n) ' ')
-
 renderDynamic :: Int
               -- ^ The maximum number of columns.
               -> Bool
@@ -1004,113 +945,187 @@ renderDynamic :: Int
               -> Lazy.ByteString
 renderDynamic maxcol ansiterm doc =
   let
-    buildDynamic :: Graphics -> Column -> Doc -> Result
-    -- The empty document has only one rendering option.
-    buildDynamic _ _ Empty =
-      Single {
-        singleRender = Render { renderOverrun = Fixed { fixedOffset = 0 },
-                                renderBuilder = const mempty,
-                                renderLines = 0 },
-        singleCol = Relative 0,
-        singleUpper = maxcol
-      }
+    buildDynamic :: Graphics -> Column -> Bool -> Doc -> Result
     -- For char, bytestring, and lazy bytestring,
-    buildDynamic _ _ Char { charContent = chr } =
+    buildDynamic _ _ indent Char { charContent = chr } =
       let
         overrun = if maxcol >= 1 then Relative 0 else Relative (maxcol - 1)
-      in
-        Single {
-          singleRender = Render { renderLines = 0, renderOverrun = overrun,
-                                  renderBuilder = const (fromChar chr) },
-          singleCol = Relative 1,
-          singleUpper = maxcol - 1
-        }
-    buildDynamic _ _ Bytestring { bsContent = txt, bsLength = len } =
-      let
-        overrun = if maxcol >= len then Relative 0 else Relative (len - maxcol)
-      in
-        Single {
-          singleRender = Render { renderBuilder = const (fromByteString txt),
-                                  renderOverrun = overrun, renderLines = 0 },
-          singleCol = Relative len,
-          singleUpper = maxcol - len
-        }
-    buildDynamic _ _ LazyBytestring { lbsContent = txt, lbsLength = len } =
-      let
-        overrun = if maxcol >= len then Relative 0 else Relative (len - maxcol)
+        builder =
+          if indent
+            then \n _ -> makespaces n `mappend` fromChar chr
+            else const $! const $! fromChar chr
       in
         Single {
           singleRender =
-             Render { renderBuilder = const (fromLazyByteString txt),
-                      renderOverrun = overrun, renderLines = 0 },
+             Render { renderLines = 0, renderOverrun = overrun,
+                      renderBuilder = builder, renderIndent = False },
+          singleCol = Relative 1,
+          singleUpper = maxcol - 1
+        }
+    buildDynamic _ _ indent Bytestring { bsContent = txt, bsLength = len } =
+      let
+        overrun = if maxcol >= len then Relative 0 else Relative (len - maxcol)
+        builder =
+          if indent
+            then \n _ -> makespaces n `mappend` fromByteString txt
+            else const $! const $! fromByteString txt
+      in
+       Single {
+         singleRender =
+             Render { renderLines = 0, renderOverrun = overrun,
+                      renderBuilder = builder, renderIndent = False },
+         singleCol = Relative len,
+         singleUpper = maxcol - len
+       }
+    buildDynamic _ _ indent LazyBytestring { lbsContent = txt,
+                                             lbsLength = len } =
+      let
+        overrun = if maxcol >= len then Relative 0 else Relative (len - maxcol)
+        builder =
+          if indent
+            then \n _ -> makespaces n `mappend` fromLazyByteString txt
+            else const $! const $! fromLazyByteString txt
+      in
+        Single {
+          singleRender =
+             Render { renderLines = 0, renderOverrun = overrun,
+                      renderBuilder = builder, renderIndent = False },
           singleCol = Relative len,
           singleUpper = maxcol - len
         }
-    buildDynamic _ nesting Line {} =
-      let
-        builder =
-          case nesting of
-            Relative { relOffset = n } ->
-              \len -> fromChar '\n' `mappend` makespaces (len + n)
-            Fixed { fixedOffset = n } ->
-              const (fromChar '\n' `mappend` makespaces n)
-      in
-        Single {
-          singleRender = Render { renderOverrun = Fixed { fixedOffset = 0 },
-                                  renderBuilder = builder,
-                                  renderLines = 1 },
-          singleCol = nesting,
-          singleUpper = maxcol
-        }
-    buildDynamic _ _ Cat { catDocs = [] } =
+    buildDynamic _ nesting _ Line {} =
       Single {
-        singleRender = Render { renderOverrun = Fixed { fixedOffset = 0 },
-                                renderBuilder = const mempty,
-                                renderLines = 0 },
+        singleRender =
+           Render { renderOverrun = Fixed { fixedOffset = 0 },
+                    renderIndent = True, renderLines = 1,
+                    renderBuilder = const $! const $! fromChar '\n' },
+        singleCol = nesting,
+        singleUpper = maxcol
+      }
+    buildDynamic _ _ indent Cat { catDocs = [] } =
+      Single {
+        singleRender =
+           Render { renderOverrun = Fixed { fixedOffset = 0 },
+                    renderIndent = indent, renderLines = 0,
+                    renderBuilder = const mempty },
         singleCol = Relative { relOffset = 0 },
         singleUpper = maxcol
       }
-    buildDynamic sgr nesting Cat { catDocs = first : rest } =
+    buildDynamic sgr nesting indent Cat { catDocs = first : rest } =
       let
-        firstres = buildDynamic sgr nesting first
-        restres = map (buildDynamic sgr nesting) rest
+        appendResults :: Result -> Doc -> Result
+        appendResults Single { singleRender =
+                                  render1 @ Render { renderIndent = indent' },
+                               singleUpper = upper1, singleCol = col1 } doc' =
+          case buildDynamic sgr nesting indent' doc' of
+            Single { singleUpper = upper2, singleCol = col2,
+                     singleRender = render2 } ->
+              let
+                (newupper, newcol, newrender) =
+                  appendOne (upper1, col1, render1) (upper2, col2, render2)
+              in
+                Single { singleUpper = newupper, singleCol = newcol,
+                         singleRender = newrender }
+            Multi { multiOptions = opts } ->
+              let
+                foldfun :: HashMap Offsets Render -> Offsets -> Render ->
+                           HashMap Offsets Render
+                foldfun accum Offsets { offsetUpper = upper2,
+                                        offsetCol = col2 } render2 =
+                  let
+                    (newupper, newcol, newrender) =
+                      appendOne (upper1, col1, render1) (upper2, col2, render2)
+                  in
+                    insertRender newupper newcol newrender accum
+              in
+                packResult (HashMap.foldlWithKey' foldfun HashMap.empty opts)
+        appendResults Multi { multiOptions = opts } doc' =
+          let
+            outerfold :: HashMap Offsets Render -> Offsets -> Render ->
+                         HashMap Offsets Render
+            outerfold accum Offsets { offsetUpper = upper1,
+                                      offsetCol = col1 }
+                      render1 @ Render { renderIndent = indent' } =
+              case buildDynamic sgr nesting indent' doc' of
+                Single { singleUpper = upper2, singleCol = col2,
+                         singleRender = render2 } ->
+                  let
+                    (newupper, newcol, newrender) =
+                      appendOne (upper1, col1, render1) (upper2, col2, render2)
+                  in
+                    insertRender newupper newcol newrender accum
+                Multi { multiOptions = opts2 } ->
+                  let
+                    innerfold :: HashMap Offsets Render -> Offsets -> Render ->
+                                 HashMap Offsets Render
+                    innerfold accum' Offsets { offsetUpper = upper2,
+                                               offsetCol = col2 } render2 =
+                      let
+                        (newupper, newcol, newrender) =
+                          appendOne (upper1, col1, render1)
+                                    (upper2, col2, render2)
+                      in
+                        insertRender newupper newcol newrender accum'
+                  in
+                    HashMap.foldlWithKey' innerfold accum opts2
+          in
+            packResult (HashMap.foldlWithKey' outerfold HashMap.empty opts)
+
+        firstres = buildDynamic sgr nesting indent first
       in
-        foldl appendResults firstres restres
-    buildDynamic sgr nesting Nest { nestLevel = inc, nestDoc = inner } =
+        foldl appendResults firstres rest
+    buildDynamic sgr nesting indent Nest { nestLevel = lvl, nestDoc = inner,
+                                           nestAlign = alignnest } =
       let
-        newnesting = case nesting of
-          Fixed { fixedOffset = n } -> Fixed { fixedOffset = n + inc }
-          Relative { relOffset = n } -> Relative { relOffset = n + inc }
-      in
-       buildDynamic sgr newnesting inner
-    buildDynamic sgr nesting Choose { chooseOptions = options } =
+        updateRender =
+          if alignnest
+            then \r @ Render { renderBuilder = builder } ->
+                   r { renderBuilder = \_ c -> builder (c + lvl) c }
+            else \r @ Render { renderBuilder = builder } ->
+                   r { renderBuilder = \n c -> builder (n + lvl) c }
+
+        res =
+          if alignnest
+            then buildDynamic sgr (Relative lvl) indent inner
+            else
+              let
+                newnesting = case nesting of
+                  Fixed { fixedOffset = n } -> Fixed { fixedOffset = n + lvl }
+                  Relative { relOffset = n } -> Relative { relOffset = n + lvl }
+              in
+                buildDynamic sgr newnesting indent inner
+      in case res of
+        s @ Single { singleRender = r } -> s { singleRender = updateRender r }
+        m @ Multi { multiOptions = opts } ->
+          m { multiOptions = HashMap.map updateRender opts }
+    buildDynamic sgr nesting ind Choose { chooseOptions = options } =
       let
-        results = map (buildDynamic sgr nesting) options
+        results = map (buildDynamic sgr nesting ind) options
       in
         foldl1 mergeResults results
-    buildDynamic sgr _ Align { alignDoc = inner } =
-      buildDynamic sgr (Relative 0) inner
-    buildDynamic sgr1 nesting Graphics { graphicsSGR = sgr2,
-                                         graphicsDoc = inner }
+    buildDynamic sgr1 nesting ind Graphics { graphicsSGR = sgr2,
+                                             graphicsDoc = inner }
       | ansiterm =
         let
+          -- Insert graphics control characters without updating
+          -- column numbers.
           wrapBuilder r @ Render { renderBuilder = build } =
-            r { renderBuilder = \col -> switchGraphics sgr1 sgr2 `mappend`
-                                        build col `mappend`
+            r { renderBuilder = \n c -> switchGraphics sgr1 sgr2 `mappend`
+                                        build n c `mappend`
                                         switchGraphics sgr2 sgr1 }
-        in case buildDynamic sgr2 nesting inner of
+        in case buildDynamic sgr2 nesting ind inner of
           s @ Single { singleRender = render } ->
             s { singleRender = wrapBuilder render }
           m @ Multi { multiOptions = opts } ->
             m { multiOptions = HashMap.map wrapBuilder opts }
-      | otherwise = buildDynamic sgr2 nesting inner
+      | otherwise = buildDynamic sgr2 nesting ind inner
 
     Render { renderBuilder = result } =
-      case buildDynamic Default Fixed { fixedOffset = 0 } doc of
+      case buildDynamic Default Fixed { fixedOffset = 0 } False doc of
         Single { singleRender = render } -> render
         Multi opts -> bestRenderInOpts opts
   in
-    toLazyByteString (result 0)
+    toLazyByteString (result 0 0)
 
 -- | A class representing datatypes that can be formatted as 'Doc's.
 class Format item where
