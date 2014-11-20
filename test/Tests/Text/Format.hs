@@ -63,6 +63,19 @@ renderDynamicTests = [
       renderDynamic 1 False (string "hello" <>
                              align (line <> string "world" <>
                                     align (line <> string "today"))),
+    "indent" ~: Lazy.fromString "  hello" @=?
+      renderDynamic 1 False (indent 2 (string "hello")),
+    "indent_line" ~: Lazy.fromString "  hello\n  world" @=?
+      renderDynamic 1 False (indent 2 (string "hello" <> line <>
+                                       string "world")),
+    "indent_nop" ~: Lazy.fromString "hello world" @=?
+      renderDynamic 1 False (string "hello" <+> indent 2 (string "world")),
+    "indent_immediate" ~: Lazy.fromString "hello     world" @=?
+      renderDynamic 1 False (string "hello" <> indent 10 (string "world")),
+    "indent_hang" ~: Lazy.fromString "hello world\n  today" @=?
+      renderDynamic 1 False (string "hello" <+> indent 2 (string "world" <>
+                                                          line <>
+                                                          string "today")),
     "choose_lines" ~: Lazy.fromString "\n" @=?
       renderDynamic 2 False (choose [line <> line <> line, line, line <> line]),
     "choose_overrun" ~: Lazy.fromString " " @=?

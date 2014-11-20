@@ -82,6 +82,7 @@ module Text.Format(
 
        -- *** Derived
        nest,
+       indent,
        align,
        squoted,
        dquoted,
@@ -164,6 +165,7 @@ import qualified Data.ByteString.Lazy.Char8 as Lazy.Char8
 import qualified Data.ByteString.Lazy.UTF8 as Lazy.UTF8
 import qualified Data.HashMap.Strict as HashMap
 
+-- | Datatype representing a formatted document.
 data Doc =
     -- | A single character.  Cannot be a newline
     Char { charContent :: !Char }
@@ -197,6 +199,8 @@ data Doc =
       -- | Whether to align to the current column, or the base nesting
       -- level.
       nestAlign :: !Bool,
+      -- | Whether the indentation is delayed, or takes place immediately.
+      nestDelay :: !Bool,
       -- | Document whose nesting should be increased.
       nestDoc :: Doc
     }
@@ -213,16 +217,24 @@ data Doc =
       graphicsDoc :: Doc
     }
 
--- | Graphics options for ANSI terminals.
+-- | Graphics options for ANSI terminals.  All options are wrapped in
+-- the 'Maybe' datatype, with 'Nothing' meaning \"leave this option
+-- as-is\".
 data Graphics =
     -- | Set options on the terminal, or keep the current setting in
     -- the case of 'Nothing'.
     Options {
+      -- | Console intensity.
       consoleIntensity :: !(Maybe ConsoleIntensity),
+      -- | Underlining.
       underlining :: !(Maybe Underlining),
+      -- | Blinking speed.
       blinkSpeed :: !(Maybe BlinkSpeed),
+      -- | Foreground color and intensity.
       foreground :: !(Maybe (Color, ColorIntensity)),
+      -- | Background color and intensity.
       background :: !(Maybe (Color, ColorIntensity)),
+      -- | Whether or not to swap the foreground and background.
       swapForegroundBackground :: !(Maybe Bool)
     }
     -- | Reset the terminal in this mode.
@@ -422,15 +434,25 @@ space = char ' '
 equals :: Doc
 equals = char '='
 
--- | Increase the indentation level of a document by some amount.
+-- | Increase the indentation level of a document by some amount at
+-- the next newline.
 nest :: Int -> Doc -> Doc
 nest _ c @ Cat { catDocs = [] } = c
 nest lvl n @ Nest { nestLevel = lvl' } = n { nestLevel = lvl + lvl' }
-nest lvl doc = Nest { nestLevel = lvl, nestDoc = doc, nestAlign = False }
+nest lvl doc = Nest { nestDelay = True, nestAlign = False,
+                      nestLevel = lvl, nestDoc = doc }
+
+-- | Increase the indentation level of a document by some amount.
+indent :: Int -> Doc -> Doc
+indent _ c @ Cat { catDocs = [] } = c
+indent lvl n @ Nest { nestLevel = lvl' } = n { nestLevel = lvl + lvl' }
+indent lvl doc = Nest { nestDelay = False, nestAlign = False,
+                        nestLevel = lvl, nestDoc = doc }
 
 -- | Set the indentation level to the current column.
 align :: Doc -> Doc
-align inner = Nest { nestLevel = 0, nestAlign = True, nestDoc = inner }
+align inner = Nest { nestDelay = True, nestAlign = True,
+                     nestLevel = 0, nestDoc = inner }
 
 -- | Enclose a 'Doc' in single quotes
 squoted :: Doc -> Doc
@@ -768,7 +790,7 @@ data Render =
     renderBuilder :: !(Int -> Int -> Builder),
     -- | Whether or not to add indentation on the next non-empty
     -- document.
-    renderIndent :: !Bool
+    renderIndent :: !Indent
   }
 
 -- | Column data type.  Represents how rendered documents affect the
@@ -778,22 +800,73 @@ data Column =
     Fixed { fixedOffset :: !Int }
     -- | A relative column offset.
   | Relative { relOffset :: !Int }
+    -- | The greater of a relative column offset and an absolute
+    -- column offset.
+  | Maximum {
+      maxFixed :: !Int,
+      maxRelative :: !Int
+    }
+
+-- | The indent required.
+data Indent =
+    -- | Indent starting with the zero column.
+    Full
+    -- | Indent starting with the current column.
+  | Partial
+    -- | No indent.
+  | None
+    deriving Show
 
 instance Hashable Column where
   hashWithSalt s Fixed { fixedOffset = n } =
     s `hashWithSalt` (0 :: Int) `hashWithSalt` n
   hashWithSalt s Relative { relOffset = n } =
     s `hashWithSalt` (1 :: Int) `hashWithSalt` n
+  hashWithSalt s Maximum { maxFixed = fixed, maxRelative = rel } =
+    s `hashWithSalt` (2 :: Int) `hashWithSalt` fixed `hashWithSalt` rel
 
 instance Ord Column where
   compare Fixed { fixedOffset = n1 } Fixed { fixedOffset = n2 } = compare n1 n2
+  compare Fixed { fixedOffset = n }
+          Maximum { maxFixed = fixed, maxRelative = rel } =
+    case compare n fixed of
+      EQ -> case compare n rel of
+        EQ -> LT
+        out -> out
+      out -> out
   compare Fixed { fixedOffset = n1 } Relative { relOffset = n2 } =
     case compare n1 n2 of
       EQ -> LT
       out -> out
+  compare Maximum { maxFixed = fixed, maxRelative = rel }
+          Fixed { fixedOffset = n } =
+    case compare fixed n of
+      EQ -> case compare rel n of
+        EQ -> GT
+        out -> out
+      out -> out
+  compare Maximum { maxFixed = fixed1, maxRelative = rel1 }
+          Maximum { maxFixed = fixed2, maxRelative = rel2 } =
+    case compare fixed1 fixed2 of
+      EQ -> compare rel1 rel2
+      out -> out
+  compare Maximum { maxFixed = fixed, maxRelative = rel }
+          Relative { relOffset = n } =
+    case compare rel n of
+      EQ -> case compare fixed n of
+        EQ -> GT
+        out -> out
+      out -> out
   compare Relative { relOffset = n1 } Fixed { fixedOffset = n2 } =
     case compare n1 n2 of
       EQ -> GT
+      out -> out
+  compare Relative { relOffset = n }
+          Maximum { maxFixed = fixed, maxRelative = rel } =
+    case compare n rel of
+      EQ -> case compare n fixed of
+        EQ -> LT
+        out -> out
       out -> out
   compare Relative { relOffset = n1 } Relative { relOffset = n2 } =
     compare n1 n2
@@ -807,9 +880,20 @@ advance :: Column -> Column -> Column
 advance _ f @ Fixed {} = f
 advance Fixed { fixedOffset = start } Relative { relOffset = n } =
   Fixed { fixedOffset = start + n }
+advance Fixed { fixedOffset = start }
+        Maximum { maxFixed = fixed, maxRelative = rel } =
+  Fixed { fixedOffset = max fixed (start + rel) }
 advance Relative { relOffset = start } Relative { relOffset = n } =
   Relative { relOffset = start + n }
+advance Relative { relOffset = start } m @ Maximum { maxRelative = n } =
+  m { maxRelative = start + n }
+advance m @ Maximum { maxRelative = rel } Relative { relOffset = n } =
+  m { maxRelative = rel + n }
+advance Maximum { maxFixed = fixed1, maxRelative = rel1 }
+        Maximum { maxFixed = fixed2, maxRelative = rel2 } =
+  Maximum { maxFixed = max fixed2 (fixed1 + rel2), maxRelative = rel1 + rel2 }
 
+-- | Index used in the hash table.
 data Offsets =
   Offsets {
     offsetUpper :: !Int,
@@ -888,7 +972,7 @@ appendOne (upper1, col1, Render { renderBuilder = build1,
           (upper2, col2, Render { renderBuilder = build2,
                                   renderLines = lines2,
                                   renderOverrun = overrun2,
-                                  renderIndent = indent }) =
+                                  renderIndent = ind }) =
   let
     (newupper, newbuild) = case col1 of
       Fixed { fixedOffset = n } ->
@@ -897,6 +981,10 @@ appendOne (upper1, col1, Render { renderBuilder = build1,
         (min upper1 (upper2 - n),
          \nesting col -> build1 nesting col `mappend`
                          (build2 nesting $! col + n))
+      Maximum { maxRelative = rel, maxFixed = fixed } ->
+        (min upper1 (upper2 - rel),
+         \nesting col -> build1 nesting col `mappend`
+                         build2 nesting (max fixed (col + rel)))
 
     newoverrun =
       if newupper < 0
@@ -905,7 +993,7 @@ appendOne (upper1, col1, Render { renderBuilder = build1,
 
   in
     (newupper, col1 `advance` col2,
-     Render { renderBuilder = newbuild, renderIndent = indent,
+     Render { renderBuilder = newbuild, renderIndent = ind,
               renderOverrun = max (max overrun1 overrun2) newoverrun,
               renderLines = lines1 + lines2 })
 
@@ -936,6 +1024,15 @@ mergeResults m @ Multi {} s @ Single {} = mergeResults s m
 mergeResults Multi { multiOptions = opts1 } Multi { multiOptions = opts2 } =
   Multi { multiOptions = HashMap.unionWith bestRender opts1 opts2 }
 
+contentBuilder :: Indent -> Builder -> Int -> Int -> Builder
+contentBuilder Full builder nesting _ =
+  makespaces nesting `mappend` builder
+contentBuilder Partial builder nesting col =
+  if col < nesting
+    then makespaces (nesting - col) `mappend` builder
+    else builder
+contentBuilder None builder _ _ = builder
+
 renderDynamic :: Int
               -- ^ The maximum number of columns.
               -> Bool
@@ -945,51 +1042,41 @@ renderDynamic :: Int
               -> Lazy.ByteString
 renderDynamic maxcol ansiterm doc =
   let
-    buildDynamic :: Graphics -> Column -> Bool -> Doc -> Result
+    buildDynamic :: Graphics -> Column -> Indent -> Doc -> Result
     -- For char, bytestring, and lazy bytestring,
-    buildDynamic _ _ indent Char { charContent = chr } =
+    buildDynamic _ _ ind Char { charContent = chr } =
       let
         overrun = if maxcol >= 1 then Relative 0 else Relative (maxcol - 1)
-        builder =
-          if indent
-            then \n _ -> makespaces n `mappend` fromChar chr
-            else const $! const $! fromChar chr
+        builder = contentBuilder ind (fromChar chr)
       in
         Single {
           singleRender =
              Render { renderLines = 0, renderOverrun = overrun,
-                      renderBuilder = builder, renderIndent = False },
+                      renderBuilder = builder, renderIndent = None },
           singleCol = Relative 1,
           singleUpper = maxcol - 1
         }
-    buildDynamic _ _ indent Bytestring { bsContent = txt, bsLength = len } =
+    buildDynamic _ _ ind Bytestring { bsContent = txt, bsLength = len } =
       let
         overrun = if maxcol >= len then Relative 0 else Relative (len - maxcol)
-        builder =
-          if indent
-            then \n _ -> makespaces n `mappend` fromByteString txt
-            else const $! const $! fromByteString txt
+        builder = contentBuilder ind (fromByteString txt)
       in
        Single {
          singleRender =
              Render { renderLines = 0, renderOverrun = overrun,
-                      renderBuilder = builder, renderIndent = False },
+                      renderBuilder = builder, renderIndent = None },
          singleCol = Relative len,
          singleUpper = maxcol - len
        }
-    buildDynamic _ _ indent LazyBytestring { lbsContent = txt,
-                                             lbsLength = len } =
+    buildDynamic _ _ ind LazyBytestring { lbsContent = txt, lbsLength = len } =
       let
         overrun = if maxcol >= len then Relative 0 else Relative (len - maxcol)
-        builder =
-          if indent
-            then \n _ -> makespaces n `mappend` fromLazyByteString txt
-            else const $! const $! fromLazyByteString txt
+        builder = contentBuilder ind (fromLazyByteString txt)
       in
         Single {
           singleRender =
              Render { renderLines = 0, renderOverrun = overrun,
-                      renderBuilder = builder, renderIndent = False },
+                      renderBuilder = builder, renderIndent = None },
           singleCol = Relative len,
           singleUpper = maxcol - len
         }
@@ -997,27 +1084,27 @@ renderDynamic maxcol ansiterm doc =
       Single {
         singleRender =
            Render { renderOverrun = Fixed { fixedOffset = 0 },
-                    renderIndent = True, renderLines = 1,
+                    renderIndent = Full, renderLines = 1,
                     renderBuilder = const $! const $! fromChar '\n' },
         singleCol = nesting,
         singleUpper = maxcol
       }
-    buildDynamic _ _ indent Cat { catDocs = [] } =
+    buildDynamic _ _ ind Cat { catDocs = [] } =
       Single {
         singleRender =
            Render { renderOverrun = Fixed { fixedOffset = 0 },
-                    renderIndent = indent, renderLines = 0,
+                    renderIndent = ind, renderLines = 0,
                     renderBuilder = const mempty },
         singleCol = Relative { relOffset = 0 },
         singleUpper = maxcol
       }
-    buildDynamic sgr nesting indent Cat { catDocs = first : rest } =
+    buildDynamic sgr nesting ind Cat { catDocs = first : rest } =
       let
         appendResults :: Result -> Doc -> Result
         appendResults Single { singleRender =
-                                  render1 @ Render { renderIndent = indent' },
+                                  render1 @ Render { renderIndent = ind' },
                                singleUpper = upper1, singleCol = col1 } doc' =
-          case buildDynamic sgr nesting indent' doc' of
+          case buildDynamic sgr nesting ind' doc' of
             Single { singleUpper = upper2, singleCol = col2,
                      singleRender = render2 } ->
               let
@@ -1045,8 +1132,8 @@ renderDynamic maxcol ansiterm doc =
                          HashMap Offsets Render
             outerfold accum Offsets { offsetUpper = upper1,
                                       offsetCol = col1 }
-                      render1 @ Render { renderIndent = indent' } =
-              case buildDynamic sgr nesting indent' doc' of
+                      render1 @ Render { renderIndent = ind' } =
+              case buildDynamic sgr nesting ind' doc' of
                 Single { singleUpper = upper2, singleCol = col2,
                          singleRender = render2 } ->
                   let
@@ -1071,11 +1158,12 @@ renderDynamic maxcol ansiterm doc =
           in
             packResult (HashMap.foldlWithKey' outerfold HashMap.empty opts)
 
-        firstres = buildDynamic sgr nesting indent first
+        firstres = buildDynamic sgr nesting ind first
       in
         foldl appendResults firstres rest
-    buildDynamic sgr nesting indent Nest { nestLevel = lvl, nestDoc = inner,
-                                           nestAlign = alignnest } =
+    buildDynamic sgr nesting ind Nest { nestDelay = delay, nestDoc = inner,
+                                        nestAlign = alignnest,
+                                        nestLevel = lvl } =
       let
         updateRender =
           if alignnest
@@ -1084,16 +1172,20 @@ renderDynamic maxcol ansiterm doc =
             else \r @ Render { renderBuilder = builder } ->
                    r { renderBuilder = \n c -> builder (n + lvl) c }
 
+        newindent = if delay then ind else Partial
+
         res =
           if alignnest
-            then buildDynamic sgr (Relative lvl) indent inner
+            then buildDynamic sgr (Relative lvl) newindent inner
             else
               let
                 newnesting = case nesting of
                   Fixed { fixedOffset = n } -> Fixed { fixedOffset = n + lvl }
                   Relative { relOffset = n } -> Relative { relOffset = n + lvl }
+                  Maximum { maxFixed = fixed, maxRelative = rel } ->
+                    Maximum { maxFixed = fixed + lvl, maxRelative = rel + lvl }
               in
-                buildDynamic sgr newnesting indent inner
+                buildDynamic sgr newnesting newindent inner
       in case res of
         s @ Single { singleRender = r } -> s { singleRender = updateRender r }
         m @ Multi { multiOptions = opts } ->
@@ -1121,7 +1213,7 @@ renderDynamic maxcol ansiterm doc =
       | otherwise = buildDynamic sgr2 nesting ind inner
 
     Render { renderBuilder = result } =
-      case buildDynamic Default Fixed { fixedOffset = 0 } False doc of
+      case buildDynamic Default Fixed { fixedOffset = 0 } None doc of
         Single { singleRender = render } -> render
         Multi opts -> bestRenderInOpts opts
   in
