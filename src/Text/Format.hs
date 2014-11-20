@@ -25,7 +25,8 @@
 -- OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 -- SUCH DAMAGE.
 {-# OPTIONS_GHC -Wall -Werror -funbox-strict-fields #-}
-{-# LANGUAGE TypeSynonymInstances, FlexibleInstances, MultiParamTypeClasses #-}
+{-# LANGUAGE TypeSynonymInstances, FlexibleInstances,
+             MultiParamTypeClasses, UndecidableInstances #-}
 
 -- | A pretty printer implementation, based loosely on the
 -- Wadler-Leijin pretty printer, but redesigned to facilitate a
@@ -143,7 +144,8 @@ module Text.Format(
        -- * Rendering @Doc@s
        renderOneLine,
        renderFast,
-       renderDynamic
+       renderOptimal,
+       putOptimal
        ) where
 
 import Blaze.ByteString.Builder
@@ -157,6 +159,7 @@ import Data.Monoid hiding ((<>))
 import Data.Word
 import Prelude hiding (concat)
 import System.Console.ANSI
+import System.IO
 
 import qualified Data.ByteString as Strict
 import qualified Data.ByteString.UTF8 as Strict.UTF8
@@ -1033,14 +1036,14 @@ contentBuilder Partial builder nesting col =
     else builder
 contentBuilder None builder _ _ = builder
 
-renderDynamic :: Int
-              -- ^ The maximum number of columns.
-              -> Bool
-              -- ^ Whether or not to render with ANSI terminal options.
-              -> Doc
-              -- ^ The document to render.
-              -> Lazy.ByteString
-renderDynamic maxcol ansiterm doc =
+buildOptimal :: Int
+             -- ^ The maximum number of columns.
+             -> Bool
+             -- ^ Whether or not to render with ANSI terminal options.
+             -> Doc
+             -- ^ The document to render.
+             -> Builder
+buildOptimal maxcol ansiterm doc =
   let
     buildDynamic :: Graphics -> Column -> Indent -> Doc -> Result
     -- For char, bytestring, and lazy bytestring,
@@ -1217,7 +1220,32 @@ renderDynamic maxcol ansiterm doc =
         Single { singleRender = render } -> render
         Multi opts -> bestRenderInOpts opts
   in
-    toLazyByteString (result 0 0)
+    result 0 0
+
+-- | Render a 'Doc' as a lazy bytestring using an optimal layout
+-- rendering engine.  The engine will render the document in the
+-- fewest number of lines possible without exceeding the maximum
+-- column width.
+renderOptimal :: Int
+              -- ^ The maximum number of columns.
+              -> Bool
+              -- ^ Whether or not to render with ANSI terminal options.
+              -> Doc
+              -- ^ The document to render.
+              -> Lazy.ByteString
+renderOptimal cols color = toLazyByteString . buildOptimal cols color
+
+putOptimal :: Handle
+           -- ^ The 'Handle' to which to write output
+           -> Int
+           -- ^ The maximum number of columns.
+           -> Bool
+           -- ^ Whether or not to render with ANSI terminal options.
+           -> Doc
+           -- ^ The document to render.
+           -> IO ()
+putOptimal handle cols color =
+  toByteStringIO (Strict.hPut handle) . buildOptimal cols color
 
 -- | A class representing datatypes that can be formatted as 'Doc's.
 class Format item where
