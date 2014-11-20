@@ -147,7 +147,7 @@ linebreak' intoff =
     st @ BufferState { stContents = contents, stOffset = oldoff,
                        stBuffer = buf } <- get
     put st { stContents = Lazy.drop (off - oldoff) contents,
-             stBuffer = Lazy.toStrict (Lazy.take (off - oldoff) contents) :
+             stBuffer = Lazy.toStrict (Lazy.take (off - oldoff - 1) contents) :
                         buf,
              stOffset = off }
 
