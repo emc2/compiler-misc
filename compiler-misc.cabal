@@ -38,7 +38,7 @@ Test-Suite UnitTest
 --  build-depends:        base >= 4.4.0 && < 5, Cabal >= 1.16.0, pretty, containers,
 --                        hashable, prelude-extras, hashable-extras, bound, bytestring,
 --                        array, mtl, unordered-containers, hashtables, filepath, utf8-string,
---                        hexpat, hexpat-pickle, semigroups
+--                        hexpat, hexpat-pickle, semigroups, blaze-builder, ansi-terminal
 --  build-tools:          alex
 --  main-is:              Main.hs
 
