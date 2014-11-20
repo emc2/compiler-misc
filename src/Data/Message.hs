@@ -40,9 +40,6 @@ module Data.Message(
        Messages(..),
        messageContent,
        messageContentNoContext,
-       putMessageContent,
-       putMessage,
-       putMessageNoContext,
        putMessages,
        putMessagesNoContext,
        putMessageContentsXML,
@@ -50,23 +47,24 @@ module Data.Message(
        putMessagesXMLNoContext
        ) where
 
-import Control.Monad
 import Control.Monad.Positions.Class
 import Control.Monad.SourceFiles.Class
 import Control.Monad.Trans
 import Data.ByteString(ByteString)
-import Data.ByteString.Lazy.Char8(pack)
 import Data.Hashable
-import Data.Monoid
+import Data.Monoid hiding ((<>))
 import Data.Position
 import Data.PositionInfo
 import Data.Word
 import System.IO
+import Text.Format
 import Text.XML.Expat.Pickle
 import Text.XML.Expat.Tree
 
-import qualified Data.ByteString as ByteString
-import qualified Data.ByteString.Lazy.Char8 as Lazy
+import qualified Data.ByteString as Strict
+import qualified Data.ByteString.UTF8 as Strict.UTF8
+import qualified Data.ByteString.Lazy as Lazy
+import qualified Data.ByteString.Lazy.UTF8 as Lazy.UTF8
 
 -- | Datatype representing the severity category of a compiler
 -- message.  Use of these is up to an individual compiler, and it is
@@ -125,7 +123,7 @@ data MessageContent =
     -- | A detailed description of the nature of the message.
     msgDetails :: !Lazy.ByteString,
     -- | The source code context of the message.
-    msgContext :: !ByteString
+    msgContext :: ![ByteString]
   }
 
 -- | Class of types representing compiler messages.
@@ -153,6 +151,65 @@ class (Monoid msgs, Message msg) => Messages msg msgs | msgs -> msg where
   maxSeverity :: msgs -> Severity
   maxSeverity = mconcat . map severity . messages
 
+highlight :: Severity -> Doc -> Doc
+highlight Internal doc = dullMagenta doc
+highlight Error doc = dullRed doc
+highlight Warning doc = dullYellow doc
+highlight Remark doc = dullCyan doc
+highlight Lint doc = dullBlue doc
+highlight Info doc = dullGreen doc
+highlight None doc = dullBlack doc
+
+highlightVivid :: Severity -> Doc -> Doc
+highlightVivid Internal doc = vividMagenta doc
+highlightVivid Error doc = vividRed doc
+highlightVivid Warning doc = vividYellow doc
+highlightVivid Remark doc = vividCyan doc
+highlightVivid Lint doc = vividBlue doc
+highlightVivid Info doc = vividGreen doc
+highlightVivid None doc = vividBlack doc
+
+buildContext :: Severity -> PositionInfo -> [ByteString] -> Doc
+buildContext sev Span { spanStartColumn = startcol, spanEndColumn = endcol }
+             [ctx] =
+  let
+    lazy = Lazy.fromStrict ctx
+    (pre, rest) = Lazy.UTF8.splitAt (fromIntegral $! startcol - 1) lazy
+    (marked, post) = Lazy.UTF8.splitAt (fromIntegral $! endcol - startcol + 1)
+                                       rest
+  in
+    cat [lazyBytestring pre,
+         highlight sev (lazyBytestring marked),
+         lazyBytestring post, line ]
+buildContext sev Span { spanStartColumn = startcol, spanEndColumn = endcol }
+             ctx =
+  let
+    firstline = head ctx
+    middle = tail (init ctx)
+    endline = last ctx
+    lazyfirst = Lazy.fromStrict firstline
+    lazyend = Lazy.fromStrict endline
+    (pre, markedfirst) = Lazy.UTF8.splitAt (fromIntegral $! startcol - 1)
+                                           lazyfirst
+    (markedlast, post) = Lazy.UTF8.splitAt (fromIntegral $! endcol) lazyend
+    markeddocs = lazyBytestring markedfirst : map bytestring middle ++
+                 [lazyBytestring markedlast]
+  in
+    cat [lazyBytestring pre,
+         highlight sev (vcat markeddocs),
+         lazyBytestring post, line]
+buildContext sev Point { pointColumn = col } [ctx] =
+  let
+    lazy = Lazy.fromStrict ctx
+    (pre, rest) = Lazy.UTF8.splitAt (fromIntegral $! col - 1) lazy
+  in case Lazy.UTF8.uncons rest of
+    Just (chr, post) -> cat [lazyBytestring pre,
+                             highlight sev (char chr),
+                             lazyBytestring post, line]
+    Nothing -> lazyBytestring pre <> highlight sev (lazyBytestring rest) <> line
+buildContext _ _ [] = empty
+buildContext _ _ _ = error "Impossible case"
+
 -- | Translate a 'Message' into 'MessageContent'
 messageContent :: (MonadPositions m, MonadSourceFiles m, Message msg) =>
                   msg -> m MessageContent
@@ -160,13 +217,21 @@ messageContent msg =
   do
     (pinfo, ctx) <-
       case position msg of
-        Nothing -> return (Nothing, ByteString.empty)
+        Nothing -> return (Nothing, [])
         Just pos ->
           do
             pinfo <- positionInfo pos
-            ctx <- sourceFileSpan (filepath pinfo) (fst (start pinfo))
-                                  (fst (end pinfo))
-            return (Just pinfo, ByteString.concat ctx)
+            case pinfo of
+              Span { spanFile = fname, spanStartLine = startline,
+                     spanEndLine = endline } ->
+                do
+                  ctx <- sourceFileSpan fname startline endline
+                  return (Just pinfo, ctx)
+              Point { pointFile = fname, pointLine = startend } ->
+                do
+                  ctx <- sourceFileSpan fname startend startend
+                  return (Just pinfo, ctx)
+              _ -> return (Just pinfo, [])
     return MessageContent { msgSeverity = severity msg, msgKind = kind msg,
                             msgBrief = brief msg, msgDetails = details msg,
                             msgPosition = pinfo, msgContext = ctx }
@@ -186,72 +251,64 @@ messageContentNoContext msg =
             return (Just pinfo)
     return MessageContent { msgSeverity = severity msg, msgKind = kind msg,
                             msgBrief = brief msg, msgDetails = details msg,
-                            msgPosition = pinfo, msgContext = ByteString.empty }
+                            msgPosition = pinfo, msgContext = [] }
 
-putMessageContent :: Handle -> MessageContent -> IO ()
-putMessageContent handle =
+formatMessageContent :: MessageContent -> Doc
+formatMessageContent MessageContent { msgSeverity = msev,
+                                      msgPosition = mpos,
+                                      msgBrief = mbrief,
+                                      msgDetails = mdetails,
+                                      msgContext = mctx } =
   let
-    putbstr = Lazy.hPut handle
-    putstr = putbstr . Lazy.pack
-    putln = putbstr (Lazy.singleton '\n')
-    putbstrln bstr =
-      do
-        putbstr bstr
-        putbstr (Lazy.singleton '\n')
+    (posdoc, ctxdoc) = case mpos of
+      Just p -> case mctx of
+        [] -> (string " at " <> format p, empty)
+        _ -> (string " at " <> format p, buildContext msev p mctx)
+      Nothing -> (empty, empty)
 
-    putPosition Nothing = return ()
-    putPosition (Just pos) = putstr (show pos)
-
-    putSeverity Internal = putbstr (pack "Internal error")
-    putSeverity Error = putbstr (pack "Error")
-    putSeverity Warning = putbstr (pack "Warning")
-    putSeverity Remark = putbstr (pack "Remark")
-    putSeverity Lint = putbstr (pack "Lint warning")
-    putSeverity Info = putbstr (pack "Info")
-    putSeverity _ = error "Should not see a message with severity None"
-
-    putMessageContent' MessageContent { msgSeverity = msev,
-                                        msgPosition = mpos,
-                                        msgBrief = mbrief,
-                                        msgDetails = mdetails,
-                                        msgContext = mctx } =
-      do
-        putSeverity msev
-        putstr " at "
-        putPosition mpos
-        putstr ": "
-        putbstr mbrief
-        putln
-        unless (ByteString.null mctx) (putln >> putbstr (Lazy.fromStrict mctx))
-        unless (Lazy.null mdetails) (putstr "  " >> putbstrln mdetails)
+    detailsdoc =
+      if Lazy.null mdetails
+        then empty
+        else indent 2 (lazyBytestring mdetails) <> line
   in
-    putMessageContent'
+   cat [hcat [format msev, vividWhite posdoc, string ":"],
+        softline, nest 2 (lazyBytestring mbrief),
+        line, ctxdoc, detailsdoc ]
 
-putMessage :: (MonadPositions m, MonadSourceFiles m, MonadIO m, Message msg) =>
-               Handle -> msg -> m ()
-putMessage handle msg =
+formatMessage :: (MonadPositions m, MonadSourceFiles m,
+                  MonadIO m, Message msg) =>
+                 msg -> m Doc
+formatMessage msg =
   do
     contents <- messageContent msg
-    liftIO (putMessageContent handle contents)
+    return (formatMessageContent contents)
 
-putMessageNoContext :: (MonadPositions m, MonadIO m, Message msg) =>
-                       Handle -> msg -> m ()
-putMessageNoContext handle msg =
+
+formatMessageNoContext :: (MonadPositions m, MonadIO m, Message msg) =>
+                          msg -> m Doc
+formatMessageNoContext msg =
   do
     contents <- messageContentNoContext msg
-    liftIO (putMessageContent handle contents)
+    return (formatMessageContent contents)
 
 -- | Output a collection of messages to a given 'Handle' as text.
 putMessages :: (MonadPositions m, MonadSourceFiles m, MonadIO m,
                 Messages msg msgs, Message msg) =>
                Handle -> msgs -> m ()
-putMessages handle = mapM_ (putMessage handle) . messages
+putMessages handle msgs =
+  do
+    docs <- mapM formatMessage (messages msgs)
+    liftIO (putOptimal handle 80 True (vcat docs))
 
 -- | Output a collection of messages to a given 'Handle' as text.
 putMessagesNoContext :: (MonadPositions m, MonadIO m,
                          Messages msg msgs, Message msg) =>
-                     Handle -> msgs -> m ()
-putMessagesNoContext handle = mapM_ (putMessageNoContext handle) . messages
+                        Handle -> msgs -> m ()
+putMessagesNoContext handle msgs =
+  do
+    docs <- mapM formatMessageNoContext (messages msgs)
+    liftIO (putOptimal handle 80 True (vcat docs))
+
 
 putMessageContentsXML :: (MonadIO m) =>
                          Handle
@@ -296,13 +353,6 @@ instance Hashable Severity where
   hashWithSalt s Info = s `hashWithSalt` (5 :: Word)
   hashWithSalt s None = s `hashWithSalt` (6 :: Word)
 
-instance Hashable MessageContent where
-  hashWithSalt s MessageContent { msgSeverity = msev, msgKind = mkind,
-                                  msgPosition = mpos, msgBrief = mbrief,
-                                  msgDetails = mdetails, msgContext = mctx } =
-    s `hashWithSalt` msev `hashWithSalt` mkind `hashWithSalt`
-    mpos `hashWithSalt` mbrief `hashWithSalt` mdetails `hashWithSalt` mctx
-
 instance Monoid Severity where
   mempty = None
 
@@ -318,6 +368,9 @@ instance Show Severity where
   show Lint = "Lint Warning"
   show Info = "Info"
   show None = "None"
+
+instance Format Severity where
+  format sev = highlightVivid sev (string (show sev))
 
 instance (GenericXMLString tag, Show tag, GenericXMLString text) =>
          XmlPickler [(tag, text)] Severity where
@@ -369,23 +422,24 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
       unpackStr Nothing = Lazy.empty
 
       packStrict bstr
-        | bstr /= ByteString.empty = Just (gxFromByteString bstr)
+        | bstr /= Strict.empty = Just (gxFromByteString bstr)
         | otherwise = Nothing
 
       unpackStrict (Just bstr) = gxToByteString bstr
-      unpackStrict Nothing = ByteString.empty
+      unpackStrict Nothing = Strict.empty
 
       packMsgContent MessageContent { msgSeverity = msev, msgContext = mctx,
                                       msgPosition = pos, msgBrief = mbrief,
                                       msgDetails = mdetails, msgKind = mkind } =
-        ((msev, gxFromByteString mkind), (pos, packStr mbrief, packStr mdetails,
-                                        packStrict mctx))
+        ((msev, gxFromByteString mkind),
+         (pos, packStr mbrief, packStr mdetails,
+          packStrict (Strict.intercalate (Strict.UTF8.fromString "\n") mctx)))
 
       unpackMsgContent ((msev, mkind), (pos, mbrief, mdetails, mctx)) =
-        MessageContent { msgSeverity = msev, msgContext =  unpackStrict mctx,
+        MessageContent { msgSeverity = msev,msgDetails = unpackStr mdetails,
+                         msgContext = Strict.UTF8.lines (unpackStrict mctx),
                          msgPosition = pos, msgBrief = unpackStr mbrief,
-                         msgKind = gxToByteString mkind,
-                         msgDetails = unpackStr mdetails }
+                         msgKind = gxToByteString mkind }
     in
       xpWrap (unpackMsgContent, packMsgContent)
              (xpElem (gxFromString "message")
