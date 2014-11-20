@@ -42,6 +42,7 @@ import Data.ByteString.Char8
 import Data.Hashable
 import Data.Semigroup
 import Data.Word
+import Text.Format hiding (line)
 import Text.XML.Expat.Pickle
 import Text.XML.Expat.Tree
 
@@ -124,18 +125,25 @@ instance Semigroup PositionInfo where
     | otherwise = error "Cannot combine positions in different files"
   p1 <> p2 = error $! "Cannot combine positions " ++ show p1 ++ ", " ++ show p2
 
+instance Format PositionInfo where
+  format Span { spanStartLine = startline, spanStartColumn = startcol,
+                spanEndLine = endline, spanEndColumn = endcol,
+                spanFile = fname }
+    | startline == endline =
+      cat [ bytestring fname, char ':', format startline, char '.',
+            format startcol, char '-', format endcol ]
+    | otherwise =
+      hcat [ bytestring fname, char ':', format startline, char '.',
+             format startcol, char '-', format endline, char '.',
+             format endcol ]
+  format Point { pointLine = line, pointColumn = col, pointFile = fname } =
+    hcat [ bytestring fname, char ':', format line, char '.', format col ]
+  format EndOfFile { eofFile = fname } =
+     bytestring fname `beside` string ": end of input"
+  format Synthetic { synthDesc = desc } = bytestring desc
+
 instance Show PositionInfo where
-  show Span { spanStartLine = startline, spanStartColumn = startcol,
-              spanEndLine = endline, spanEndColumn = endcol,
-              spanFile = fname }
-    | startline == endline = unpack fname ++ ":" ++ show startline ++ "." ++
-                             show startcol ++ "-" ++ show endcol
-    | otherwise = show fname ++ ":" ++ show startline ++ "." ++ show startcol ++
-                  "-" ++ show endline ++ "." ++ show endcol
-  show Point { pointLine = line, pointColumn = col, pointFile = fname } =
-    unpack fname ++ ":" ++ show line ++ "." ++ show col
-  show EndOfFile { eofFile = fname } = unpack fname ++ ": end of input"
-  show Synthetic { synthDesc = desc } = unpack desc
+  show = show . renderOneLine . format
 
 instance Hashable PositionInfo where
   hashWithSalt s Span { spanStartLine = startline, spanEndLine = endline,
