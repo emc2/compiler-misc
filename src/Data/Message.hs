@@ -115,9 +115,6 @@ data MessageContent =
     msgSeverity :: !Severity,
     -- | The position of the message.
     msgPosition :: !(Maybe PositionInfo),
-    -- | A unique text key representing the kind of the message.  This
-    -- is intended for use in XML attributes and internationalization.
-    msgKind :: !ByteString,
     -- | A brief description of the nature of the message.
     msgBrief :: !Lazy.ByteString,
     -- | A detailed description of the nature of the message.
@@ -132,9 +129,6 @@ class Message msg where
   severity :: msg -> Severity
   -- | Get the position to which the message relates.
   position :: msg -> Maybe Position
-  -- | Get a unique text name for the error.  This is intended for use
-  -- in XML attributes and internationalization.
-  kind :: msg -> ByteString
   -- | Get a brief human-readable description of the error.
   brief :: msg -> Lazy.ByteString
   -- | Get a detailed human-readable description of the error.
@@ -169,6 +163,8 @@ highlightVivid Lint doc = vividBlue doc
 highlightVivid Info doc = vividGreen doc
 highlightVivid None doc = vividBlack doc
 
+-- | Build a 'Doc' for context information that highlights the section
+-- referenced by the 'PositionInfo'.
 buildContext :: Severity -> PositionInfo -> [ByteString] -> Doc
 buildContext sev Span { spanStartColumn = startcol, spanEndColumn = endcol }
              [ctx] =
@@ -232,9 +228,9 @@ messageContent msg =
                   ctx <- sourceFileSpan fname startend startend
                   return (Just pinfo, ctx)
               _ -> return (Just pinfo, [])
-    return MessageContent { msgSeverity = severity msg, msgKind = kind msg,
-                            msgBrief = brief msg, msgDetails = details msg,
-                            msgPosition = pinfo, msgContext = ctx }
+    return MessageContent { msgSeverity = severity msg, msgBrief = brief msg,
+                            msgDetails = details msg, msgPosition = pinfo,
+                            msgContext = ctx }
 
 -- | Translate a 'Message' into 'MessageContent', without getting
 -- source context.
@@ -249,9 +245,9 @@ messageContentNoContext msg =
           do
             pinfo <- positionInfo pos
             return (Just pinfo)
-    return MessageContent { msgSeverity = severity msg, msgKind = kind msg,
-                            msgBrief = brief msg, msgDetails = details msg,
-                            msgPosition = pinfo, msgContext = [] }
+    return MessageContent { msgSeverity = severity msg, msgBrief = brief msg,
+                            msgDetails = details msg, msgPosition = pinfo,
+                            msgContext = [] }
 
 formatMessageContent :: MessageContent -> Doc
 formatMessageContent MessageContent { msgSeverity = msev,
@@ -409,7 +405,6 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
   xpickle =
     let
       posName = gxFromString "position"
-      kindName = gxFromString "kind"
       briefName = gxFromString "brief"
       detailsName = gxFromString "details"
       ctxName = gxFromString "context"
@@ -430,20 +425,19 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
 
       packMsgContent MessageContent { msgSeverity = msev, msgContext = mctx,
                                       msgPosition = pos, msgBrief = mbrief,
-                                      msgDetails = mdetails, msgKind = mkind } =
-        ((msev, gxFromByteString mkind),
+                                      msgDetails = mdetails } =
+        (msev,
          (pos, packStr mbrief, packStr mdetails,
           packStrict (Strict.intercalate (Strict.UTF8.fromString "\n") mctx)))
 
-      unpackMsgContent ((msev, mkind), (pos, mbrief, mdetails, mctx)) =
+      unpackMsgContent (msev, (pos, mbrief, mdetails, mctx)) =
         MessageContent { msgSeverity = msev,msgDetails = unpackStr mdetails,
                          msgContext = Strict.UTF8.lines (unpackStrict mctx),
-                         msgPosition = pos, msgBrief = unpackStr mbrief,
-                         msgKind = gxToByteString mkind }
+                         msgPosition = pos, msgBrief = unpackStr mbrief }
     in
       xpWrap (unpackMsgContent, packMsgContent)
              (xpElem (gxFromString "message")
-                     (xpPair xpickle (xpAttr kindName xpText))
+                     xpickle
                      (xp4Tuple (xpOption (xpElemNodes posName
                                                       xpickle))
                                (xpOption (xpElemNodes briefName
