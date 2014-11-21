@@ -54,8 +54,15 @@ module Text.AlexWrapper(
        alexGetUserState,
        alexSetUserState,
        mkAlexActions,
+       linebreak,
        andBegin,
+       produce,
        token,
+       log,
+       record,
+       report,
+       andThen,
+       orElse,
        runAlexT
        ) where
 
@@ -64,8 +71,9 @@ import Control.Monad.Genpos.Class
 import Data.Position
 import Data.Int
 import Data.Word (Word8)
-import Prelude hiding (span)
+import Prelude hiding (span, log)
 
+import qualified Control.Monad.SourceBuffer as SourceBuffer
 import qualified Data.ByteString.Lazy as ByteString
 import qualified Data.ByteString.Internal as ByteString (w2c)
 import qualified Data.ByteString as Strict
@@ -214,8 +222,8 @@ mkPosition :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
 mkPosition (AlexPn _ startline startcol) (AlexPn _ endline endcol) =
   do
     fname <- alexGetFileName
-    span fname (fromIntegral startline) (fromIntegral startcol)
-         (fromIntegral endline) (fromIntegral (endcol - 1))
+    between fname (fromIntegral startline) (fromIntegral startcol)
+            (fromIntegral endline) (fromIntegral (endcol - 1))
 
 mkAlexActions :: forall us m result .
                  (MonadState (AlexInternalState us) m, MonadGenpos m) =>
@@ -242,8 +250,9 @@ mkAlexActions scanWrapper alexError alexEOF =
             do
               put st { alex_badchars = Nothing }
               fname <- alexGetFileName
-              pos <- span fname (fromIntegral startline) (fromIntegral startcol)
-                          (fromIntegral endline) (fromIntegral endcol)
+              pos <- between fname (fromIntegral startline)
+                             (fromIntegral startcol) (fromIntegral endline)
+                             (fromIntegral endcol)
               alexError (Char8.take (fromIntegral len) chars) pos
 
     bufferBadChars :: ByteString.ByteString -> AlexPosn -> m ()
@@ -308,10 +317,58 @@ andBegin :: MonadState (AlexInternalState us) m =>
     alexSetStartCode code
     action startpos endpos tokstr
 
-token :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
-         (ByteString.ByteString -> Position -> m token) ->
-         AlexMonadAction m token
-token t startpos endpos bstr =
+linebreak :: SourceBuffer.MonadSourceBuffer m => AlexMonadAction m ()
+linebreak _ (AlexPn off _ _) _ = SourceBuffer.linebreak off
+
+log :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
+       (ByteString.ByteString -> Position -> m ()) ->
+       AlexMonadAction m ()
+log t startpos endpos bstr =
   do
     pos <- mkPosition startpos endpos
     t bstr pos
+
+-- | Perform an action that uses the matched text.
+record :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
+          (ByteString.ByteString -> m ()) ->
+          AlexMonadAction m ()
+record t = const . const t
+
+report :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
+          (Position -> m ())
+       -> AlexMonadAction m ()
+report = log . const
+
+produce :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
+           (ByteString.ByteString -> Position -> m a)
+        -> AlexMonadAction m a
+produce t startpos endpos bstr =
+  do
+    pos <- mkPosition startpos endpos
+    t bstr pos
+
+token :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
+         (Position -> m a)
+      -> AlexMonadAction m a
+token t startpos endpos _ =
+  do
+    pos <- mkPosition startpos endpos
+    t pos
+
+orElse :: Monad m =>
+          AlexMonadAction m (Maybe a) ->
+          AlexMonadAction m a ->
+          AlexMonadAction m a
+orElse act def startpos endpos tokstr =
+  do
+    res <- act startpos endpos tokstr
+    case res of
+      Just out -> return out
+      Nothing -> def startpos endpos tokstr
+
+andThen :: Monad m =>
+           AlexMonadAction m a
+        -> AlexMonadAction m b
+        -> AlexMonadAction m b
+andThen a b startpos endpos tokstr =
+  a startpos endpos tokstr >> b startpos endpos tokstr
