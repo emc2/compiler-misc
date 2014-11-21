@@ -29,29 +29,29 @@
 -- SUCH DAMAGE.
 {-# OPTIONS_GHC -Wall -Werror #-}
 
-module Control.Monad.Lexer(
+module Control.Monad.Frontend(
        MonadCommentBuffer(..),
        MonadGenpos(..),
        MonadGensym(..),
        MonadPositions(..),
        MonadKeywords(..),
        MonadMessages(..),
-       LexerT,
-       Lexer,
-       LexerNoCommentsT,
-       LexerNoComments,
-       LexerNoBufferT,
-       LexerNoBuffer,
-       LexerNoCommentsNoBufferT,
-       LexerNoCommentsNoBuffer,
-       runLexerT,
-       runLexer,
-       runLexerNoCommentsT,
-       runLexerNoComments,
-       runLexerNoBufferT,
-       runLexerNoBuffer,
-       runLexerNoCommentsNoBufferT,
-       runLexerNoCommentsNoBuffer
+       FrontendT,
+       Frontend,
+       FrontendNoCommentsT,
+       FrontendNoComments,
+       FrontendNoBufferT,
+       FrontendNoBuffer,
+       FrontendNoCommentsNoBufferT,
+       FrontendNoCommentsNoBuffer,
+       runFrontendT,
+       runFrontend,
+       runFrontendNoCommentsT,
+       runFrontendNoComments,
+       runFrontendNoBufferT,
+       runFrontendNoBuffer,
+       runFrontendNoCommentsNoBufferT,
+       runFrontendNoCommentsNoBuffer
        ) where
 
 import Control.Monad.CommentBuffer
@@ -65,38 +65,38 @@ import Control.Monad.Trans
 import Data.ByteString
 import Data.Position
 
--- | Lexer monad transformer
-type LexerT tok m =
+-- | Frontend monad transformer
+type FrontendT tok m =
   (KeywordsT tok (CommentBufferT (SourceBufferT (GenposT (GensymT m)))))
 
--- | Lexer monad
-type Lexer tok = LexerT tok IO
+-- | Frontend monad
+type Frontend tok = FrontendT tok IO
 
--- | Lexer monad transformer without comment buffering
-type LexerNoCommentsT tok m a =
+-- | Frontend monad transformer without comment buffering
+type FrontendNoCommentsT tok m a =
   (KeywordsT tok (SkipCommentsT (SourceBufferT (GenposT (GensymT m))))) a
 
--- | Lexer monad without comment buffering
-type LexerNoComments tok a = LexerNoCommentsT tok IO a
+-- | Frontend monad without comment buffering
+type FrontendNoComments tok a = FrontendNoCommentsT tok IO a
 
--- | Lexer monad transformer without source buffering
-type LexerNoBufferT tok m =
+-- | Frontend monad transformer without source buffering
+type FrontendNoBufferT tok m =
   (KeywordsT tok (CommentBufferT (GenposT (GensymT m))))
 
--- | Lexer monad without source buffering
-type LexerNoBuffer tok = LexerNoBufferT tok IO
+-- | Frontend monad without source buffering
+type FrontendNoBuffer tok = FrontendNoBufferT tok IO
 
--- | Lexer monad transformer without source buffering
-type LexerNoCommentsNoBufferT tok m =
+-- | Frontend monad transformer without source buffering
+type FrontendNoCommentsNoBufferT tok m =
   (KeywordsT tok (SkipCommentsT (GenposT (GensymT m))))
 
--- | Lexer monad without source buffering
-type LexerNoCommentsNoBuffer tok = LexerNoCommentsNoBufferT tok IO
+-- | Frontend monad without source buffering
+type FrontendNoCommentsNoBuffer tok = FrontendNoCommentsNoBufferT tok IO
 
-runLexerT :: MonadIO m => LexerT tok m a
+runFrontendT :: MonadIO m => FrontendT tok m a
           -> [(ByteString, Position -> tok)]
           -> m a
-runLexerT lexer keywords =
+runFrontendT lexer keywords =
   let
     commentbuffer = runKeywordsT lexer keywords
     srcbuf = runCommentBufferT commentbuffer
@@ -105,15 +105,15 @@ runLexerT lexer keywords =
   in
     startGensymT gensym
 
-runLexer :: Lexer tok a
-         -> [(ByteString, Position -> tok)]
-         -> IO a
-runLexer = runLexerT
+runFrontend :: Frontend tok a
+            -> [(ByteString, Position -> tok)]
+            -> IO a
+runFrontend = runFrontendT
 
-runLexerNoCommentsT :: MonadIO m => LexerNoCommentsT tok m a
-                    -> [(ByteString, Position -> tok)]
-                    -> m a
-runLexerNoCommentsT lexer keywords =
+runFrontendNoCommentsT :: MonadIO m => FrontendNoCommentsT tok m a
+                       -> [(ByteString, Position -> tok)]
+                       -> m a
+runFrontendNoCommentsT lexer keywords =
   let
     commentbuffer = runKeywordsT lexer keywords
     srcbuf = runSkipCommentsT commentbuffer
@@ -122,15 +122,15 @@ runLexerNoCommentsT lexer keywords =
   in
     startGensymT gensym
 
-runLexerNoComments :: LexerNoComments tok a
-                   -> [(ByteString, Position -> tok)]
-                   -> IO a
-runLexerNoComments = runLexerNoCommentsT
+runFrontendNoComments :: FrontendNoComments tok a
+                      -> [(ByteString, Position -> tok)]
+                      -> IO a
+runFrontendNoComments = runFrontendNoCommentsT
 
-runLexerNoBufferT :: MonadIO m => LexerNoBufferT tok m a
-                  -> [(ByteString, Position -> tok)]
-                  -> m a
-runLexerNoBufferT lexer keywords =
+runFrontendNoBufferT :: MonadIO m => FrontendNoBufferT tok m a
+                     -> [(ByteString, Position -> tok)]
+                     -> m a
+runFrontendNoBufferT lexer keywords =
   let
     commentbuffer = runKeywordsT lexer keywords
     genpos = runCommentBufferT commentbuffer
@@ -138,15 +138,15 @@ runLexerNoBufferT lexer keywords =
   in
     startGensymT gensym
 
-runLexerNoBuffer :: LexerNoBuffer tok a
-                 -> [(ByteString, Position -> tok)]
-                 -> IO a
-runLexerNoBuffer = runLexerNoBufferT
+runFrontendNoBuffer :: FrontendNoBuffer tok a
+                    -> [(ByteString, Position -> tok)]
+                    -> IO a
+runFrontendNoBuffer = runFrontendNoBufferT
 
-runLexerNoCommentsNoBufferT :: MonadIO m => LexerNoBufferT tok m a
-                            -> [(ByteString, Position -> tok)]
-                            -> m a
-runLexerNoCommentsNoBufferT lexer keywords =
+runFrontendNoCommentsNoBufferT :: MonadIO m => FrontendNoBufferT tok m a
+                               -> [(ByteString, Position -> tok)]
+                               -> m a
+runFrontendNoCommentsNoBufferT lexer keywords =
   let
     commentbuffer = runKeywordsT lexer keywords
     genpos = runCommentBufferT commentbuffer
@@ -154,7 +154,7 @@ runLexerNoCommentsNoBufferT lexer keywords =
   in
     startGensymT gensym
 
-runLexerNoCommentsNoBuffer :: LexerNoBuffer tok a
-                           -> [(ByteString, Position -> tok)]
-                           -> IO a
-runLexerNoCommentsNoBuffer = runLexerNoBufferT
+runFrontendNoCommentsNoBuffer :: FrontendNoBuffer tok a
+                              -> [(ByteString, Position -> tok)]
+                              -> IO a
+runFrontendNoCommentsNoBuffer = runFrontendNoBufferT

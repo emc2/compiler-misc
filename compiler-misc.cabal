@@ -56,13 +56,13 @@ Library
                         Control.Monad.Comments
                         Control.Monad.Comments.Class
                         Control.Monad.Context
+                        Control.Monad.Frontend
                         Control.Monad.Genpos
                         Control.Monad.Genpos.Class
                         Control.Monad.Gensym
                         Control.Monad.Gensym.Class
                         Control.Monad.Keywords
                         Control.Monad.Keywords.Class
-                        Control.Monad.Lexer
                         Control.Monad.Messages
                         Control.Monad.Messages.Class
                         Control.Monad.Positions
