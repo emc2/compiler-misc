@@ -62,6 +62,7 @@ Library
                         Control.Monad.Gensym.Class
                         Control.Monad.Keywords
                         Control.Monad.Keywords.Class
+                        Control.Monad.Lexer
                         Control.Monad.Messages
                         Control.Monad.Messages.Class
                         Control.Monad.Positions
@@ -84,4 +85,8 @@ Library
                         Text.AlexWrapper
                         Text.Format
                         Text.Escapes
+                        Text.Escapes.ByteString
+                        Text.Escapes.ByteString.Lazy
                         Text.Numbers
+                        Text.Numbers.ByteString
+                        Text.Numbers.ByteString.Lazy
