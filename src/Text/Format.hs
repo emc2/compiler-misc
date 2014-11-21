@@ -110,6 +110,22 @@ module Text.Format(
        vividCyan,
        vividMagenta,
        vividBlack,
+       dullWhiteBackground,
+       dullRedBackground,
+       dullYellowBackground,
+       dullGreenBackground,
+       dullBlueBackground,
+       dullCyanBackground,
+       dullMagentaBackground,
+       dullBlackBackground,
+       vividWhiteBackground,
+       vividRedBackground,
+       vividYellowBackground,
+       vividGreenBackground,
+       vividBlueBackground,
+       vividCyanBackground,
+       vividMagentaBackground,
+       vividBlackBackground,
 
        -- ** Combining @Doc@s
 
@@ -629,6 +645,150 @@ vividBlack = graphics Options { consoleIntensity = Nothing,
                                 foreground = Just (Black, Vivid),
                                 background = Nothing,
                                 swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc's background dull white.
+dullWhiteBackground :: Doc -> Doc
+dullWhiteBackground = graphics Options { consoleIntensity = Nothing,
+                                         underlining = Nothing,
+                                         blinkSpeed = Nothing,
+                                         background = Just (White, Dull),
+                                         foreground = Nothing,
+                                         swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc's background dull red.
+dullRedBackground :: Doc -> Doc
+dullRedBackground = graphics Options { consoleIntensity = Nothing,
+                                       underlining = Nothing,
+                                       blinkSpeed = Nothing,
+                                       background = Just (Red, Dull),
+                                       foreground = Nothing,
+                                       swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc's background dull yellow.
+dullYellowBackground :: Doc -> Doc
+dullYellowBackground = graphics Options { consoleIntensity = Nothing,
+                                          underlining = Nothing,
+                                          blinkSpeed = Nothing,
+                                          background = Just (Yellow, Dull),
+                                          foreground = Nothing,
+                                          swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc's background dull green.
+dullGreenBackground :: Doc -> Doc
+dullGreenBackground = graphics Options { consoleIntensity = Nothing,
+                                         underlining = Nothing,
+                                         blinkSpeed = Nothing,
+                                         background = Just (Green, Dull),
+                                         foreground = Nothing,
+                                         swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc's background dull blue.
+dullBlueBackground :: Doc -> Doc
+dullBlueBackground = graphics Options { consoleIntensity = Nothing,
+                                        underlining = Nothing,
+                                        blinkSpeed = Nothing,
+                                        background = Just (Blue, Dull),
+                                        foreground = Nothing,
+                                        swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc's background dull cyan.
+dullCyanBackground :: Doc -> Doc
+dullCyanBackground = graphics Options { consoleIntensity = Nothing,
+                                        underlining = Nothing,
+                                        blinkSpeed = Nothing,
+                                        background = Just (Cyan, Dull),
+                                        foreground = Nothing,
+                                        swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc's background dull magenta.
+dullMagentaBackground :: Doc -> Doc
+dullMagentaBackground = graphics Options { consoleIntensity = Nothing,
+                                           underlining = Nothing,
+                                           blinkSpeed = Nothing,
+                                           background = Just (Magenta, Dull),
+                                           foreground = Nothing,
+                                           swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc's background dull black.
+dullBlackBackground :: Doc -> Doc
+dullBlackBackground = graphics Options { consoleIntensity = Nothing,
+                                         underlining = Nothing,
+                                         blinkSpeed = Nothing,
+                                         background = Just (Black, Dull),
+                                         foreground = Nothing,
+                                         swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc's background vivid white.
+vividWhiteBackground :: Doc -> Doc
+vividWhiteBackground = graphics Options { consoleIntensity = Nothing,
+                                          underlining = Nothing,
+                                          blinkSpeed = Nothing,
+                                          background = Just (White, Vivid),
+                                          foreground = Nothing,
+                                          swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc's background vivid red.
+vividRedBackground :: Doc -> Doc
+vividRedBackground = graphics Options { consoleIntensity = Nothing,
+                                        underlining = Nothing,
+                                        blinkSpeed = Nothing,
+                                        background = Just (Red, Vivid),
+                                        foreground = Nothing,
+                                        swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc's background vivid yellow.
+vividYellowBackground :: Doc -> Doc
+vividYellowBackground = graphics Options { consoleIntensity = Nothing,
+                                           underlining = Nothing,
+                                           blinkSpeed = Nothing,
+                                           background = Just (Yellow, Vivid),
+                                           foreground = Nothing,
+                                           swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc's background vivid green.
+vividGreenBackground :: Doc -> Doc
+vividGreenBackground = graphics Options { consoleIntensity = Nothing,
+                                          underlining = Nothing,
+                                          blinkSpeed = Nothing,
+                                          background = Just (Green, Vivid),
+                                          foreground = Nothing,
+                                          swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc's background vivid blue.
+vividBlueBackground :: Doc -> Doc
+vividBlueBackground = graphics Options { consoleIntensity = Nothing,
+                                         underlining = Nothing,
+                                         blinkSpeed = Nothing,
+                                         background = Just (Blue, Vivid),
+                                         foreground = Nothing,
+                                         swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc's background vivid cyan.
+vividCyanBackground :: Doc -> Doc
+vividCyanBackground = graphics Options { consoleIntensity = Nothing,
+                                         underlining = Nothing,
+                                         blinkSpeed = Nothing,
+                                         background = Just (Cyan, Vivid),
+                                         foreground = Nothing,
+                                         swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc's background vivid magenta.
+vividMagentaBackground :: Doc -> Doc
+vividMagentaBackground = graphics Options { consoleIntensity = Nothing,
+                                            underlining = Nothing,
+                                            blinkSpeed = Nothing,
+                                            background = Just (Magenta, Vivid),
+                                            foreground = Nothing,
+                                            swapForegroundBackground = Nothing }
+
+-- | Color a 'Doc's background vivid black.
+vividBlackBackground :: Doc -> Doc
+vividBlackBackground = graphics Options { consoleIntensity = Nothing,
+                                          underlining = Nothing,
+                                          blinkSpeed = Nothing,
+                                          background = Just (Black, Vivid),
+                                          foreground = Nothing,
+                                          swapForegroundBackground = Nothing }
 
 -- | Join two 'Doc's with no space in between.
 (<>) :: Doc -> Doc -> Doc
