@@ -144,6 +144,7 @@ module Text.Format(
        -- * Rendering @Doc@s
        renderOneLine,
        renderFast,
+       putFast,
        renderOptimal,
        putOptimal
        ) where
@@ -782,6 +783,12 @@ buildFast Graphics { graphicsDoc = inner } = buildFast inner
 renderFast :: Doc -> Lazy.ByteString
 renderFast = toLazyByteString . buildFast
 
+-- | Output the entire document, as rendered by renderFast to the
+-- given 'Handle'.
+putFast :: Handle -> Doc -> IO ()
+putFast handle =
+  toByteStringIO (Strict.hPut handle) . buildFast
+
 -- | A rendering of a document.
 data Render =
   Render {
@@ -1295,6 +1302,3 @@ instance Format Float where
 
 instance Format Double where
   format = string . show
-
-instance (Monad m, Format item) => FormatM m item where
-  formatM = return . format
