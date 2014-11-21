@@ -41,7 +41,7 @@ import Control.Monad.State
 import Control.Monad.Writer
 import Data.ByteString
 import Data.Position
-import Data.PositionInfo hiding (start, end)
+import Data.PositionInfo
 import Data.Word
 
 -- | An extension to the 'MonadPositions' class that adds the ability
@@ -53,18 +53,36 @@ class MonadPositions m => MonadGenpos m where
            -> m Position
 
   -- | Create a span position from two existing positions.
-  span :: ByteString
-       -- ^ The file name
-       -> Word
-       -- ^ The starting line
-       -> Word
-       -- ^ The starting column
-       -> Word
-       -- ^ The ending line
-       -> Word
-       -- ^ The ending column
-       -> m Position
-  span fname startline startcol endline endcol
+  span :: Position -> Position -> m Position
+  span startpos endpos =
+    do
+      startpinfo <- positionInfo startpos
+      endpinfo <- positionInfo endpos
+      if filepath startpinfo == filepath endpinfo
+        then
+          let
+            fname = filepath startpinfo
+            (startline, startcol) = start startpinfo
+            (endline, endcol) = end endpinfo
+          in
+            between fname startline startcol endline endcol
+        else error $! "Trying to combine positions from different files" ++
+                      show (filepath startpinfo) ++ " and " ++
+                      show (filepath endpinfo)
+
+  -- | Create a span position from raw data.
+  between :: ByteString
+          -- ^ The file name
+          -> Word
+          -- ^ The starting line
+          -> Word
+          -- ^ The starting column
+          -> Word
+          -- ^ The ending line
+          -> Word
+          -- ^ The ending column
+          -> m Position
+  between fname startline startcol endline endcol
     | startline == endline && startcol == endcol =
        point fname startline startcol
     | otherwise =
