@@ -35,6 +35,7 @@
 -- messages.
 module Data.Message(
        Severity(Internal, Error, Warning, Remark, Lint, Info),
+       Highlighting(..),
        MessageContent(..),
        Message(..),
        Messages(..),
@@ -65,6 +66,13 @@ import qualified Data.ByteString as Strict
 import qualified Data.ByteString.UTF8 as Strict.UTF8
 import qualified Data.ByteString.Lazy as Lazy
 import qualified Data.ByteString.Lazy.UTF8 as Lazy.UTF8
+
+-- | Indicates how to highlight text in the message context.
+data Highlighting =
+    -- | Highlight foreground text.
+    Foreground
+    -- | Highlight background text.
+  | Background
 
 -- | Datatype representing the severity category of a compiler
 -- message.  Use of these is up to an individual compiler, and it is
@@ -133,6 +141,10 @@ class Message msg where
   brief :: msg -> Lazy.ByteString
   -- | Get a detailed human-readable description of the error.
   details :: msg -> Lazy.ByteString
+  -- | Indicate how to highlight text.  The default is foreground, as
+  -- that is almost always correct.
+  highlighting :: msg -> Highlighting
+  highlighting _ = Foreground
 
 -- | Class of types representing a collection of compiler messages.
 class (Monoid msgs, Message msg) => Messages msg msgs | msgs -> msg where
@@ -145,14 +157,21 @@ class (Monoid msgs, Message msg) => Messages msg msgs | msgs -> msg where
   maxSeverity :: msgs -> Severity
   maxSeverity = mconcat . map severity . messages
 
-highlight :: Severity -> Doc -> Doc
-highlight Internal doc = dullMagenta doc
-highlight Error doc = dullRed doc
-highlight Warning doc = dullYellow doc
-highlight Remark doc = dullCyan doc
-highlight Lint doc = dullBlue doc
-highlight Info doc = dullGreen doc
-highlight None doc = dullBlack doc
+highlight :: Highlighting -> Severity -> Doc -> Doc
+highlight Foreground Internal doc = dullMagenta doc
+highlight Background Internal doc = dullMagentaBackground doc
+highlight Foreground Error doc = dullRed doc
+highlight Background Error doc = dullRedBackground doc
+highlight Foreground Warning doc = dullYellow doc
+highlight Background Warning doc = dullYellowBackground doc
+highlight Foreground Remark doc = dullCyan doc
+highlight Background Remark doc = dullCyanBackground doc
+highlight Foreground Lint doc = dullBlue doc
+highlight Background Lint doc = dullBlueBackground doc
+highlight Foreground Info doc = dullGreen doc
+highlight Background Info doc = dullGreenBackground doc
+highlight Foreground None doc = dullBlack doc
+highlight Background None doc = dullBlackBackground doc
 
 highlightVivid :: Severity -> Doc -> Doc
 highlightVivid Internal doc = vividMagenta doc
@@ -163,48 +182,93 @@ highlightVivid Lint doc = vividBlue doc
 highlightVivid Info doc = vividGreen doc
 highlightVivid None doc = vividBlack doc
 
+advance :: Char -> (Word, String) -> (Word, String)
+advance '\t' (currcol, str) =
+  let
+    newcol = ((currcol + 7) `div` 8) * 8 + 1
+    newstr = replicate (fromIntegral (newcol - currcol)) ' ' ++ str
+  in
+    (newcol, newstr)
+advance chr (currcol, str) = (currcol + 1, chr : str)
+
+splitTwo :: Word -> Lazy.ByteString -> (String, String)
+splitTwo col bstr =
+  let
+    foldfun :: (Word, String, String) -> Char -> (Word, String, String)
+    foldfun (off, pre', post') chr
+      | off < col =
+        let
+          (newcol, newpre) = advance chr (off, pre')
+        in
+          (newcol, newpre, post')
+      | otherwise =
+        let
+          (newcol, newpost) = advance chr (off, post')
+        in
+          (newcol, pre', newpost)
+    (_, pre, post) = Lazy.UTF8.foldl foldfun (1, "", "") bstr
+  in
+    (reverse pre, reverse post)
+
+splitThree :: Word -> Word -> Lazy.ByteString -> (String, String, String)
+splitThree startcol endcol bstr =
+  let
+    foldfun :: (Word, String, String, String) -> Char ->
+               (Word, String, String, String)
+    foldfun (off, pre', mid', post') chr
+      | off < startcol =
+        let
+          (newoff, newpre) = advance chr (off, pre')
+        in
+          (newoff, newpre, mid', post')
+      | off > endcol =
+        let
+          (newoff, newpost) = advance chr (off, post')
+        in
+          (newoff, pre', mid', newpost)
+      | otherwise =
+        let
+          (newoff, newmid) = advance chr (off, mid')
+        in
+          (newoff, pre', newmid, post')
+    (_, pre, mid, post) = Lazy.UTF8.foldl foldfun (1, "", "", "") bstr
+  in
+    (reverse pre, reverse mid, reverse post)
+
 -- | Build a 'Doc' for context information that highlights the section
 -- referenced by the 'PositionInfo'.
-buildContext :: Severity -> PositionInfo -> [ByteString] -> Doc
-buildContext sev Span { spanStartColumn = startcol, spanEndColumn = endcol }
-             [ctx] =
+buildContext :: Highlighting -> Severity -> PositionInfo -> [ByteString] -> Doc
+buildContext hlight sev Span { spanStartColumn = startcol,
+                               spanEndColumn = endcol } [ctx] =
   let
     lazy = Lazy.fromStrict ctx
-    (pre, rest) = Lazy.UTF8.splitAt (fromIntegral $! startcol - 1) lazy
-    (marked, post) = Lazy.UTF8.splitAt (fromIntegral $! endcol - startcol + 1)
-                                       rest
+    (pre, mid, post) = splitThree startcol endcol lazy
   in
-    cat [lazyBytestring pre,
-         highlight sev (lazyBytestring marked),
-         lazyBytestring post, line ]
-buildContext sev Span { spanStartColumn = startcol, spanEndColumn = endcol }
-             ctx =
+    cat [string pre,
+         highlight hlight sev (string mid),
+         string post, line ]
+buildContext hlight sev Span { spanStartColumn = startcol,
+                               spanEndColumn = endcol } ctx =
   let
-    firstline = head ctx
+    firstline = Lazy.fromStrict (head ctx)
     middle = tail (init ctx)
-    endline = last ctx
-    lazyfirst = Lazy.fromStrict firstline
-    lazyend = Lazy.fromStrict endline
-    (pre, markedfirst) = Lazy.UTF8.splitAt (fromIntegral $! startcol - 1)
-                                           lazyfirst
-    (markedlast, post) = Lazy.UTF8.splitAt (fromIntegral $! endcol) lazyend
-    markeddocs = lazyBytestring markedfirst : map bytestring middle ++
-                 [lazyBytestring markedlast]
+    endline = Lazy.fromStrict (last ctx)
+    (startpre, startpost) = splitTwo startcol firstline
+    (endpre, endpost) = splitTwo (endcol + 1) endline
+    markeddocs = string startpost : map bytestring middle ++
+                 [string endpre]
   in
-    cat [lazyBytestring pre,
-         highlight sev (vcat markeddocs),
-         lazyBytestring post, line]
-buildContext sev Point { pointColumn = col } [ctx] =
+    cat [string startpre,
+         highlight hlight sev (vcat markeddocs),
+         string endpost, line]
+buildContext hlight sev Point { pointColumn = col } [ctx] =
   let
     lazy = Lazy.fromStrict ctx
-    (pre, rest) = Lazy.UTF8.splitAt (fromIntegral $! col - 1) lazy
-  in case Lazy.UTF8.uncons rest of
-    Just (chr, post) -> cat [lazyBytestring pre,
-                             highlight sev (char chr),
-                             lazyBytestring post, line]
-    Nothing -> lazyBytestring pre <> highlight sev (lazyBytestring rest) <> line
-buildContext _ _ [] = empty
-buildContext _ _ _ = error "Impossible case"
+    (pre, mid, post) = splitThree col col lazy
+  in
+    cat [string pre, highlight hlight sev (string mid), string post, line]
+buildContext _ _ _ [] = empty
+buildContext _ _ _ _ = error "Impossible case"
 
 -- | Translate a 'Message' into 'MessageContent'
 messageContent :: (MonadPositions m, MonadSourceFiles m, Message msg) =>
@@ -249,17 +313,18 @@ messageContentNoContext msg =
                             msgDetails = details msg, msgPosition = pinfo,
                             msgContext = [] }
 
-formatMessageContent :: MessageContent -> Doc
-formatMessageContent MessageContent { msgSeverity = msev,
-                                      msgPosition = mpos,
-                                      msgBrief = mbrief,
-                                      msgDetails = mdetails,
-                                      msgContext = mctx } =
+formatMessageContent :: Highlighting -> MessageContent -> Doc
+formatMessageContent hlight MessageContent { msgSeverity = msev,
+                                             msgPosition = mpos,
+                                             msgBrief = mbrief,
+                                             msgDetails = mdetails,
+                                             msgContext = mctx } =
   let
     (posdoc, ctxdoc) = case mpos of
       Just p -> case mctx of
-        [] -> (string " at " <> format p, empty)
-        _ -> (string " at " <> format p, buildContext msev p mctx)
+        [] -> (string " at " <> vividWhite (format p), empty)
+        _ -> (string " at " <> vividWhite (format p),
+              buildContext hlight msev p mctx)
       Nothing -> (empty, empty)
 
     detailsdoc =
@@ -267,7 +332,7 @@ formatMessageContent MessageContent { msgSeverity = msev,
         then empty
         else indent 2 (lazyBytestring mdetails) <> line
   in
-   cat [hcat [format msev, vividWhite posdoc, string ":"],
+   cat [hcat [format msev, posdoc, colon],
         softline, nest 2 (lazyBytestring mbrief),
         line, ctxdoc, detailsdoc ]
 
@@ -277,7 +342,7 @@ formatMessage :: (MonadPositions m, MonadSourceFiles m,
 formatMessage msg =
   do
     contents <- messageContent msg
-    return (formatMessageContent contents)
+    return (formatMessageContent (highlighting msg) contents)
 
 
 formatMessageNoContext :: (MonadPositions m, MonadIO m, Message msg) =>
@@ -285,7 +350,7 @@ formatMessageNoContext :: (MonadPositions m, MonadIO m, Message msg) =>
 formatMessageNoContext msg =
   do
     contents <- messageContentNoContext msg
-    return (formatMessageContent contents)
+    return (formatMessageContent (highlighting msg) contents)
 
 -- | Output a collection of messages to a given 'Handle' as text.
 putMessages :: (MonadPositions m, MonadSourceFiles m, MonadIO m,
