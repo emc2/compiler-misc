@@ -55,6 +55,7 @@ module Text.AlexWrapper(
        alexSetUserState,
        mkAlexActions,
        linebreak,
+       linebreakAtOffset,
        andBegin,
        produce,
        token,
@@ -319,6 +320,11 @@ andBegin :: MonadState (AlexInternalState us) m =>
 
 linebreak :: SourceBuffer.MonadSourceBuffer m => AlexMonadAction m ()
 linebreak _ (AlexPn off _ _) _ = SourceBuffer.linebreak off
+
+linebreakAtOffset :: SourceBuffer.MonadSourceBuffer m =>
+                     Int -> AlexMonadAction m ()
+linebreakAtOffset offset _ (AlexPn off _ _) _ =
+  SourceBuffer.linebreak (off + offset)
 
 log :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
        (ByteString.ByteString -> Position -> m ()) ->
