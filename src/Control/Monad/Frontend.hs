@@ -101,7 +101,7 @@ runFrontendT lexer keywords =
     commentbuffer = runKeywordsT lexer keywords
     srcbuf = runCommentBufferT commentbuffer
     genpos = runSourceBufferT srcbuf
-    gensym  = startGenposT genpos
+    gensym = startGenposT genpos
   in
     startGensymT gensym
 
