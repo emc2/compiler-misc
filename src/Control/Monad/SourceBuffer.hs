@@ -124,20 +124,14 @@ finishFile' :: MonadIO m => (StateT BufferState (ReaderT Table m)) ()
 finishFile' =
   let
     finish :: Lazy.ByteString -> ByteString
-    finish remaining = Lazy.toStrict (Lazy.snoc remaining '\n')
-    in do
+    finish = Lazy.toStrict
+  in do
     BufferState { stFileName = fname, stContents = remaining,
                   stBuffer = buf } <- get
     tab <- ask
-    if Lazy.null remaining
-      then
-        liftIO (HashTable.insert tab fname
-                                 (listArray (1, fromIntegral (length buf))
-                                  (reverse buf)))
-      else
-        liftIO (HashTable.insert tab fname
-                                 (listArray (1, fromIntegral (length buf) + 1)
-                                            (reverse (finish remaining : buf))))
+    liftIO (HashTable.insert tab fname $!
+                             listArray (1, fromIntegral (length buf) + 1)
+                                       (reverse (finish remaining : buf)))
 
 linebreak' :: Monad m => Int -> (StateT BufferState (ReaderT Table m)) ()
 linebreak' intoff =
