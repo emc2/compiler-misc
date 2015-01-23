@@ -49,7 +49,7 @@ module Control.Monad.Comments(
 import Control.Applicative
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
 import Control.Monad.Keywords.Class
@@ -130,7 +130,7 @@ instance MonadIO m => MonadComments (CommentsT m) where
 instance MonadCont m => MonadCont (CommentsT m) where
   callCC f = CommentsT (callCC (\c -> unpackCommentsT (f (CommentsT . c))))
 
-instance (Error e, MonadError e m) => MonadError e (CommentsT m) where
+instance MonadError e m => MonadError e (CommentsT m) where
   throwError = lift . throwError
   m `catchError` h =
     CommentsT (unpackCommentsT m `catchError` (unpackCommentsT . h))

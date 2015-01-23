@@ -34,7 +34,7 @@ module Control.Monad.Gensym.Class(
        ) where
 
 import Control.Monad.Cont
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
@@ -50,7 +50,7 @@ class Monad m => MonadGensym m where
 instance MonadGensym m => MonadGensym (ContT r m) where
   symbol = lift . symbol
 
-instance (MonadGensym m, Error e) => MonadGensym (ErrorT e m) where
+instance MonadGensym m => MonadGensym (ExceptT e m) where
   symbol = lift . symbol
 
 instance MonadGensym m => MonadGensym (ListT m) where
