@@ -43,7 +43,6 @@ module Text.Format(
        Graphics(..),
        -- ** Type Classes
        Format(..),
-       FormatM(..),
 
        -- * Creating @Doc@s
 
@@ -91,6 +90,7 @@ module Text.Format(
        brackets,
        braces,
        angles,
+       list,
 
        -- *** Graphics Mode
        graphics,
@@ -167,7 +167,6 @@ module Text.Format(
 
 import Blaze.ByteString.Builder
 import Blaze.ByteString.Builder.Char.Utf8
-import Control.Monad
 import Data.Hashable
 import Data.HashMap.Strict(HashMap)
 import Data.List(intersperse, minimumBy)
@@ -1422,16 +1421,6 @@ class Format item where
   -- | Format a list of @item@s as a 'Doc'
   formatList :: [item] -> Doc
   formatList = list . map format
-
--- | A class representing datatypes that can be formatted as 'Doc's
--- inside a monad.
-class Monad m => FormatM m item where
-  -- | Format an @item@ as a 'Doc' inside an @m@ monad
-  formatM :: item -> m Doc
-
-  -- | Format a list of @item@s as a 'Doc' inside an @m@ monad
-  formatListM :: [item] -> m Doc
-  formatListM = liftM list . mapM formatM
 
 instance Format a => Format [a] where
   format = formatList
