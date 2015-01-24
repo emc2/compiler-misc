@@ -32,7 +32,7 @@ module Control.Monad.SourceBuffer.Class(
        ) where
 
 import Control.Monad.Cont
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
@@ -64,8 +64,7 @@ instance MonadSourceBuffer m => MonadSourceBuffer (ContT r m) where
   startFile fname = lift . startFile fname
   finishFile = lift finishFile
 
-instance (MonadSourceBuffer m, Error e) =>
-         MonadSourceBuffer (ErrorT e m) where
+instance MonadSourceBuffer m => MonadSourceBuffer (ExceptT e m) where
   linebreak = lift . linebreak
   startFile fname = lift . startFile fname
   finishFile = lift finishFile
