@@ -33,7 +33,7 @@ module Control.Monad.CommentBuffer.Class(
        ) where
 
 import Control.Monad.Cont
-import Control.Monad.Except
+import Control.Monad.Error
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
@@ -65,8 +65,8 @@ instance MonadCommentBuffer m => MonadCommentBuffer (ContT r m) where
   saveCommentsAsPreceeding = lift . saveCommentsAsPreceeding
   clearComments = lift clearComments
 
-instance MonadCommentBuffer m =>
-         MonadCommentBuffer (ExceptT e m) where
+instance (MonadCommentBuffer m, Error e) =>
+         MonadCommentBuffer (ErrorT e m) where
   startComment = lift startComment
   appendComment = lift . appendComment
   finishComment = lift finishComment

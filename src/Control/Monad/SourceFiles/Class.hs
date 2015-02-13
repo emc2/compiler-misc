@@ -34,7 +34,7 @@ module Control.Monad.SourceFiles.Class(
        ) where
 
 import Control.Monad.Cont
-import Control.Monad.Except
+import Control.Monad.Error
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
@@ -66,7 +66,7 @@ class Monad m => MonadSourceFiles m where
 instance MonadSourceFiles m => MonadSourceFiles (ContT r m) where
   sourceFile = lift . sourceFile
 
-instance MonadSourceFiles m => MonadSourceFiles (ExceptT e m) where
+instance (MonadSourceFiles m, Error e) => MonadSourceFiles (ErrorT e m) where
   sourceFile = lift . sourceFile
 
 instance MonadSourceFiles m => MonadSourceFiles (ListT m) where

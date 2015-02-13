@@ -37,7 +37,7 @@ module Control.Monad.Messages.Class(
        ) where
 
 import Control.Monad.Cont
-import Control.Monad.Except
+import Control.Monad.Error
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
@@ -54,7 +54,7 @@ class (Message msg, Monad m) => MonadMessages msg m | m -> msg where
 instance MonadMessages msg m => MonadMessages msg (ContT r m) where
   message = lift . message
 
-instance MonadMessages msg m => MonadMessages msg (ExceptT e m) where
+instance (MonadMessages msg m, Error e) => MonadMessages msg (ErrorT e m) where
   message = lift . message
 
 instance MonadMessages msg m => MonadMessages msg (ListT m) where

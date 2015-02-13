@@ -41,7 +41,7 @@ import Control.Applicative
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
-import Control.Monad.Except
+import Control.Monad.Error
 import Control.Monad.Gensym.Class
 import Control.Monad.Keywords.Class
 import Control.Monad.Messages.Class
@@ -131,7 +131,7 @@ instance MonadComments m => MonadComments (PositionsT m) where
 instance MonadCont m => MonadCont (PositionsT m) where
   callCC f = PositionsT (callCC (\c -> unpackPositionsT (f (PositionsT . c))))
 
-instance MonadError e m => MonadError e (PositionsT m) where
+instance (Error e, MonadError e m) => MonadError e (PositionsT m) where
   throwError = lift . throwError
   m `catchError` h =
     PositionsT (unpackPositionsT m `catchError` (unpackPositionsT . h))

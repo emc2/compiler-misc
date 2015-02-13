@@ -33,7 +33,7 @@ module Control.Monad.Genpos.Class(
        ) where
 
 import Control.Monad.Cont
-import Control.Monad.Except
+import Control.Monad.Error
 import Control.Monad.List
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
@@ -116,7 +116,7 @@ class MonadPositions m => MonadGenpos m where
 instance MonadGenpos m => MonadGenpos (ContT r m) where
   position = lift . position
 
-instance MonadGenpos m => MonadGenpos (ExceptT e m) where
+instance (Error e, MonadGenpos m) => MonadGenpos (ErrorT e m) where
   position = lift . position
 
 instance MonadGenpos m => MonadGenpos (ListT m) where

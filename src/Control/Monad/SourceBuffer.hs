@@ -42,7 +42,7 @@ import Control.Exception
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
-import Control.Monad.Except
+import Control.Monad.Error
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
 import Control.Monad.Keywords.Class
@@ -195,7 +195,7 @@ instance MonadGenpos m => MonadGenpos (SourceBufferT m) where
 instance MonadGensym m => MonadGensym (SourceBufferT m) where
   symbol = SourceBufferT . symbol
 
-instance MonadError e m => MonadError e (SourceBufferT m) where
+instance (Error e, MonadError e m) => MonadError e (SourceBufferT m) where
   throwError = lift . throwError
   m `catchError` h =
     SourceBufferT (unpackSourceBufferT m `catchError` (unpackSourceBufferT . h))

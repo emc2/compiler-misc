@@ -41,7 +41,7 @@ module Control.Monad.SkipComments(
 import Control.Applicative
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Cont
-import Control.Monad.Except
+import Control.Monad.Error
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
 import Control.Monad.Keywords.Class
@@ -98,7 +98,7 @@ instance MonadCont m => MonadCont (SkipCommentsT m) where
   callCC f = SkipCommentsT
     (callCC (\c -> runSkipCommentsT (f (SkipCommentsT . c))))
 
-instance MonadError e m => MonadError e (SkipCommentsT m) where
+instance (Error e, MonadError e m) => MonadError e (SkipCommentsT m) where
   throwError = lift . throwError
   m `catchError` h =
     SkipCommentsT (runSkipCommentsT m `catchError`
