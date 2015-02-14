@@ -41,26 +41,39 @@ import Control.Monad.State
 import Control.Monad.Writer
 import Data.ByteString
 import Data.Symbol
+import Data.Word
 
 -- | A class of monads that allow @ByteString@s to be memoized as @Symbol@s.
 class Monad m => MonadGensym m where
-  -- | Get the @Symbol@ for representing the given @ByteString@.
+  -- | Get the @Symbol@ for representing the given @ByteString@.  This
+  -- function returns the same @Symbol@ each time it is called with a
+  -- given name.
   symbol :: ByteString -> m Symbol
+  -- | Create a unique symbol.  Note that even if this symbol ends up
+  -- with the same name as another symbol, they will be distinct, and
+  -- calls to @symbol@ will return a distinct @Symbol@.
+  unique :: (Word -> ByteString) -> m Symbol
 
 instance MonadGensym m => MonadGensym (ContT r m) where
   symbol = lift . symbol
+  unique = lift . unique
 
 instance (MonadGensym m, Error e) => MonadGensym (ErrorT e m) where
   symbol = lift . symbol
+  unique = lift . unique
 
 instance MonadGensym m => MonadGensym (ListT m) where
   symbol = lift . symbol
+  unique = lift . unique
 
 instance MonadGensym m => MonadGensym (ReaderT r m) where
   symbol = lift . symbol
+  unique = lift . unique
 
 instance MonadGensym m => MonadGensym (StateT s m) where
   symbol = lift . symbol
+  unique = lift . unique
 
 instance (MonadGensym m, Monoid w) => MonadGensym (WriterT w m) where
   symbol = lift . symbol
+  unique = lift . unique

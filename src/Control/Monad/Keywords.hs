@@ -46,6 +46,7 @@ import Control.Monad.Error
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
 import Control.Monad.Keywords.Class
+import Control.Monad.Loader.Class
 import Control.Monad.Messages.Class
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
@@ -153,9 +154,13 @@ instance MonadGenpos m => MonadGenpos (KeywordsT t m) where
 
 instance MonadGensym m => MonadGensym (KeywordsT t m) where
   symbol = lift . symbol
+  unique = lift . unique
 
 instance MonadMessages msg m => MonadMessages msg (KeywordsT t m) where
   message = lift . message
+
+instance MonadLoader path info m => MonadLoader path info (KeywordsT t m) where
+  load = lift . load
 
 instance MonadPositions m => MonadPositions (KeywordsT t m) where
   positionInfo = lift . positionInfo

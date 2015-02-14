@@ -46,6 +46,7 @@ import Control.Monad.Error
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
 import Control.Monad.Keywords.Class
+import Control.Monad.Loader.Class
 import Control.Monad.Messages.Class
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
@@ -194,6 +195,7 @@ instance MonadGenpos m => MonadGenpos (SourceBufferT m) where
 
 instance MonadGensym m => MonadGensym (SourceBufferT m) where
   symbol = SourceBufferT . symbol
+  unique = lift . unique
 
 instance (Error e, MonadError e m) => MonadError e (SourceBufferT m) where
   throwError = lift . throwError
@@ -202,6 +204,10 @@ instance (Error e, MonadError e m) => MonadError e (SourceBufferT m) where
 
 instance MonadKeywords t m => MonadKeywords t (SourceBufferT m) where
   mkKeyword p = lift . mkKeyword p
+
+instance MonadLoader path info m =>
+         MonadLoader path info (SourceBufferT m) where
+  load = lift . load
 
 instance MonadMessages msg m => MonadMessages msg (SourceBufferT m) where
   message = lift . message
