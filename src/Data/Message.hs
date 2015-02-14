@@ -1,4 +1,4 @@
--- Copyright (c) 2014 Eric McCorkle.  All rights reserved.
+-- Copyright (c) 2014, 2015 Eric McCorkle.  All rights reserved.
 --
 -- Redistribution and use in source and binary forms, with or without
 -- modification, are permitted provided that the following conditions
@@ -124,9 +124,9 @@ data MessageContent =
     -- | The position of the message.
     msgPosition :: !(Maybe PositionInfo),
     -- | A brief description of the nature of the message.
-    msgBrief :: !Lazy.ByteString,
+    msgBrief :: !Doc,
     -- | A detailed description of the nature of the message.
-    msgDetails :: !Lazy.ByteString,
+    msgDetails :: !(Maybe Doc),
     -- | The source code context of the message.
     msgContext :: ![ByteString]
   }
@@ -138,9 +138,9 @@ class Message msg where
   -- | Get the position to which the message relates.
   position :: msg -> Maybe Position
   -- | Get a brief human-readable description of the error.
-  brief :: msg -> Lazy.ByteString
+  brief :: msg -> Doc
   -- | Get a detailed human-readable description of the error.
-  details :: msg -> Lazy.ByteString
+  details :: msg -> Maybe Doc
   -- | Indicate how to highlight text.  The default is foreground, as
   -- that is almost always correct.
   highlighting :: msg -> Highlighting
@@ -328,13 +328,12 @@ formatMessageContent hlight MessageContent { msgSeverity = msev,
       Nothing -> (empty, empty)
 
     detailsdoc =
-      if Lazy.null mdetails
-        then empty
-        else indent 2 (lazyBytestring mdetails) <> line
+      case mdetails of
+        Nothing -> empty
+        Just content -> indent 2 content <> line
   in
-   cat [hcat [format msev, posdoc, colon],
-        softline, nest 2 (lazyBytestring mbrief),
-        line, ctxdoc, detailsdoc ]
+   cat [hcat [format msev, posdoc, colon], softline,
+        nest 2 mbrief, line, ctxdoc, detailsdoc ]
 
 formatMessage :: (MonadPositions m, MonadSourceFiles m,
                   MonadIO m, Message msg) =>
@@ -474,12 +473,13 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
       detailsName = gxFromString "details"
       ctxName = gxFromString "context"
 
-      packStr bstr
-        | bstr /= Lazy.empty = Just (gxFromByteString (Lazy.toStrict bstr))
-        | otherwise = Nothing
+      packDoc = gxFromByteString . Lazy.toStrict . renderOptimal 80 False
 
-      unpackStr (Just bstr) = Lazy.fromStrict (gxToByteString bstr)
-      unpackStr Nothing = Lazy.empty
+      packMaybeDoc (Just doc) = Just (packDoc doc)
+      packMaybeDoc Nothing = Nothing
+
+      unpackMaybeDoc (Just bstr) = Just (bytestring (gxToByteString bstr))
+      unpackMaybeDoc Nothing = Nothing
 
       packStrict bstr
         | bstr /= Strict.empty = Just (gxFromByteString bstr)
@@ -492,21 +492,21 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
                                       msgPosition = pos, msgBrief = mbrief,
                                       msgDetails = mdetails } =
         (msev,
-         (pos, packStr mbrief, packStr mdetails,
+         (pos, packDoc mbrief, packMaybeDoc mdetails,
           packStrict (Strict.intercalate (Strict.UTF8.fromString "\n") mctx)))
 
       unpackMsgContent (msev, (pos, mbrief, mdetails, mctx)) =
-        MessageContent { msgSeverity = msev,msgDetails = unpackStr mdetails,
+        MessageContent { msgSeverity = msev, msgDetails = unpackMaybeDoc mdetails,
                          msgContext = Strict.UTF8.lines (unpackStrict mctx),
-                         msgPosition = pos, msgBrief = unpackStr mbrief }
+                         msgBrief = bytestring (gxToByteString mbrief),
+                         msgPosition = pos}
     in
       xpWrap (unpackMsgContent, packMsgContent)
              (xpElem (gxFromString "message")
                      xpickle
                      (xp4Tuple (xpOption (xpElemNodes posName
                                                       xpickle))
-                               (xpOption (xpElemNodes briefName
-                                                      (xpContent xpText)))
+                               (xpElemNodes briefName (xpContent xpText))
                                (xpOption (xpElemNodes detailsName
                                                       (xpContent xpText)))
                                (xpOption (xpElemNodes ctxName
