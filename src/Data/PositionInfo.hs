@@ -70,10 +70,10 @@ data PositionInfo =
       -- | The column number, staring at 1.
       pointColumn :: !Word
     }
-    -- | A position representing the end of input for a file.
-  | EndOfFile {
+    -- | A position representing a whole file.
+  | File {
       -- | The name of the source file.
-      eofFile :: !ByteString
+      fileName :: !ByteString
     }
     -- | A synthetic position, generated internally by a compiler.
   | Synthetic {
@@ -85,7 +85,7 @@ data PositionInfo =
 filepath :: PositionInfo -> ByteString
 filepath Span { spanFile = fname } = fname
 filepath Point { pointFile = fname } = fname
-filepath EndOfFile { eofFile = fname } = fname
+filepath File { fileName = fname } = fname
 filepath pos = error $! "Position " ++ show pos ++ " has no file name"
 
 start :: PositionInfo -> (Word, Word)
@@ -138,7 +138,7 @@ instance Format PositionInfo where
              format endcol ]
   format Point { pointLine = line, pointColumn = col, pointFile = fname } =
     hcat [ bytestring fname, char ':', format line, char '.', format col ]
-  format EndOfFile { eofFile = fname } =
+  format File { fileName = fname } =
      bytestring fname `beside` string ": end of input"
   format Synthetic { synthDesc = desc } = bytestring desc
 
@@ -156,7 +156,7 @@ instance Hashable PositionInfo where
                          pointFile = fname } =
     s `hashWithSalt` (1 :: Word) `hashWithSalt`
     line `hashWithSalt` col `hashWithSalt` fname
-  hashWithSalt s EndOfFile { eofFile = fname } =
+  hashWithSalt s File { fileName = fname } =
     s `hashWithSalt` (2 :: Word) `hashWithSalt` fname
   hashWithSalt s Synthetic { synthDesc = desc } =
     s `hashWithSalt` (3 :: Word) `hashWithSalt` desc
@@ -212,10 +212,10 @@ eofPickler :: (GenericXMLString tag, Show tag,
               PU [NodeG [] tag text] PositionInfo
 eofPickler =
   let
-    revfunc EndOfFile { eofFile = fname } = ((), fname)
+    revfunc File { fileName = fname } = ((), fname)
     revfunc pinfo = error $! "Can't convert " ++ show pinfo
   in
-    xpWrap (EndOfFile . snd, revfunc)
+    xpWrap (File . snd, revfunc)
            (xpElem (gxFromString "PositionInfo")
                    (xpAttrFixed (gxFromString "kind")
                                 (gxFromString "EndOfFile"))
@@ -243,7 +243,7 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
     let
       picker Span {} = 0
       picker Point {} = 1
-      picker EndOfFile {} = 2
+      picker File {} = 2
       picker Synthetic {} = 3
     in
       xpAlt picker [spanPickler, pointPickler, eofPickler, syntheticPickler]
