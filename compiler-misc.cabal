@@ -26,7 +26,7 @@ Test-Suite UnitTest
   Main-Is:              UnitTest.hs
   hs-source-dirs:       src test
   build-depends:        base >= 4.4.0 && < 5, Cabal >= 1.16.0, pretty, containers,
-                        hashable, prelude-extras, hashable-extras, bound, bytestring,
+                        hashable, bytestring, bound, hashable-extras, prelude-extras,
                         array, mtl, unordered-containers, HUnit-Plus, hashtables,
                         filepath, utf8-string, hexpat, hexpat-pickle, semigroups,
                         blaze-builder, ansi-terminal
@@ -36,9 +36,9 @@ Test-Suite UnitTest
 --  default-language:     Haskell2010
 --  hs-source-dirs:       src, examples
 --  build-depends:        base >= 4.4.0 && < 5, Cabal >= 1.16.0, pretty, containers,
---                        hashable, prelude-extras, hashable-extras, bound, bytestring,
+--                        hashable, bytestring, bound, hashable-extras, prelude-extras,
 --                        array, mtl, unordered-containers, hashtables, filepath, utf8-string,
---                        hexpat, hexpat-pickle, semigroups, blaze-builder, ansi-terminal
+--                        hexpat, hexpat-pickle, blaze-builder, ansi-terminal, semigroups,
 --  build-tools:          alex
 --  main-is:              Main.hs
 
@@ -46,9 +46,10 @@ Library
   default-language:     Haskell2010
   hs-source-dirs:       src
   build-depends:        base >= 4.4.0 && < 5, Cabal >= 1.16.0, pretty, containers,
-                        hashable, prelude-extras, hashable-extras, bound, bytestring,
-                        array, mtl, unordered-containers, hashtables, filepath, utf8-string,
-                        hexpat, hexpat-pickle, semigroups, blaze-builder, ansi-terminal
+                        hashable, bytestring, bound, hashable-extras, prelude-extras,
+                        array, mtl < 2.2, unordered-containers, hashtables, filepath,
+                        utf8-string, hexpat, hexpat-pickle, blaze-builder, semigroups,
+                        ansi-terminal
   exposed-modules:      Bound.Scope.ExtraInstances
                         Bound.Var.ExtraInstances
                         Control.Monad.CommentBuffer
@@ -63,6 +64,8 @@ Library
                         Control.Monad.Gensym.Class
                         Control.Monad.Keywords
                         Control.Monad.Keywords.Class
+                        Control.Monad.Loader.Class
+                        Control.Monad.MemoryLoader
                         Control.Monad.Messages
                         Control.Monad.Messages.Class
                         Control.Monad.Positions
@@ -72,6 +75,7 @@ Library
                         Control.Monad.SourceBuffer.Class
                         Control.Monad.SourceFiles
                         Control.Monad.SourceFiles.Class
+                        Control.Monad.SourceLoader
                         Control.Monad.Symbols
                         Control.Monad.Symbols.Class
                         Data.Hashable.ExtraInstances
@@ -84,6 +88,7 @@ Library
                         Prelude.Extras.ExtraInstances
                         Text.AlexWrapper
                         Text.Format
+                        Text.FormatM
                         Text.Escapes
                         Text.Escapes.ByteString
                         Text.Escapes.ByteString.Lazy
