@@ -37,6 +37,7 @@
 -- be stored in arrays as opposed to hash maps.
 module Data.Symbol(
        Symbol,
+       number,
        firstSym,
        debugStr
        ) where
@@ -51,7 +52,7 @@ import Text.XML.Expat.Tree
 -- structures, and their actual names can be looked up in a database.
 newtype Symbol =
   Symbol {
-    -- | The unique numerical ID of the symbol.
+    -- | A numerical ID unique to this symbol.
     number :: Word
   }
   deriving (Eq, Ord, Ix)
