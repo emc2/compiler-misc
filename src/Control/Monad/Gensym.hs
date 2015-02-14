@@ -47,6 +47,7 @@ import Control.Monad.Error
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
 import Control.Monad.Keywords.Class
+import Control.Monad.Loader.Class
 import Control.Monad.Messages.Class
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
@@ -58,6 +59,7 @@ import Control.Monad.Symbols(Symbols, SymbolsT)
 import Data.ByteString.Char8 hiding (map, empty)
 import Data.HashTable.IO(BasicHashTable)
 import Data.Symbol
+import Data.Word
 
 import qualified Control.Monad.Symbols as Symbols
 import qualified Data.HashTable.IO as HashTable
@@ -170,6 +172,14 @@ symbol' str =
           liftIO (HashTable.insert revtab newsym str)
           return newsym
 
+unique' :: MonadIO m => (Word -> ByteString) -> (StateT Bounds (ReaderT Tables m)) Symbol
+unique' namefunc =
+  do
+    newsym <- nextSym
+    Tables { revTable = revtab } <- ask
+    liftIO (HashTable.insert revtab newsym (namefunc (number newsym)))
+    return newsym
+
 nullSym' :: Monad m => StateT Bounds (ReaderT Tables m) Symbol
 nullSym' =
   do
@@ -233,6 +243,7 @@ instance MonadGenpos m => MonadGenpos (GensymT m) where
 
 instance MonadIO m => MonadGensym (GensymT m) where
   symbol = GensymT . symbol'
+  unique = GensymT . unique'
 
 instance MonadIO m => MonadIO (GensymT m) where
   liftIO = GensymT . liftIO
@@ -253,6 +264,9 @@ instance (Error e, MonadError e m) => MonadError e (GensymT m) where
 
 instance MonadKeywords t m => MonadKeywords t (GensymT m) where
   mkKeyword p = lift . mkKeyword p
+
+instance MonadLoader path info m => MonadLoader path info (GensymT m) where
+  load = lift . load
 
 instance MonadMessages msg m => MonadMessages msg (GensymT m) where
   message = lift . message
