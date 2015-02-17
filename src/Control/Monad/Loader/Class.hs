@@ -45,7 +45,7 @@ import Control.Monad.Writer
 -- | A class of monads that locate and provide source given a path.
 class Monad m => MonadLoader path info m where
   -- | Load the source specified by the given path.
-  load :: path -> m info
+  load :: path -> m (Either IOError info)
 
 instance MonadLoader path info m => MonadLoader path info (ContT r m) where
   load = lift . load

@@ -88,28 +88,29 @@ mapSourceLoaderT :: (Monad m, Monad n) =>
 mapSourceLoaderT f = SourceLoaderT . mapReaderT f . unpackSourceLoaderT
 
 load' :: MonadIO m =>
-         Strict.ByteString -> ReaderT [Strict.ByteString] m Lazy.ByteString
+         Strict.ByteString ->
+         ReaderT [Strict.ByteString] m (Either IOError Lazy.ByteString)
 load' path =
   let
     fpath = Strict.toString path
 
     -- Try each path in the prefixes, continue until something other
     -- than doesNotExistError happens.
-    loadPrefixes :: [Strict.ByteString] -> IO Lazy.ByteString
+    loadPrefixes :: [Strict.ByteString] -> IO (Either IOError Lazy.ByteString)
     -- Try each prefix path in turn.
     loadPrefixes (first : rest) =
       let
         fullpath = Strict.toString first ++ fpath
-      in
-        Lazy.readFile fullpath `catchIOError`
-          \err -> if isDoesNotExistError err
-                    -- If we get a doesNotExistError, then continue.
-                    then loadPrefixes rest
-                    -- Otherwise, rethrow it.
-                    else liftIO (ioError err)
+      in do
+        contents <- tryIOError (Lazy.readFile fullpath)
+        case contents of
+          -- If we get a doesNotExistError, then continue.
+          Left err | isDoesNotExistError err -> loadPrefixes rest
+          -- Otherwise, return what we got.
+          _ -> return contents
     -- If we get to the end of the prefixes, and we have an error, throw it
-    loadPrefixes [] = liftIO (ioError (mkIOError doesNotExistErrorType ""
-                                                 Nothing (Just fpath)))
+    loadPrefixes [] = return $! Left $! mkIOError doesNotExistErrorType ""
+                                                  Nothing (Just fpath)
   in do
     prefixes <- ask
     liftIO (loadPrefixes prefixes)

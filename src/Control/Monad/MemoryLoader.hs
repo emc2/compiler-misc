@@ -93,7 +93,8 @@ mapMemoryLoaderT :: (Monad m, Monad n) =>
                     MemoryLoaderT info n b
 mapMemoryLoaderT f = MemoryLoaderT . mapReaderT f . unpackMemoryLoaderT
 
-load' :: MonadIO m => Strict.ByteString -> ReaderT (Table info) m info
+load' :: MonadIO m => Strict.ByteString ->
+         ReaderT (Table info) m (Either IOError info)
 load' path =
   let
     fpath = Strict.toString path
@@ -101,10 +102,10 @@ load' path =
     table <- ask
     entry <- liftIO (HashTable.lookup table path)
     case entry of
-      Just out -> return out
-      Nothing -> liftIO (ioError (mkIOError doesNotExistErrorType
-                                            "No such entry"
-                                            Nothing (Just fpath)))
+      Just out -> return $! Right out
+      Nothing -> return $! Left $! mkIOError doesNotExistErrorType
+                                             "No such entry"
+                                             Nothing (Just fpath)
 
 instance Monad m => Monad (MemoryLoaderT info m) where
   return = MemoryLoaderT . return
