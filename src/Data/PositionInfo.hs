@@ -80,6 +80,8 @@ data PositionInfo =
       -- | A description of the origin of this position.
       synthDesc :: !ByteString
     }
+    -- | A command-line option.
+  | CmdLine
   deriving (Ord, Eq)
 
 filepath :: PositionInfo -> ByteString
@@ -123,6 +125,7 @@ instance Semigroup PositionInfo where
                                 spanEndLine = line2, spanEndColumn = col2,
                                 spanFile = fname1 }
     | otherwise = error "Cannot combine positions in different files"
+  CmdLine <> CmdLine = CmdLine
   p1 <> p2 = error $! "Cannot combine positions " ++ show p1 ++ ", " ++ show p2
 
 instance Format PositionInfo where
@@ -138,9 +141,9 @@ instance Format PositionInfo where
              format endcol ]
   format Point { pointLine = line, pointColumn = col, pointFile = fname } =
     hcat [ bytestring fname, char ':', format line, char '.', format col ]
-  format File { fileName = fname } =
-     bytestring fname `beside` string ": end of input"
+  format File { fileName = fname } = bytestring fname
   format Synthetic { synthDesc = desc } = bytestring desc
+  format CmdLine = string "From command line"
 
 instance Show PositionInfo where
   show = show . renderOneLine . format
@@ -160,6 +163,7 @@ instance Hashable PositionInfo where
     s `hashWithSalt` (2 :: Word) `hashWithSalt` fname
   hashWithSalt s Synthetic { synthDesc = desc } =
     s `hashWithSalt` (3 :: Word) `hashWithSalt` desc
+  hashWithSalt s CmdLine = s `hashWithSalt` (4 :: Int)
 
 spanPickler :: (GenericXMLString tag, Show tag,
                 GenericXMLString text, Show text) =>
@@ -237,6 +241,19 @@ syntheticPickler =
                    (xpElemNodes (gxFromString "description")
                                 (xpContent xpPrim)))
 
+cmdLinePickler :: (GenericXMLString tag, Show tag,
+                   GenericXMLString text, Show text) =>
+                  PU [NodeG [] tag text] PositionInfo
+cmdLinePickler =
+  let
+    revfunc CmdLine = ()
+    revfunc pinfo = error $! "Can't convert " ++ show pinfo
+  in
+    xpWrap (const CmdLine, revfunc)
+           (xpElemAttrs (gxFromString "PositionInfo")
+                        (xpAttrFixed (gxFromString "kind")
+                                     (gxFromString "CmdLine")))
+
 instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
          XmlPickler [NodeG [] tag text] PositionInfo where
   xpickle =
@@ -245,5 +262,7 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
       picker Point {} = 1
       picker File {} = 2
       picker Synthetic {} = 3
+      picker CmdLine {} = 4
     in
-      xpAlt picker [spanPickler, pointPickler, eofPickler, syntheticPickler]
+      xpAlt picker [spanPickler, pointPickler, eofPickler,
+                    syntheticPickler, cmdLinePickler]
