@@ -38,6 +38,7 @@ module Control.Monad.Symbols(
        ) where
 
 import Control.Applicative
+import Control.Monad.Artifacts.Class
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
@@ -127,6 +128,11 @@ instance MonadIO m => MonadIO (SymbolsT m) where
 
 instance MonadTrans SymbolsT where
   lift = SymbolsT . lift
+
+instance MonadArtifacts path m => MonadArtifacts path (SymbolsT m) where
+  artifact path = lift . artifact path
+  artifactBytestring path = lift . artifactBytestring path
+  artifactLazyBytestring path = lift . artifactLazyBytestring path
 
 instance MonadCommentBuffer m => MonadCommentBuffer (SymbolsT m) where
   startComment = lift startComment

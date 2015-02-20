@@ -40,6 +40,7 @@ module Control.Monad.SourceLoader(
        ) where
 
 import Control.Applicative
+import Control.Monad.Artifacts.Class
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
@@ -79,7 +80,7 @@ runSourceLoaderT :: MonadIO m =>
                     SourceLoaderT m a
                 -- ^ The SourceLoaderT monad to execute.
                 -> [Strict.ByteString]
-                -- ^ A hash table containing the contents of all files.
+                -- ^ The search paths at which to search for files.
                 -> m a
 runSourceLoaderT s = runReaderT (unpackSourceLoaderT s)
 
@@ -141,6 +142,11 @@ instance MonadTrans (SourceLoaderT) where
 instance MonadIO m =>
          MonadLoader Strict.ByteString Lazy.ByteString (SourceLoaderT m) where
   load = SourceLoaderT . load'
+
+instance MonadArtifacts path m => MonadArtifacts path (SourceLoaderT m) where
+  artifact path = lift . artifact path
+  artifactBytestring path = lift . artifactBytestring path
+  artifactLazyBytestring path = lift . artifactLazyBytestring path
 
 instance MonadCommentBuffer m =>
          MonadCommentBuffer (SourceLoaderT m) where

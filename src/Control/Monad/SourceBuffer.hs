@@ -39,6 +39,7 @@ module Control.Monad.SourceBuffer(
 
 import Control.Applicative
 import Control.Exception
+import Control.Monad.Artifacts.Class
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
@@ -174,6 +175,11 @@ instance MonadIO m => MonadIO (SourceBufferT m) where
 
 instance MonadTrans SourceBufferT where
   lift = SourceBufferT . lift . lift
+
+instance MonadArtifacts path m => MonadArtifacts path (SourceBufferT m) where
+  artifact path = lift . artifact path
+  artifactBytestring path = lift . artifactBytestring path
+  artifactLazyBytestring path = lift . artifactLazyBytestring path
 
 instance MonadCommentBuffer m => MonadCommentBuffer (SourceBufferT m) where
   startComment = lift startComment

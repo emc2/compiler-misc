@@ -49,14 +49,16 @@ Library
                         hashable, bytestring, bound, hashable-extras, prelude-extras,
                         array, mtl < 2.2, unordered-containers, hashtables, filepath,
                         utf8-string, hexpat, hexpat-pickle, blaze-builder, semigroups,
-                        ansi-terminal
+                        ansi-terminal, directory
   exposed-modules:      Bound.Scope.ExtraInstances
                         Bound.Var.ExtraInstances
+                        Control.Monad.Artifacts.Class
                         Control.Monad.CommentBuffer
                         Control.Monad.CommentBuffer.Class
                         Control.Monad.Comments
                         Control.Monad.Comments.Class
                         Control.Monad.Context
+                        Control.Monad.FileArtifacts
                         Control.Monad.Frontend
                         Control.Monad.Genpos
                         Control.Monad.Genpos.Class
@@ -65,6 +67,7 @@ Library
                         Control.Monad.Keywords
                         Control.Monad.Keywords.Class
                         Control.Monad.Loader.Class
+                        Control.Monad.MemoryArtifacts
                         Control.Monad.MemoryLoader
                         Control.Monad.Messages
                         Control.Monad.Messages.Class

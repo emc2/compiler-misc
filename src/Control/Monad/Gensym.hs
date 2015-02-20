@@ -40,6 +40,7 @@ module Control.Monad.Gensym(
        ) where
 
 import Control.Applicative
+import Control.Monad.Artifacts.Class
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
@@ -229,6 +230,11 @@ instance MonadIO m => MonadSymbols (GensymT m) where
   allNames = GensymT allNames'
   allSyms = GensymT allSyms'
   name = GensymT . name'
+
+instance MonadArtifacts path m => MonadArtifacts path (GensymT m) where
+  artifact path = lift . artifact path
+  artifactBytestring path = lift . artifactBytestring path
+  artifactLazyBytestring path = lift . artifactLazyBytestring path
 
 instance MonadCommentBuffer m => MonadCommentBuffer (GensymT m) where
   startComment = lift startComment

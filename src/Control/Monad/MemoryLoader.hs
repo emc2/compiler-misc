@@ -42,6 +42,7 @@ module Control.Monad.MemoryLoader(
        ) where
 
 import Control.Applicative
+import Control.Monad.Artifacts.Class
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
@@ -133,6 +134,12 @@ instance MonadTrans (MemoryLoaderT info) where
 instance MonadIO m =>
          MonadLoader Strict.ByteString info (MemoryLoaderT info m) where
   load = MemoryLoaderT . load'
+
+instance MonadArtifacts path m =>
+         MonadArtifacts path (MemoryLoaderT info m) where
+  artifact path = lift . artifact path
+  artifactBytestring path = lift . artifactBytestring path
+  artifactLazyBytestring path = lift . artifactLazyBytestring path
 
 instance MonadCommentBuffer m =>
          MonadCommentBuffer (MemoryLoaderT info m) where

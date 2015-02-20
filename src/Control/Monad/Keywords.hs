@@ -39,6 +39,7 @@ module Control.Monad.Keywords(
        ) where
 
 import Control.Applicative
+import Control.Monad.Artifacts.Class
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
@@ -129,6 +130,11 @@ instance MonadTrans (KeywordsT t) where
 
 instance MonadIO m => MonadKeywords tok (KeywordsT tok m) where
   mkKeyword pos = KeywordsT .  mkKeyword' pos
+
+instance MonadArtifacts path m => MonadArtifacts path (KeywordsT t m) where
+  artifact path = lift . artifact path
+  artifactBytestring path = lift . artifactBytestring path
+  artifactLazyBytestring path = lift . artifactLazyBytestring path
 
 instance MonadCommentBuffer m => MonadCommentBuffer (KeywordsT t m) where
   startComment = lift startComment

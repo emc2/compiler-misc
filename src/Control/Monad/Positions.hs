@@ -38,6 +38,7 @@ module Control.Monad.Positions(
        ) where
 
 import Control.Applicative
+import Control.Monad.Artifacts.Class
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
@@ -117,6 +118,11 @@ instance MonadIO m => MonadIO (PositionsT m) where
 
 instance MonadTrans PositionsT where
   lift = PositionsT . lift
+
+instance MonadArtifacts path m => MonadArtifacts path (PositionsT m) where
+  artifact path = lift . artifact path
+  artifactBytestring path = lift . artifactBytestring path
+  artifactLazyBytestring path = lift . artifactLazyBytestring path
 
 instance MonadCommentBuffer m => MonadCommentBuffer (PositionsT m) where
   startComment = lift startComment

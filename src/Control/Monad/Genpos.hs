@@ -39,6 +39,7 @@ module Control.Monad.Genpos(
        ) where
 
 import Control.Applicative
+import Control.Monad.Artifacts.Class
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
@@ -171,6 +172,11 @@ instance MonadIO m => MonadIO (GenposT m) where
 
 instance MonadTrans GenposT where
   lift = GenposT . lift . lift
+
+instance MonadArtifacts path m => MonadArtifacts path (GenposT m) where
+  artifact path = lift . artifact path
+  artifactBytestring path = lift . artifactBytestring path
+  artifactLazyBytestring path = lift . artifactLazyBytestring path
 
 instance MonadComments m => MonadComments (GenposT m) where
   preceedingComments = lift . preceedingComments

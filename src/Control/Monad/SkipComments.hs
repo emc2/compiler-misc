@@ -39,6 +39,7 @@ module Control.Monad.SkipComments(
        ) where
 
 import Control.Applicative
+import Control.Monad.Artifacts.Class
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Cont
 import Control.Monad.Error
@@ -86,6 +87,11 @@ instance MonadIO m => MonadIO (SkipCommentsT m) where
 
 instance MonadTrans SkipCommentsT where
   lift = SkipCommentsT
+
+instance MonadArtifacts path m => MonadArtifacts path (SkipCommentsT m) where
+  artifact path = lift . artifact path
+  artifactBytestring path = lift . artifactBytestring path
+  artifactLazyBytestring path = lift . artifactLazyBytestring path
 
 instance Monad m => MonadCommentBuffer (SkipCommentsT m) where
   startComment = SkipCommentsT (return ())

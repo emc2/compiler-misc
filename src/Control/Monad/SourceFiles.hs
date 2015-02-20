@@ -37,6 +37,7 @@ module Control.Monad.SourceFiles(
 
 import Control.Applicative
 import Control.Exception
+import Control.Monad.Artifacts.Class
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
@@ -120,6 +121,11 @@ instance MonadIO m => MonadIO (SourceFilesT m) where
 
 instance MonadTrans SourceFilesT where
   lift = SourceFilesT . lift
+
+instance MonadArtifacts path m => MonadArtifacts path (SourceFilesT m) where
+  artifact path = lift . artifact path
+  artifactBytestring path = lift . artifactBytestring path
+  artifactLazyBytestring path = lift . artifactLazyBytestring path
 
 instance MonadCommentBuffer m => MonadCommentBuffer (SourceFilesT m) where
   startComment = lift startComment

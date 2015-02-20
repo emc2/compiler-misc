@@ -37,6 +37,7 @@ module Control.Monad.CommentBuffer(
        ) where
 
 import Control.Applicative
+import Control.Monad.Artifacts.Class
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Cont
 import Control.Monad.Error
@@ -150,6 +151,11 @@ instance Monad m => MonadCommentBuffer (CommentBufferT m) where
   addComment = CommentBufferT . addComment'
   saveCommentsAsPreceeding = CommentBufferT . saveCommentsAsPreceeding'
   clearComments = CommentBufferT clearComments'
+
+instance MonadArtifacts path m => MonadArtifacts path (CommentBufferT m) where
+  artifact path = lift . artifact path
+  artifactBytestring path = lift . artifactBytestring path
+  artifactLazyBytestring path = lift . artifactLazyBytestring path
 
 instance MonadCont m => MonadCont (CommentBufferT m) where
   callCC f = CommentBufferT

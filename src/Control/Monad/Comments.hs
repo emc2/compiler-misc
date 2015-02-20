@@ -47,6 +47,7 @@ module Control.Monad.Comments(
        ) where
 
 import Control.Applicative
+import Control.Monad.Artifacts.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
 import Control.Monad.Error
@@ -127,6 +128,11 @@ instance MonadTrans CommentsT where
 
 instance MonadIO m => MonadComments (CommentsT m) where
   preceedingComments = CommentsT . preceedingComments'
+
+instance MonadArtifacts path m => MonadArtifacts path (CommentsT m) where
+  artifact path = lift . artifact path
+  artifactBytestring path = lift . artifactBytestring path
+  artifactLazyBytestring path = lift . artifactLazyBytestring path
 
 instance MonadCont m => MonadCont (CommentsT m) where
   callCC f = CommentsT (callCC (\c -> unpackCommentsT (f (CommentsT . c))))

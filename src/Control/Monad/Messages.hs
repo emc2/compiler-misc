@@ -44,6 +44,7 @@ module Control.Monad.Messages(
        ) where
 
 import Control.Applicative
+import Control.Monad.Artifacts.Class
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
@@ -203,6 +204,12 @@ instance (Message.Messages msg msgs, Message.Message msg,
           Monoid msgs, Monad m) =>
          MonadMessages msg (MessagesT msgs msg m) where
   message = MessagesT . message'
+
+instance (Monoid msgs, MonadArtifacts path m) =>
+         MonadArtifacts path (MessagesT msgs msg m) where
+  artifact path = lift . artifact path
+  artifactBytestring path = lift . artifactBytestring path
+  artifactLazyBytestring path = lift . artifactLazyBytestring path
 
 instance (Monoid msgs, MonadCommentBuffer m) =>
          MonadCommentBuffer (MessagesT msgs msg m) where

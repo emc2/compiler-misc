@@ -101,11 +101,15 @@ class MonadPositions m => MonadGenpos m where
   point fname line col = position Point { pointFile = fname, pointLine = line,
                                           pointColumn = col }
 
-  -- | Create an EOF position from raw data.
+  -- | Create a file position from raw data.
   file :: ByteString
        -- ^ The file name.
        -> m Position
   file = position . File
+
+  -- | Create a command line position from raw data.
+  cmdLine :: m Position
+  cmdLine = position CmdLine
 
   -- | Create a synthetic position from raw data.
   synthetic :: ByteString
