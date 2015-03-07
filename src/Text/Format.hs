@@ -158,9 +158,12 @@ module Text.Format(
        group,
 
        -- * Rendering @Doc@s
+       buildOneLine,
        renderOneLine,
+       buildFast,
        renderFast,
        putFast,
+       buildOptimal,
        renderOptimal,
        putOptimal
        ) where
