@@ -321,10 +321,18 @@ formatMessageContent hlight MessageContent { msgSeverity = msev,
                                              msgContext = mctx } =
   let
     (posdoc, ctxdoc) = case mpos of
-      Just p -> case mctx of
-        [] -> (string " at " <> vividWhite (format p), empty)
-        _ -> (string " at " <> vividWhite (format p),
-              buildContext hlight msev p mctx)
+      Just p ->
+        let
+          preposition = case p of
+            Span {} -> string " at "
+            Point {} -> string " at "
+            File {} -> string " in "
+            Synthetic {} -> string " arising from "
+            CmdLine {} -> string " from "
+        in case mctx of
+          [] -> (preposition <> vividWhite (format p), empty)
+          _ -> (preposition <> vividWhite (format p),
+                buildContext hlight msev p mctx)
       Nothing -> (empty, empty)
 
     detailsdoc =

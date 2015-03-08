@@ -143,7 +143,7 @@ instance Format PositionInfo where
     hcat [ bytestring fname, char ':', format line, char '.', format col ]
   format File { fileName = fname } = bytestring fname
   format Synthetic { synthDesc = desc } = bytestring desc
-  format CmdLine = string "From command line"
+  format CmdLine = string "command line"
 
 instance Show PositionInfo where
   show = show . renderOneLine . format
