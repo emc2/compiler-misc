@@ -259,8 +259,10 @@ mkAlexActions scanWrapper alexError alexEOF =
                 point PointInfo { pointLine = fromIntegral startline,
                                   pointColumn = fromIntegral startcol }
               endpos <-
-                point PointInfo { pointLine = fromIntegral endline,
-                                  pointColumn = fromIntegral endcol }
+                if endline == startline && endcol == startcol
+                  then return startpos
+                  else point PointInfo { pointLine = fromIntegral endline,
+                                         pointColumn = fromIntegral endcol }
               alexError (Char8.take (fromIntegral len) chars)
                         fname startpos endpos
 
@@ -344,8 +346,11 @@ log t (AlexPn _ startline startcol) (AlexPn _ endline endcol) bstr =
     fname <- filename FileInfo { fileInfoName = fnamestr, fileInfoDir = dir }
     startpos <- point PointInfo { pointLine = fromIntegral startline,
                                   pointColumn = fromIntegral startcol }
-    endpos <- point PointInfo { pointLine = fromIntegral endline,
-                                pointColumn = fromIntegral endcol }
+    endpos <-
+      if endline == startline && endcol == startcol
+        then return startpos
+        else point PointInfo { pointLine = fromIntegral endline,
+                               pointColumn = fromIntegral endcol }
     t bstr fname startpos endpos
 
 -- | Perform an action that uses the matched text.
@@ -369,8 +374,11 @@ produce t (AlexPn _ startline startcol) (AlexPn _ endline endcol) bstr =
     fname <- filename FileInfo { fileInfoName = fnamestr, fileInfoDir = dir }
     startpos <- point PointInfo { pointLine = fromIntegral startline,
                                   pointColumn = fromIntegral startcol }
-    endpos <- point PointInfo { pointLine = fromIntegral endline,
-                                pointColumn = fromIntegral endcol }
+    endpos <-
+      if endline == startline && endcol == startcol
+        then return startpos
+        else point PointInfo { pointLine = fromIntegral endline,
+                               pointColumn = fromIntegral endcol }
     t bstr fname startpos endpos
 
 token :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
@@ -383,8 +391,11 @@ token t (AlexPn _ startline startcol) (AlexPn _ endline endcol) _ =
     fname <- filename FileInfo { fileInfoName = fnamestr, fileInfoDir = dir }
     startpos <- point PointInfo { pointLine = fromIntegral startline,
                                   pointColumn = fromIntegral startcol }
-    endpos <- point PointInfo { pointLine = fromIntegral endline,
-                                pointColumn = fromIntegral endcol }
+    endpos <-
+      if endline == startline && endcol == startcol
+        then return startpos
+        else point PointInfo { pointLine = fromIntegral endline,
+                               pointColumn = fromIntegral endcol }
     t fname startpos endpos
 
 orElse :: Monad m =>
