@@ -45,8 +45,8 @@ import Control.Monad.Trans
 import Data.Array
 import Data.ByteString
 import Data.HashTable.IO(BasicHashTable)
-import Data.Position
-import Data.PositionInfo
+import Data.Position.Filename
+import Data.Position.Point
 import Data.Symbol
 import Data.Word
 
@@ -61,13 +61,18 @@ type Context a = ContextT IO a
 runContextT :: MonadIO m =>
                ContextT m a
             -- ^ The context monad transformer to execute.
-            -> BasicHashTable ByteString (Array Word ByteString)
-            -- ^ A hash table from 'FilePath's to source file contents.
-            -> BasicHashTable Position [ByteString]
-            -- ^ A hash table from 'Position's to comment data.
-            -> (Position, Position)
+            -> Array Filename (Array Word ByteString)
+            -- ^ An array mapping 'FilePath's to source file contents.
+            -> BasicHashTable Point [ByteString]
+            -- ^ A hash table from 'Point's to comment data.
+            -> (Point, Point)
             -- ^ The low and high range of the symbols.
-            -> [(Position, PositionInfo)]
+            -> [(Point, PointInfo)]
+            -- ^ The mapping of symbols.  The mapping to the lowest
+            -- index is taken as the null symbol.
+            -> (Filename, Filename)
+            -- ^ The low and high range of the symbols.
+            -> [(Filename, FileInfo)]
             -- ^ The mapping of symbols.  The mapping to the lowest
             -- index is taken as the null symbol.
             -> (Symbol, Symbol)
@@ -77,10 +82,11 @@ runContextT :: MonadIO m =>
             -- ^ The mapping of symbols to indexes.  The mapping to the
             -- lowest index is taken as the null symbol.
             -> m a
-runContextT c sourcefiles comments posrange positions symrange symbols =
+runContextT c sourcefiles comments pointrange points
+            filerange filenames symrange symbols =
   let
     p = runCommentsT c comments
-    s = runPositionsT p posrange positions
+    s = runPositionsT p pointrange points filerange filenames
     f = runSymbolsT s symrange symbols
   in
     runSourceFilesT f sourcefiles

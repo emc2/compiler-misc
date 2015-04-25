@@ -36,7 +36,6 @@ import Control.Monad
 import Control.Monad.Positions
 import Control.Monad.Symbols
 import Data.Position
-import Data.PositionInfo()
 import Data.Symbol
 import Text.Format
 
@@ -50,14 +49,20 @@ class Monad m => FormatM m item where
   formatListM :: [item] -> m Doc
   formatListM = liftM list . mapM formatM
 
-instance (MonadPositions m) => FormatM m Position where
-  formatM pos =
-    do
-      pinfo <- positionInfo pos
-      return $! format pinfo
-
 instance (MonadSymbols m) => FormatM m Symbol where
   formatM sym =
     do
       namestr <- name sym
       return $! bytestring namestr
+
+instance (MonadPositions m) => FormatM m Point where
+  formatM pos =
+    do
+      pinfo <- pointInfo pos
+      return $! format pinfo
+
+instance (MonadPositions m) => FormatM m Filename where
+  formatM pos =
+    do
+      pinfo <- fileInfo pos
+      return $! format pinfo

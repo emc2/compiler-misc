@@ -180,16 +180,18 @@ instance (Error e, MonadError e m) =>
          MonadError e (FileArtifactsT m) where
   throwError = lift . throwError
   m `catchError` h =
-    FileArtifactsT (unpackFileArtifactsT m `catchError` (unpackFileArtifactsT . h))
+    FileArtifactsT (unpackFileArtifactsT m `catchError`
+                    (unpackFileArtifactsT . h))
 
 instance MonadGenpos m => MonadGenpos (FileArtifactsT m) where
-  position = lift . position
+  point = lift . point
+  filename = lift . filename
 
 instance MonadGensym m => MonadGensym (FileArtifactsT m) where
   symbol = lift . symbol
   unique = lift . unique
 
-instance MonadKeywords t m => MonadKeywords t (FileArtifactsT m) where
+instance MonadKeywords p t m => MonadKeywords p t (FileArtifactsT m) where
   mkKeyword p = lift . mkKeyword p
 
 instance MonadLoader path info m =>
@@ -200,7 +202,8 @@ instance MonadMessages msg m => MonadMessages msg (FileArtifactsT m) where
   message = lift . message
 
 instance MonadPositions m => MonadPositions (FileArtifactsT m) where
-  positionInfo = lift . positionInfo
+  pointInfo = lift . pointInfo
+  fileInfo = lift . fileInfo
 
 instance MonadSourceFiles m =>
          MonadSourceFiles (FileArtifactsT m) where

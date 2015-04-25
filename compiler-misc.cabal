@@ -59,6 +59,7 @@ Library
                         Control.Monad.Comments.Class
                         Control.Monad.Context
                         Control.Monad.FileArtifacts
+                        Control.Monad.FileLoader
                         Control.Monad.Frontend
                         Control.Monad.Genpos
                         Control.Monad.Genpos.Class
@@ -78,15 +79,16 @@ Library
                         Control.Monad.SourceBuffer.Class
                         Control.Monad.SourceFiles
                         Control.Monad.SourceFiles.Class
-                        Control.Monad.SourceLoader
                         Control.Monad.Symbols
                         Control.Monad.Symbols.Class
                         Data.Hashable.ExtraInstances
                         Data.Interval
-                        Data.LexicalError
+                        Data.Intervals
                         Data.Message
                         Data.Position
-                        Data.PositionInfo
+                        Data.Position.Class
+                        Data.Position.Filename
+                        Data.Position.Point
                         Data.Symbol
                         Prelude.Extras.ExtraInstances
                         Text.AlexWrapper

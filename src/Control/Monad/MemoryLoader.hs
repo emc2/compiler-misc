@@ -164,20 +164,22 @@ instance (Error e, MonadError e m) =>
     MemoryLoaderT (unpackMemoryLoaderT m `catchError` (unpackMemoryLoaderT . h))
 
 instance MonadGenpos m => MonadGenpos (MemoryLoaderT info m) where
-  position = lift . position
+  point = lift . point
+  filename = lift . filename
 
 instance MonadGensym m => MonadGensym (MemoryLoaderT info m) where
   symbol = lift . symbol
   unique = lift . unique
 
-instance MonadKeywords t m => MonadKeywords t (MemoryLoaderT info m) where
+instance MonadKeywords p t m => MonadKeywords p t (MemoryLoaderT info m) where
   mkKeyword p = lift . mkKeyword p
 
 instance MonadMessages msg m => MonadMessages msg (MemoryLoaderT info m) where
   message = lift . message
 
 instance MonadPositions m => MonadPositions (MemoryLoaderT info m) where
-  positionInfo = lift . positionInfo
+  pointInfo = lift . pointInfo
+  fileInfo = lift . fileInfo
 
 instance MonadSourceFiles m =>
          MonadSourceFiles (MemoryLoaderT info m) where

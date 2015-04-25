@@ -36,52 +36,11 @@
 --
 -- This is quite similar in concept to @Symbol@s
 module Data.Position(
-       Position,
-       firstPosition,
-       debugStr
+       module Data.Position.Class,
+       module Data.Position.Point,
+       module Data.Position.Filename
        ) where
 
-import Data.Hashable
-import Data.Ix
-import Data.Word
-import Text.XML.Expat.Pickle
-import Text.XML.Expat.Tree
-
--- | Position datatype.  This is a token that is used to look up
--- position data.
-newtype Position =
-  Position {
-    -- | The unique numerical ID of the symbol.
-    idx :: Word
-  }
-  deriving (Eq, Ord, Ix)
-
--- | A starting point for enumerating @Position@s.
-firstPosition :: Position
-firstPosition = Position { idx = 0 }
-
--- | Get a debugging name for a @Position@
-debugStr :: Position -> String
-debugStr Position { idx = n } = "<position " ++ show n ++ ">"
-
-instance Enum Position where
-  succ = Position . succ . idx
-  pred = Position . pred . idx
-  toEnum = Position . toEnum
-  fromEnum = fromEnum . idx
-  enumFromThen Position { idx = n } = map Position . enumFromThen n . idx
-  enumFromTo Position { idx = n } = map Position . enumFromTo n . idx
-  enumFromThenTo Position { idx = n } Position { idx = m } =
-    map Position . enumFromThenTo n m . idx
-
-instance Hashable Position where
-  hashWithSalt s Position { idx = n } = hashWithSalt s n
-
-instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
-         XmlPickler [NodeG [] tag text] Position where
-  xpickle = xpWrap (Position, idx) (xpElemNodes (gxFromString "Position")
-                                                (xpContent xpPrim))
-
-instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
-         XmlPickler (Attributes tag text) Position where
-  xpickle = xpWrap (Position, idx) (xpAttr (gxFromString "pos") xpPrim)
+import Data.Position.Class
+import Data.Position.Point
+import Data.Position.Filename

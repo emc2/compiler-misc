@@ -24,17 +24,15 @@ import Text.AlexWrapper
 
 tokens :-
 
-\n                   { \startpos endpos @ (AlexPn off _ _) tokstr ->
-                          do
-			    linebreak off
-			    skip startpos endpos tokstr
-                     }
+\n                   { linebreak `andThen` skip }
 [\ \t\r\f]+          { skip }
-[\+\-\*\/]+          { token (keywordOrToken Operator) }
-[0-9]+               { token (\bstr -> return . (Number (read (Lazy.unpack bstr)))) }
-[a-zA-Z][a-zA-Z0-9]* { token (keywordOrToken Name) }
+[\+\-\*\/]+          { produce (keywordOrToken Operator) }
+[0-9]+               { produce numberLit }
+[a-zA-Z][a-zA-Z0-9]* { produce (keywordOrToken Name) }
 
 {
+
+numberLit bstr = return . Number (read (Lazy.unpack bstr))
 
 -- Define a list of keywords.  These will be passed into the run
 -- function for the Keywords monad.
@@ -64,7 +62,6 @@ data LexerMessage =
 instance Message LexerMessage where
   severity _ = Error
   position (BadChars _ pos) = Just pos
-  kind (BadChars _ _) = Strict.pack "BadChars"
   brief (BadChars _ _) = Lazy.pack "Invalid characters in input"
   details (BadChars _ _) = Lazy.empty
 

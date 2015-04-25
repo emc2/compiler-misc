@@ -29,15 +29,17 @@
 -- SUCH DAMAGE.
 {-# OPTIONS_GHC -funbox-strict-fields -Wall -Werror #-}
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses,
-             FunctionalDependencies #-}
+             FunctionalDependencies, FlexibleContexts #-}
 
 -- | Defines a class for compiler messages and collections of compiler
 -- messages.
 module Data.Message(
        Severity(Internal, Error, Warning, Remark, Lint, Info),
        Highlighting(..),
+       MessageContentPosition(..),
        MessageContent(..),
        Message(..),
+       MessagePosition(..),
        Messages(..),
        messageContent,
        messageContentNoContext,
@@ -54,8 +56,6 @@ import Control.Monad.Trans
 import Data.ByteString(ByteString)
 import Data.Hashable
 import Data.Monoid hiding ((<>))
-import Data.Position
-import Data.PositionInfo
 import Data.Word
 import System.IO
 import Text.Format
@@ -66,6 +66,7 @@ import qualified Data.ByteString as Strict
 import qualified Data.ByteString.UTF8 as Strict.UTF8
 import qualified Data.ByteString.Lazy as Lazy
 import qualified Data.ByteString.Lazy.UTF8 as Lazy.UTF8
+import qualified Data.Position as Position
 
 -- | Indicates how to highlight text in the message context.
 data Highlighting =
@@ -113,6 +114,59 @@ data Severity =
   | Internal
     deriving (Enum, Ord, Eq)
 
+-- | A processed form of position information.
+data MessageContentPosition =
+    -- | A compound position, consisting of a base position, and then
+    -- a list of child positions.
+    Compound {
+      -- | The base position.
+      compoundBase :: MessageContentPosition,
+      -- | A possible description relating the children to the base.
+      compoundDesc :: !ByteString,
+      -- | The child positions.
+      compoundChildren :: [MessageContentPosition]
+    }
+  | Span {
+      -- | A possible description.
+      spanDesc :: !ByteString,
+      -- | The file in which this position occurs.
+      spanFile :: !ByteString,
+      -- | The start line.
+      spanStartLine :: !Word,
+      -- | The starting column.
+      spanStartCol :: !Word,
+      -- | The ending line.
+      spanEndLine :: !Word,
+      -- | The ending column.
+      spanEndCol :: !Word,
+      -- | The context source lines.
+      spanContext :: ![ByteString]
+    }
+  | Point {
+      -- | A possible description.
+      pointDesc :: !ByteString,
+      -- | The file in which this position occurs.
+      pointFile :: !ByteString,
+      -- | The line at which this occurs.
+      pointLine :: !Word,
+      -- | The column at which this occurs.
+      pointCol :: !Word,
+      -- | The context source lines.
+      pointContext :: ![ByteString]
+    }
+    -- | A message about a particular file.
+  | File {
+      -- | A possible description.
+      fileDesc :: !ByteString,
+      -- | The file name.
+      fileName :: !ByteString
+    }
+    -- | A position with an arbitrary description, not from any file.
+  | Other {
+      -- | The description.
+      otherDesc :: !ByteString
+    }
+
 -- | The content in a message.  'Message' instances are translated
 -- into this type prior to output.  This type depends in no way on the
 -- contents of any monad.  Thus, it has an 'XmlPickler' and 'Show'
@@ -122,21 +176,17 @@ data MessageContent =
     -- | The severity of the message.
     msgSeverity :: !Severity,
     -- | The position of the message.
-    msgPosition :: !(Maybe PositionInfo),
+    msgPositions :: [MessageContentPosition],
     -- | A brief description of the nature of the message.
     msgBrief :: !Doc,
     -- | A detailed description of the nature of the message.
-    msgDetails :: !(Maybe Doc),
-    -- | The source code context of the message.
-    msgContext :: ![ByteString]
+    msgDetails :: !(Maybe Doc)
   }
 
 -- | Class of types representing compiler messages.
 class Message msg where
   -- | Get the severity of a message.
   severity :: msg -> Severity
-  -- | Get the position to which the message relates.
-  position :: msg -> Maybe Position
   -- | Get a brief human-readable description of the error.
   brief :: msg -> Doc
   -- | Get a detailed human-readable description of the error.
@@ -145,6 +195,10 @@ class Message msg where
   -- that is almost always correct.
   highlighting :: msg -> Highlighting
   highlighting _ = Foreground
+
+class Message msg => MessagePosition pos msg | msg -> pos where
+  -- | Get the position to which the message relates.
+  position :: msg -> Maybe pos
 
 -- | Class of types representing a collection of compiler messages.
 class (Monoid msgs, Message msg) => Messages msg msgs | msgs -> msg where
@@ -235,133 +289,242 @@ splitThree startcol endcol bstr =
   in
     (reverse pre, reverse mid, reverse post)
 
--- | Build a 'Doc' for context information that highlights the section
--- referenced by the 'PositionInfo'.
-buildContext :: Highlighting -> Severity -> PositionInfo -> [ByteString] -> Doc
-buildContext hlight sev Span { spanStartColumn = startcol,
-                               spanEndColumn = endcol } [ctx] =
-  let
-    lazy = Lazy.fromStrict ctx
-    (pre, mid, post) = splitThree startcol endcol lazy
-  in
-    cat [string pre,
-         highlight hlight sev (string mid),
-         string post, line ]
-buildContext hlight sev Span { spanStartColumn = startcol,
-                               spanEndColumn = endcol } ctx =
-  let
-    firstline = Lazy.fromStrict (head ctx)
-    middle = tail (init ctx)
-    endline = Lazy.fromStrict (last ctx)
-    (startpre, startpost) = splitTwo startcol firstline
-    (endpre, endpost) = splitTwo (endcol + 1) endline
-    markeddocs = string startpost : map bytestring middle ++
-                 [string endpre]
-  in
-    cat [string startpre,
-         highlight hlight sev (vcat markeddocs),
-         string endpost, line]
-buildContext hlight sev Point { pointColumn = col } [ctx] =
-  let
-    lazy = Lazy.fromStrict ctx
-    (pre, mid, post) = splitThree col col lazy
-  in
-    cat [string pre, highlight hlight sev (string mid), string post, line]
-buildContext _ _ _ [] = empty
-buildContext _ _ _ _ = error "Impossible case"
-
 -- | Translate a 'Message' into 'MessageContent'
-messageContent :: (MonadPositions m, MonadSourceFiles m, Message msg) =>
+messageContent :: (MonadPositions m, MonadSourceFiles m,
+                   MessagePosition pos msg, Position.Position info pos,
+                   Position.PositionInfo info) =>
                   msg -> m MessageContent
 messageContent msg =
-  do
-    (pinfo, ctx) <-
-      case position msg of
-        Nothing -> return (Nothing, [])
-        Just pos ->
-          do
-            pinfo <- positionInfo pos
-            case pinfo of
-              Span { spanFile = fname, spanStartLine = startline,
-                     spanEndLine = endline } ->
-                do
-                  ctx <- sourceFileSpan fname startline endline
-                  return (Just pinfo, ctx)
-              Point { pointFile = fname, pointLine = startend } ->
-                do
-                  ctx <- sourceFileSpan fname startend startend
-                  return (Just pinfo, ctx)
-              _ -> return (Just pinfo, [])
-    return MessageContent { msgSeverity = severity msg, msgBrief = brief msg,
-                            msgDetails = details msg, msgPosition = pinfo,
-                            msgContext = ctx }
+  let
+    getPosition :: (MonadPositions m, MonadSourceFiles m,
+                    Position.PositionInfo info) =>
+                   info -> m MessageContentPosition
+    getPosition info =
+      do
+        msgpos <- case Position.location info of
+          Just (fname, Just (startpoint, endpoint)) ->
+            do
+              Position.FileInfo { Position.fileInfoName = fstr } <-
+                fileInfo fname
+              Position.PointInfo { Position.pointLine = startline,
+                                   Position.pointColumn = startcol } <-
+                pointInfo startpoint
+              Position.PointInfo { Position.pointLine = endline,
+                                   Position.pointColumn = endcol } <-
+                pointInfo endpoint
+              ctx <- sourceFileSpan fname startline endline
+              if startline == endline && startcol == endcol
+                then return Point { pointFile = fstr, pointLine = startline,
+                                    pointCol = startcol, pointContext = ctx,
+                                    pointDesc = Position.description info }
+                else return Span { spanStartLine = startline,
+                                   spanStartCol = startcol,
+                                   spanEndLine = endline,
+                                   spanEndCol = endcol,
+                                   spanFile = fstr, spanContext = ctx,
+                                   spanDesc = Position.description info }
+          Just (fname, Nothing) ->
+            do
+              Position.FileInfo { Position.fileInfoName = fstr } <-
+                fileInfo fname
+              return File { fileDesc = Position.description info,
+                            fileName = fstr }
+          Nothing -> return Other { otherDesc = Position.description info }
+        case Position.children info of
+          Nothing -> return msgpos
+          Just (desc, infos) ->
+            do
+              nodes <- mapM getPosition infos
+              return Compound { compoundBase = msgpos, compoundDesc = desc,
+                                compoundChildren = nodes }
+  in case position msg of
+    Just pos ->
+      do
+        posdata <- mapM getPosition (Position.positionInfo pos)
+        return MessageContent { msgSeverity = severity msg,
+                                msgBrief = brief msg,
+                                msgDetails = details msg,
+                                msgPositions = posdata }
+    Nothing -> return MessageContent { msgSeverity = severity msg,
+                                       msgBrief = brief msg,
+                                       msgDetails = details msg,
+                                       msgPositions = [] }
 
 -- | Translate a 'Message' into 'MessageContent', without getting
 -- source context.
-messageContentNoContext :: (MonadPositions m, Message msg) =>
-                        msg -> m MessageContent
+messageContentNoContext :: (MonadPositions m, MessagePosition pos msg,
+                            Position.Position info pos,
+                            Position.PositionInfo info) =>
+                           msg -> m MessageContent
 messageContentNoContext msg =
-  do
-    pinfo <-
-      case position msg of
-        Nothing -> return Nothing
-        Just pos ->
-          do
-            pinfo <- positionInfo pos
-            return (Just pinfo)
-    return MessageContent { msgSeverity = severity msg, msgBrief = brief msg,
-                            msgDetails = details msg, msgPosition = pinfo,
-                            msgContext = [] }
+  let
+    getPosition :: (MonadPositions m, Position.PositionInfo info) =>
+                   info -> m MessageContentPosition
+    getPosition info =
+      do
+        msgpos <- case Position.location info of
+          Just (fname, Just (startpoint, endpoint)) ->
+            do
+              Position.FileInfo { Position.fileInfoName = fstr } <-
+                fileInfo fname
+              Position.PointInfo { Position.pointLine = startline,
+                                   Position.pointColumn = startcol } <-
+                pointInfo startpoint
+              Position.PointInfo { Position.pointLine = endline,
+                                   Position.pointColumn = endcol } <-
+                pointInfo endpoint
+              if startline == endline && startcol == endcol
+                then return Point { pointFile = fstr, pointLine = startline,
+                                    pointCol = startcol, pointContext = [],
+                                    pointDesc = Position.description info }
+                else return Span { spanStartLine = startline,
+                                   spanStartCol = startcol,
+                                   spanEndLine = endline,
+                                   spanEndCol = endcol,
+                                   spanFile = fstr, spanContext = [],
+                                   spanDesc = Position.description info }
+          Just (fname, Nothing) ->
+            do
+              Position.FileInfo { Position.fileInfoName = fstr } <-
+                fileInfo fname
+              return File { fileDesc = Position.description info,
+                            fileName = fstr }
+          Nothing -> return Other { otherDesc = Position.description info }
+        case Position.children info of
+          Nothing -> return msgpos
+          Just (desc, infos) ->
+            do
+              nodes <- mapM getPosition infos
+              return Compound { compoundBase = msgpos, compoundDesc = desc,
+                                compoundChildren = nodes }
+  in case position msg of
+    Just pos ->
+      do
+        posdata <- mapM getPosition (Position.positionInfo pos)
+        return MessageContent { msgSeverity = severity msg,
+                                msgBrief = brief msg,
+                                msgDetails = details msg,
+                                msgPositions = posdata }
+    Nothing -> return MessageContent { msgSeverity = severity msg,
+                                       msgBrief = brief msg,
+                                       msgDetails = details msg,
+                                       msgPositions = [] }
 
 formatMessageContent :: Highlighting -> MessageContent -> Doc
-formatMessageContent hlight MessageContent { msgSeverity = msev,
-                                             msgPosition = mpos,
+formatMessageContent hlight MessageContent { msgSeverity = sev,
+                                             msgPositions = positions,
                                              msgBrief = mbrief,
-                                             msgDetails = mdetails,
-                                             msgContext = mctx } =
+                                             msgDetails = mdetails  } =
   let
-    (posdoc, ctxdoc) = case mpos of
-      Just p ->
-        let
-          preposition = case p of
-            Span {} -> string " at "
-            Point {} -> string " at "
-            File {} -> string " in "
-            Synthetic {} -> string " arising from "
-            CmdLine {} -> string " from "
-        in case mctx of
-          [] -> (preposition <> vividWhite (format p), empty)
-          _ -> (preposition <> vividWhite (format p),
-                buildContext hlight msev p mctx)
-      Nothing -> (empty, empty)
+    formatPos depth Compound { compoundBase = base, compoundDesc = desc,
+                               compoundChildren = children } =
+      let
+        newdepth = depth + 2
+      in
+        formatPos depth base <$$>
+        nest newdepth (vcat (format desc : map (formatPos newdepth) children))
+    formatPos depth Span { spanStartLine = startline, spanStartCol = startcol,
+                           spanEndLine = endline, spanEndCol = endcol,
+                           spanFile = fname, spanDesc = desc,
+                           spanContext = ctx } =
+      let
+        ctxdoc = case ctx of
+          [] -> empty
+          [oneline] ->
+            let
+              lazy = Lazy.fromStrict oneline
+              (pre, mid, post) = splitThree startcol endcol lazy
+            in
+              cat [string pre,
+                   highlight hlight sev (string mid),
+                   string post, line ]
+          _ ->
+            let
+              firstline = Lazy.fromStrict (head ctx)
+              middle = tail (init ctx)
+              lastline = Lazy.fromStrict (last ctx)
+              (startpre, startpost) = splitTwo startcol firstline
+              (endpre, endpost) = splitTwo (endcol + 1) lastline
+              markeddocs = string startpost : map bytestring middle ++
+                           [string endpre]
+            in
+              cat [string startpre,
+                   highlight hlight sev (vcat markeddocs),
+                   string endpost, line]
+
+        locationdoc
+          | startline == endline =
+            vividWhite (hcat [bytestring fname, colon,
+                              format startline, dot, format startcol,
+                              char '-', format endline ])
+          | otherwise =
+            vividWhite (hcat [bytestring fname, colon,
+                              format startline, dot, format startcol,
+                              char '-', format endline, dot, format endcol])
+      in
+        nest depth (bytestring desc <+> string "at " <> locationdoc) <$$> ctxdoc
+    formatPos depth Point { pointLine = pointline, pointCol = pointcol,
+                            pointFile = fname, pointDesc = desc,
+                            pointContext = ctx } =
+      let
+        ctxdoc = case ctx of
+          [] -> empty
+          [oneline] ->
+            let
+              lazy = Lazy.fromStrict oneline
+              (pre, mid, post) = splitThree pointcol pointcol lazy
+            in
+              cat [string pre,
+                   highlight hlight sev (string mid),
+                   string post, line]
+          _ -> error "Shouldn't see multi-line context with a Point position"
+
+        locationdoc = vividWhite (hcat [bytestring fname, colon,
+                                        format pointline, dot, format pointcol])
+      in
+        nest depth (bytestring desc <+> string "at " <> locationdoc) <$$> ctxdoc
+    formatPos depth File { fileName = fname, fileDesc = desc } =
+      nest depth (bytestring desc <+> string "in " <>
+                  vividWhite (bytestring fname))
+    formatPos depth Other { otherDesc = desc } = nest depth (bytestring desc)
 
     detailsdoc =
       case mdetails of
         Nothing -> empty
         Just content -> indent 2 content <> line
-  in
-   cat [hcat [format msev, posdoc, colon], softline,
-        nest 2 mbrief, line, ctxdoc, detailsdoc ]
+
+    posdocs = map (formatPos 0) positions
+  in case posdocs of
+    [] -> nest 2 (format sev <> colon </> mbrief) <$$> detailsdoc
+    [posdoc] -> sep [nest 2 (format sev <> colon </> mbrief), posdoc] <$$>
+                detailsdoc
+    _ -> nest 2 (format sev <> colon </> mbrief) <$$>
+         vcat posdocs <$$> detailsdoc
 
 formatMessage :: (MonadPositions m, MonadSourceFiles m,
-                  MonadIO m, Message msg) =>
-                 msg -> m Doc
+                  MonadIO m, MessagePosition pos msg,
+                  Position.Position info pos,
+                  Position.PositionInfo info) => msg -> m Doc
 formatMessage msg =
   do
     contents <- messageContent msg
-    return (formatMessageContent (highlighting msg) contents)
+    return $! formatMessageContent (highlighting msg) contents
 
 
-formatMessageNoContext :: (MonadPositions m, MonadIO m, Message msg) =>
+formatMessageNoContext :: (MonadPositions m, MonadIO m,
+                           MessagePosition pos msg,
+                           Position.Position info pos,
+                           Position.PositionInfo info) =>
                           msg -> m Doc
 formatMessageNoContext msg =
   do
     contents <- messageContentNoContext msg
-    return (formatMessageContent (highlighting msg) contents)
+    return $! formatMessageContent (highlighting msg) contents
 
 -- | Output a collection of messages to a given 'Handle' as text.
 putMessages :: (MonadPositions m, MonadSourceFiles m, MonadIO m,
-                Messages msg msgs, Message msg) =>
+                Messages msg msgs, MessagePosition pos msg,
+                Position.Position info pos, Position.PositionInfo info) =>
                Handle -> msgs -> m ()
 putMessages handle msgs =
   do
@@ -369,19 +532,16 @@ putMessages handle msgs =
     liftIO (putOptimal handle 80 True (vcat docs))
 
 -- | Output a collection of messages to a given 'Handle' as text.
-putMessagesNoContext :: (MonadPositions m, MonadIO m,
-                         Messages msg msgs, Message msg) =>
+putMessagesNoContext :: (MonadPositions m, MonadIO m, Messages msg msgs,
+                         MessagePosition pos msg, Position.Position info pos,
+                         Position.PositionInfo info) =>
                         Handle -> msgs -> m ()
 putMessagesNoContext handle msgs =
   do
     docs <- mapM formatMessageNoContext (messages msgs)
     liftIO (putOptimal handle 80 True (vcat docs))
 
-
-putMessageContentsXML :: (MonadIO m) =>
-                         Handle
-                      -> [MessageContent]
-                      -> m ()
+putMessageContentsXML :: MonadIO m => Handle -> [MessageContent] -> m ()
 putMessageContentsXML handle contents =
   let
     pickler :: PU (UNode ByteString) [MessageContent]
@@ -391,7 +551,8 @@ putMessageContentsXML handle contents =
 
 -- | Output a collection of messages to a given 'Handle' as XML.
 putMessagesXML :: (MonadPositions m, MonadSourceFiles m, MonadIO m,
-                   Messages msg msgs, Message msg) =>
+                   Messages msg msgs, MessagePosition pos msg,
+                   Position.Position info pos, Position.PositionInfo info) =>
                   Handle -> msgs -> m ()
 putMessagesXML handle msgs =
   do
@@ -400,8 +561,9 @@ putMessagesXML handle msgs =
 
 -- | Output a collection of messages to a given 'Handle' as XML,
 -- without source context strings.
-putMessagesXMLNoContext :: (MonadPositions m, MonadIO m,
-                            Messages msg msgs, Message msg) =>
+putMessagesXMLNoContext :: (MonadPositions m, MonadIO m, Messages msg msgs,
+                            MessagePosition pos msg, Position.Position info pos,
+                            Position.PositionInfo info) =>
                            Handle -> msgs -> m ()
 putMessagesXMLNoContext handle msgs =
   do
@@ -471,6 +633,156 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text) =>
                            (xpAttrFixed (gxFromString "severity")
                                         (gxFromString "info"))]
 
+compoundPickler :: (GenericXMLString tag, Show tag,
+                    GenericXMLString text, Show text) =>
+                   PU [NodeG [] tag text] MessageContentPosition
+compoundPickler =
+  let
+    fwdfunc (base, desc, children) =
+      Compound { compoundBase = base, compoundDesc = gxToByteString desc,
+                 compoundChildren = children }
+
+    revfunc Compound { compoundBase = base, compoundDesc = desc,
+                       compoundChildren = children } =
+      (base, gxFromByteString desc, children)
+    revfunc _ = error $! "Can't convert to Compound"
+  in
+    xpWrap (fwdfunc, revfunc)
+           (xpElemNodes (gxFromString "compound")
+                        (xpTriple (xpElemNodes (gxFromString "base") xpickle)
+                                  (xpElemNodes (gxFromString "desc")
+                                               (xpContent xpText))
+                                  (xpElemNodes (gxFromString "children")
+                                               (xpList xpickle))))
+
+packContext :: (GenericXMLString text, Show text) => [ByteString] -> Maybe text
+packContext [] = Nothing
+packContext ctx =
+  Just (gxFromByteString (Strict.intercalate (Strict.UTF8.fromString "\n") ctx))
+
+unpackContext :: (GenericXMLString text, Show text) =>
+                 Maybe text -> [ByteString]
+unpackContext Nothing = []
+unpackContext (Just txt) = Strict.UTF8.lines (gxToByteString txt)
+
+spanPickler :: (GenericXMLString tag, Show tag,
+                GenericXMLString text, Show text) =>
+               PU [NodeG [] tag text] MessageContentPosition
+spanPickler =
+  let
+    fwdfunc ((fname, startline, startcol, endline, endcol), (ctx, Just desc)) =
+      Span { spanStartLine = startline, spanStartCol = startcol,
+             spanEndLine = endline, spanEndCol = endcol,
+             spanFile = gxToByteString fname,
+             spanDesc = gxToByteString desc,
+             spanContext = unpackContext ctx }
+    fwdfunc ((fname, startline, startcol, endline, endcol), (ctx, Nothing)) =
+      Span { spanStartLine = startline, spanStartCol = startcol,
+             spanEndLine = endline, spanEndCol = endcol,
+             spanFile = gxToByteString fname,
+             spanContext = unpackContext ctx,
+             spanDesc = Strict.empty }
+
+    revfunc Span { spanStartLine = startline, spanStartCol = startcol,
+                   spanEndLine = endline, spanEndCol = endcol,
+                   spanFile = fname, spanDesc = desc, spanContext = ctx } =
+      ((gxFromByteString fname, startline, startcol, endline, endcol),
+       (if Strict.null desc then Nothing else Just (gxFromByteString desc),
+        packContext ctx))
+    revfunc _ = error $! "Can't convert to Span"
+  in
+    xpWrap (fwdfunc, revfunc)
+           (xpElem (gxFromString "span")
+                   (xp5Tuple (xpAttr (gxFromString "file") xpText)
+                             (xpAttr (gxFromString "start-line") xpPrim)
+                             (xpAttr (gxFromString "start-column") xpPrim)
+                             (xpAttr (gxFromString "end-line") xpPrim)
+                             (xpAttr (gxFromString "end-column") xpPrim))
+                   (xpPair (xpOption (xpElemNodes (gxFromString "desc")
+                                                  (xpContent xpText)))
+                           (xpOption (xpElemNodes (gxFromString "context")
+                                                  (xpContent xpText)))))
+
+pointPickler :: (GenericXMLString tag, Show tag,
+                 GenericXMLString text, Show text) =>
+                PU [NodeG [] tag text] MessageContentPosition
+pointPickler =
+  let
+    fwdfunc ((fname, pointline, pointcol), (Just desc, ctx)) =
+      Point { pointLine = pointline, pointCol = pointcol,
+              pointContext = unpackContext ctx,
+              pointFile = gxToByteString fname,
+              pointDesc = gxToByteString desc }
+    fwdfunc ((fname, pointline, pointcol), (Nothing, ctx)) =
+      Point { pointLine = pointline, pointCol = pointcol,
+              pointContext = unpackContext ctx,
+              pointFile = gxToByteString fname,
+              pointDesc = Strict.empty }
+
+    revfunc Point { pointLine = pointline, pointCol = pointcol,
+                    pointFile = fname, pointDesc = desc, pointContext = ctx } =
+      ((gxFromByteString fname, pointline, pointcol),
+       (if Strict.null desc then Nothing else Just (gxFromByteString desc),
+        packContext ctx))
+    revfunc _ = error $! "Can't convert to Span"
+  in
+    xpWrap (fwdfunc, revfunc)
+           (xpElem (gxFromString "point")
+                   (xpTriple (xpAttr (gxFromString "file") xpText)
+                             (xpAttr (gxFromString "line") xpPrim)
+                             (xpAttr (gxFromString "column") xpPrim))
+                   (xpPair (xpOption (xpElemNodes (gxFromString "desc")
+                                                  (xpContent xpText)))
+                           (xpOption (xpElemNodes (gxFromString "context")
+                                                  (xpContent xpText)))))
+
+filePickler :: (GenericXMLString tag, Show tag,
+                GenericXMLString text, Show text) =>
+               PU [NodeG [] tag text] MessageContentPosition
+filePickler =
+  let
+    fwdfunc (fname, Just desc) =
+      File { fileName = gxToByteString fname, fileDesc = gxToByteString desc }
+    fwdfunc (fname, Nothing) =
+      File { fileName = gxToByteString fname, fileDesc = Strict.empty }
+
+    revfunc File { fileName = fname, fileDesc = desc } =
+      (gxFromByteString fname,
+       if Strict.null desc then Nothing else Just (gxFromByteString desc))
+    revfunc _ = error $! "Can't convert to Span"
+  in
+    xpWrap (fwdfunc, revfunc)
+           (xpElem (gxFromString "file")
+                   (xpAttr (gxFromString "name") xpText)
+                   (xpOption (xpElemNodes (gxFromString "desc")
+                                          (xpContent xpText))))
+
+otherPickler :: (GenericXMLString tag, Show tag,
+                 GenericXMLString text, Show text) =>
+                PU [NodeG [] tag text] MessageContentPosition
+otherPickler =
+  let
+    fwdfunc desc = Other { otherDesc = gxToByteString desc }
+
+    revfunc Other { otherDesc = desc } = gxFromByteString desc
+    revfunc _ = error $! "Can't convert to Other"
+  in
+    xpWrap (fwdfunc, revfunc)
+           (xpElemNodes (gxFromString "other")
+                        (xpElemNodes (gxFromString "desc") (xpContent xpText)))
+
+instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
+         XmlPickler [NodeG [] tag text] MessageContentPosition where
+  xpickle =
+    let
+      picker Compound {} = 0
+      picker Span {} = 1
+      picker Point {} = 2
+      picker File {} = 3
+      picker Other {} = 4
+    in
+      xpAlt picker [compoundPickler, spanPickler, pointPickler,
+                    filePickler, otherPickler]
 
 instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
          XmlPickler [NodeG [] tag text] MessageContent where
@@ -479,7 +791,6 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
       posName = gxFromString "position"
       briefName = gxFromString "brief"
       detailsName = gxFromString "details"
-      ctxName = gxFromString "context"
 
       packDoc = gxFromByteString . Lazy.toStrict . renderOptimal 80 False
 
@@ -489,33 +800,22 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
       unpackMaybeDoc (Just bstr) = Just (bytestring (gxToByteString bstr))
       unpackMaybeDoc Nothing = Nothing
 
-      packStrict bstr
-        | bstr /= Strict.empty = Just (gxFromByteString bstr)
-        | otherwise = Nothing
-
-      unpackStrict (Just bstr) = gxToByteString bstr
-      unpackStrict Nothing = Strict.empty
-
-      packMsgContent MessageContent { msgSeverity = msev, msgContext = mctx,
-                                      msgPosition = pos, msgBrief = mbrief,
+      packMsgContent MessageContent { msgSeverity = msev,
+                                      msgPositions = positions,
+                                      msgBrief = mbrief,
                                       msgDetails = mdetails } =
-        (msev,
-         (pos, packDoc mbrief, packMaybeDoc mdetails,
-          packStrict (Strict.intercalate (Strict.UTF8.fromString "\n") mctx)))
+        (msev, (positions, packDoc mbrief, packMaybeDoc mdetails))
 
-      unpackMsgContent (msev, (pos, mbrief, mdetails, mctx)) =
-        MessageContent { msgSeverity = msev, msgDetails = unpackMaybeDoc mdetails,
-                         msgContext = Strict.UTF8.lines (unpackStrict mctx),
+      unpackMsgContent (msev, (positions, mbrief, mdetails)) =
+        MessageContent { msgSeverity = msev,
+                         msgDetails = unpackMaybeDoc mdetails,
                          msgBrief = bytestring (gxToByteString mbrief),
-                         msgPosition = pos}
+                         msgPositions = positions }
     in
       xpWrap (unpackMsgContent, packMsgContent)
              (xpElem (gxFromString "message")
                      xpickle
-                     (xp4Tuple (xpOption (xpElemNodes posName
-                                                      xpickle))
+                     (xpTriple (xpElemNodes posName (xpList xpickle))
                                (xpElemNodes briefName (xpContent xpText))
                                (xpOption (xpElemNodes detailsName
-                                                      (xpContent xpText)))
-                               (xpOption (xpElemNodes ctxName
                                                       (xpContent xpText)))))

@@ -37,7 +37,7 @@ import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer
-import Data.ByteString
+import Data.Position.Filename
 
 import qualified Data.ByteString.Lazy as Lazy
 
@@ -50,7 +50,7 @@ class Monad m => MonadSourceBuffer m where
             -- ^ The offset of the linebreak.
             -> m()
   -- | Start a new file.
-  startFile :: ByteString
+  startFile :: Filename
             -- ^ The file name.
             -> Lazy.ByteString
             -- ^ The file contents.

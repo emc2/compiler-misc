@@ -66,14 +66,14 @@ import Control.Monad.Writer
 import Data.ByteString(ByteString)
 import Data.HashTable.IO(BasicHashTable)
 import Data.Maybe
-import Data.Position
+import Data.Position.Point
 
 import qualified Data.HashTable.IO as HashTable
 
 -- | Monad transformer which provides access to saved comments.
 newtype CommentsT m a =
   CommentsT {
-      unpackCommentsT :: (ReaderT (BasicHashTable Position [ByteString]) m) a
+      unpackCommentsT :: (ReaderT (BasicHashTable Point [ByteString]) m) a
     }
 
 -- | Monad which provides access to saved comments.
@@ -82,13 +82,13 @@ type Comments = CommentsT IO
 -- | Execute the computation wrapped in a CommentsT monad transformer.
 runCommentsT :: Monad m =>
                 CommentsT m a
-             -> BasicHashTable Position [ByteString]
+             -> BasicHashTable Point [ByteString]
              -> m a
 runCommentsT c = runReaderT (unpackCommentsT c)
 
 -- | Execute the computation wrapped in a Comments monad.
 runComments :: Comments a
-            -> BasicHashTable Position [ByteString]
+            -> BasicHashTable Point [ByteString]
             -> IO a
 runComments c = runReaderT (unpackCommentsT c)
 
@@ -96,8 +96,8 @@ mapCommentsT :: (Monad m, Monad n) =>
                 (m a -> n b) -> CommentsT m a -> CommentsT n b
 mapCommentsT f = CommentsT . mapReaderT f . unpackCommentsT
 
-preceedingComments' :: MonadIO m => Position ->
-                       (ReaderT (BasicHashTable Position [ByteString]) m)
+preceedingComments' :: MonadIO m => Point ->
+                       (ReaderT (BasicHashTable Point [ByteString]) m)
                          [ByteString]
 preceedingComments' pos =
   do
@@ -143,13 +143,14 @@ instance (Error e, MonadError e m) => MonadError e (CommentsT m) where
     CommentsT (unpackCommentsT m `catchError` (unpackCommentsT . h))
 
 instance MonadGenpos m => MonadGenpos (CommentsT m) where
-  position = lift . position
+  point = lift . point
+  filename = lift . filename
 
 instance MonadGensym m => MonadGensym (CommentsT m) where
   symbol = lift . symbol
   unique = lift . unique
 
-instance MonadKeywords t m => MonadKeywords t (CommentsT m) where
+instance MonadKeywords p t m => MonadKeywords p t (CommentsT m) where
   mkKeyword p = lift . mkKeyword p
 
 instance MonadLoader path info m =>
@@ -160,7 +161,8 @@ instance MonadMessages msg m => MonadMessages msg (CommentsT m) where
   message = lift . message
 
 instance MonadPositions m => MonadPositions (CommentsT m) where
-  positionInfo = lift . positionInfo
+  pointInfo = lift . pointInfo
+  fileInfo = lift . fileInfo
 
 instance MonadSourceFiles m => MonadSourceFiles (CommentsT m) where
   sourceFile = lift . sourceFile

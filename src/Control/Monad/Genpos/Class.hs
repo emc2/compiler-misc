@@ -39,98 +39,42 @@ import Control.Monad.Positions.Class
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer
-import Data.ByteString
-import Data.Position
-import Data.PositionInfo
-import Data.Word
+import Data.Position.Filename
+import Data.Position.Point
 
 -- | An extension to the 'MonadPositions' class that adds the ability
--- to create new 'Position's.
+-- to create new 'Point's.
 class MonadPositions m => MonadGenpos m where
-  -- | Create a 'Position' from raw data.
-  position :: PositionInfo
-           -- ^ The name of the file.
-           -> m Position
+  -- | Create a 'Point' from raw data.
+  point :: PointInfo
+        -- ^ The position info.
+        -> m Point
 
-  -- | Create a span position from two existing positions.
-  span :: Position -> Position -> m Position
-  span startpos endpos =
-    do
-      startpinfo <- positionInfo startpos
-      endpinfo <- positionInfo endpos
-      if filepath startpinfo == filepath endpinfo
-        then
-          let
-            fname = filepath startpinfo
-            (startline, startcol) = start startpinfo
-            (endline, endcol) = end endpinfo
-          in
-            between fname startline startcol endline endcol
-        else error $! "Trying to combine positions from different files" ++
-                      show (filepath startpinfo) ++ " and " ++
-                      show (filepath endpinfo)
-
-  -- | Create a span position from raw data.
-  between :: ByteString
-          -- ^ The file name
-          -> Word
-          -- ^ The starting line
-          -> Word
-          -- ^ The starting column
-          -> Word
-          -- ^ The ending line
-          -> Word
-          -- ^ The ending column
-          -> m Position
-  between fname startline startcol endline endcol
-    | startline == endline && startcol == endcol =
-       point fname startline startcol
-    | otherwise =
-      position Span { spanStartLine = startline, spanStartColumn = startcol,
-                      spanEndLine = endline, spanEndColumn = endcol,
-                      spanFile = fname }
-
-  -- | Create a point position from raw data.
-  point :: ByteString
-        -- ^ The file name.
-        -> Word
-        -- ^ The line number.
-        -> Word
-        -- ^ The column number.
-        -> m Position
-  point fname line col = position Point { pointFile = fname, pointLine = line,
-                                          pointColumn = col }
-
-  -- | Create a file position from raw data.
-  file :: ByteString
-       -- ^ The file name.
-       -> m Position
-  file = position . File
-
-  -- | Create a command line position from raw data.
-  cmdLine :: m Position
-  cmdLine = position CmdLine
-
-  -- | Create a synthetic position from raw data.
-  synthetic :: ByteString
-            -- ^ The description.
-            -> m Position
-  synthetic = position . Synthetic
+  -- | Create a 'Filename' from raw data.
+  filename :: FileInfo
+           -- ^ The file name and base path.
+           -> m Filename
 
 instance MonadGenpos m => MonadGenpos (ContT r m) where
-  position = lift . position
+  point = lift . point
+  filename = lift . filename
 
 instance (Error e, MonadGenpos m) => MonadGenpos (ErrorT e m) where
-  position = lift . position
+  point = lift . point
+  filename = lift . filename
 
 instance MonadGenpos m => MonadGenpos (ListT m) where
-  position = lift . position
+  point = lift . point
+  filename = lift . filename
 
 instance MonadGenpos m => MonadGenpos (ReaderT r m) where
-  position = lift . position
+  point = lift . point
+  filename = lift . filename
 
 instance MonadGenpos m => MonadGenpos (StateT s m) where
-  position = lift . position
+  point = lift . point
+  filename = lift . filename
 
 instance (Monoid w, MonadGenpos m) => MonadGenpos (WriterT w m) where
-  position = lift . position
+  point = lift . point
+  filename = lift . filename

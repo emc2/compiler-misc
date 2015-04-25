@@ -245,7 +245,8 @@ instance MonadCommentBuffer m => MonadCommentBuffer (GensymT m) where
   clearComments = lift clearComments
 
 instance MonadGenpos m => MonadGenpos (GensymT m) where
-  position = lift . position
+  point = lift . point
+  filename = lift . filename
 
 instance MonadIO m => MonadGensym (GensymT m) where
   symbol = GensymT . symbol'
@@ -268,7 +269,7 @@ instance (Error e, MonadError e m) => MonadError e (GensymT m) where
   m `catchError` h =
     GensymT (unpackGensymT m `catchError` (unpackGensymT . h))
 
-instance MonadKeywords t m => MonadKeywords t (GensymT m) where
+instance MonadKeywords p t m => MonadKeywords p t (GensymT m) where
   mkKeyword p = lift . mkKeyword p
 
 instance MonadLoader path info m => MonadLoader path info (GensymT m) where
@@ -278,7 +279,8 @@ instance MonadMessages msg m => MonadMessages msg (GensymT m) where
   message = lift . message
 
 instance MonadPositions m => MonadPositions (GensymT m) where
-  positionInfo = lift . positionInfo
+  pointInfo = lift . pointInfo
+  fileInfo = lift . fileInfo
 
 instance MonadSourceFiles m => MonadSourceFiles (GensymT m) where
   sourceFile = lift . sourceFile

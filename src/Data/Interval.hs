@@ -43,9 +43,6 @@ module Data.Interval(
        -- * Math functions
        member,
        members,
-       addNum,
-       subNum,
-       mulNum,
 
        -- * Utility Functions
        size
@@ -106,27 +103,6 @@ members (Interval lo hi) = enumFromTo lo hi
 members (Single num) = [num]
 members (Min num) = enumFrom num
 members (Max num) = iterate pred num
-
--- | Get the interval obtained by adding a number to an interval.
-addNum :: Integral n => Interval n -> n -> Interval n
-addNum (Interval lo hi) num = Interval (lo + num) (hi + num)
-addNum (Single num) num' = Single (num + num')
-addNum (Min num) num' = Min (num + num')
-addNum (Max num) num' = Max (num + num')
-
--- | Get the interval obtained by subtracting a number from an interval.
-subNum :: Integral n => Interval n -> n -> Interval n
-subNum (Interval lo hi) num = Interval (lo - num) (hi - num)
-subNum (Single num) num' = Single (num - num')
-subNum (Min num) num' = Min (num - num')
-subNum (Max num) num' = Max (num - num')
-
--- | Get the interval obtained by multiplying an interval by a number.
-mulNum :: Integral n => Interval n -> n -> Interval n
-mulNum (Interval lo hi) num = Interval (lo * num) (hi * num)
-mulNum (Single num) num' = Single (num * num')
-mulNum (Min num) num' = Min (num * num')
-mulNum (Max num) num' = Max (num * num')
 
 instance Show n => Show (Interval n) where
   show (Min n) = show n ++ " to +inf"

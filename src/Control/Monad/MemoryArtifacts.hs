@@ -124,7 +124,8 @@ artifactLazyBytestring' path content =
 
 instance Monad m => Monad (MemoryArtifactsT path m) where
   return = MemoryArtifactsT . return
-  s >>= f = MemoryArtifactsT $ unpackMemoryArtifactsT s >>= unpackMemoryArtifactsT . f
+  s >>= f = MemoryArtifactsT $ unpackMemoryArtifactsT s >>=
+                               unpackMemoryArtifactsT . f
 
 instance Monad m => Applicative (MemoryArtifactsT path m) where
   pure = return
@@ -171,27 +172,32 @@ instance (Error e, MonadError e m) =>
          MonadError e (MemoryArtifactsT path m) where
   throwError = lift . throwError
   m `catchError` h =
-    MemoryArtifactsT (unpackMemoryArtifactsT m `catchError` (unpackMemoryArtifactsT . h))
+    MemoryArtifactsT (unpackMemoryArtifactsT m `catchError`
+                      (unpackMemoryArtifactsT . h))
 
 instance MonadGenpos m => MonadGenpos (MemoryArtifactsT path m) where
-  position = lift . position
+  point = lift . point
+  filename = lift . filename
 
 instance MonadGensym m => MonadGensym (MemoryArtifactsT path m) where
   symbol = lift . symbol
   unique = lift . unique
 
-instance MonadKeywords t m => MonadKeywords t (MemoryArtifactsT path m) where
+instance MonadKeywords p t m =>
+         MonadKeywords p t (MemoryArtifactsT path m) where
   mkKeyword p = lift . mkKeyword p
 
 instance MonadLoader path info m =>
          MonadLoader path info (MemoryArtifactsT p m) where
   load = lift . load
 
-instance MonadMessages msg m => MonadMessages msg (MemoryArtifactsT path m) where
+instance MonadMessages msg m =>
+         MonadMessages msg (MemoryArtifactsT path m) where
   message = lift . message
 
 instance MonadPositions m => MonadPositions (MemoryArtifactsT path m) where
-  positionInfo = lift . positionInfo
+  pointInfo = lift . pointInfo
+  fileInfo = lift . fileInfo
 
 instance MonadSourceFiles m =>
          MonadSourceFiles (MemoryArtifactsT path m) where

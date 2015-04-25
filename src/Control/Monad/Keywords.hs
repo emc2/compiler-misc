@@ -57,24 +57,21 @@ import Control.Monad.State
 import Control.Monad.Symbols.Class
 import Control.Monad.Writer
 import Data.ByteString hiding (empty)
-import Data.Position
 import Data.HashTable.IO(BasicHashTable)
 
 import qualified Data.HashTable.IO as HashTable
 
-type TokenMaker tok = Position -> tok
+type Table tok pos = BasicHashTable ByteString (pos -> tok)
 
-type Table tok = BasicHashTable ByteString (TokenMaker tok)
+newtype KeywordsT pos tok m a =
+  KeywordsT { unpackKeywordsT :: (ReaderT (Table tok pos) m) a }
 
-newtype KeywordsT tok m a =
-  KeywordsT { unpackKeywordsT :: (ReaderT (Table tok) m) a }
-
-type Keywords tok a = KeywordsT tok IO a
+type Keywords pos tok a = KeywordsT pos tok IO a
 
 -- | Execute the computation represented by a Keywords monad.
-runKeywords :: Keywords tok a
+runKeywords :: Keywords pos tok a
            -- ^ The low and high range of the symbols.
-           -> [(ByteString, TokenMaker tok)]
+           -> [(ByteString, pos -> tok)]
            -- ^ The mapping of symbols.  The mapping to the lowest
            -- index is taken as the null symbol.
            -> IO a
@@ -82,9 +79,9 @@ runKeywords = runKeywordsT
 
 -- | Execute the computation wrapped in a KeywordsT monad transformer.
 runKeywordsT :: MonadIO m =>
-               KeywordsT tok m a
+               KeywordsT pos tok m a
             -- ^ The KeywordsT monad to execute.
-            -> [(ByteString, TokenMaker tok)]
+            -> [(ByteString, pos -> tok)]
             -- ^ The mapping of symbols to indexes.  The mapping to the
             -- lowest index is taken as the null symbol.
             -> m a
@@ -94,11 +91,11 @@ runKeywordsT s keywords =
     runReaderT (unpackKeywordsT s) tab
 
 mapKeywordsT :: (Monad m, Monad n) =>
-                (m a -> n b) -> KeywordsT t m a -> KeywordsT t n b
+                (m a -> n b) -> KeywordsT t p m a -> KeywordsT t p n b
 mapKeywordsT f = KeywordsT . mapReaderT f . unpackKeywordsT
 
-mkKeyword' :: MonadIO m => ByteString -> Position ->
-              (ReaderT (Table tok) m) (Maybe tok)
+mkKeyword' :: MonadIO m => ByteString -> pos ->
+              (ReaderT (Table tok pos) m) (Maybe tok)
 mkKeyword' text pos =
   do
     tab <- ask
@@ -107,36 +104,36 @@ mkKeyword' text pos =
       Just func -> return $! Just $! func pos
       Nothing -> return Nothing
 
-instance Monad m => Monad (KeywordsT t m) where
+instance Monad m => Monad (KeywordsT p t m) where
   return = KeywordsT . return
   s >>= f = KeywordsT $ unpackKeywordsT s >>= unpackKeywordsT . f
 
-instance Monad m => Applicative (KeywordsT t m) where
+instance Monad m => Applicative (KeywordsT p t m) where
   pure = return
   (<*>) = ap
 
-instance (Monad m, Alternative m) => Alternative (KeywordsT t m) where
+instance (Monad m, Alternative m) => Alternative (KeywordsT p t m) where
   empty = lift empty
   s1 <|> s2 = KeywordsT (unpackKeywordsT s1 <|> unpackKeywordsT s2)
 
-instance Functor (KeywordsT t m) where
+instance Functor (KeywordsT p t m) where
   fmap = fmap
 
-instance MonadIO m => MonadIO (KeywordsT t m) where
+instance MonadIO m => MonadIO (KeywordsT p t m) where
   liftIO = KeywordsT . liftIO
 
-instance MonadTrans (KeywordsT t) where
+instance MonadTrans (KeywordsT p t) where
   lift = KeywordsT . lift
 
-instance MonadIO m => MonadKeywords tok (KeywordsT tok m) where
+instance MonadIO m => MonadKeywords pos tok (KeywordsT pos tok m) where
   mkKeyword pos = KeywordsT .  mkKeyword' pos
 
-instance MonadArtifacts path m => MonadArtifacts path (KeywordsT t m) where
+instance MonadArtifacts path m => MonadArtifacts path (KeywordsT p t m) where
   artifact path = lift . artifact path
   artifactBytestring path = lift . artifactBytestring path
   artifactLazyBytestring path = lift . artifactLazyBytestring path
 
-instance MonadCommentBuffer m => MonadCommentBuffer (KeywordsT t m) where
+instance MonadCommentBuffer m => MonadCommentBuffer (KeywordsT p t m) where
   startComment = lift startComment
   appendComment = lift . appendComment
   finishComment = lift finishComment
@@ -144,63 +141,66 @@ instance MonadCommentBuffer m => MonadCommentBuffer (KeywordsT t m) where
   saveCommentsAsPreceeding = lift . saveCommentsAsPreceeding
   clearComments = lift clearComments
 
-instance MonadComments m => MonadComments (KeywordsT t m) where
+instance MonadComments m => MonadComments (KeywordsT p t m) where
   preceedingComments = lift . preceedingComments
 
-instance MonadCont m => MonadCont (KeywordsT t m) where
+instance MonadCont m => MonadCont (KeywordsT p t m) where
   callCC f = KeywordsT (callCC (\c -> unpackKeywordsT (f (KeywordsT . c))))
 
-instance (Error e, MonadError e m) => MonadError e (KeywordsT t m) where
+instance (Error e, MonadError e m) => MonadError e (KeywordsT p t m) where
   throwError = lift . throwError
   m `catchError` h =
     KeywordsT (unpackKeywordsT m `catchError` (unpackKeywordsT . h))
 
-instance MonadGenpos m => MonadGenpos (KeywordsT t m) where
-  position = lift . position
+instance MonadGenpos m => MonadGenpos (KeywordsT p t m) where
+  point = lift . point
+  filename = lift . filename
 
-instance MonadGensym m => MonadGensym (KeywordsT t m) where
+instance MonadGensym m => MonadGensym (KeywordsT p t m) where
   symbol = lift . symbol
   unique = lift . unique
 
-instance MonadMessages msg m => MonadMessages msg (KeywordsT t m) where
+instance MonadMessages msg m => MonadMessages msg (KeywordsT p t m) where
   message = lift . message
 
-instance MonadLoader path info m => MonadLoader path info (KeywordsT t m) where
+instance MonadLoader path info m =>
+         MonadLoader path info (KeywordsT p t m) where
   load = lift . load
 
-instance MonadPositions m => MonadPositions (KeywordsT t m) where
-  positionInfo = lift . positionInfo
+instance MonadPositions m => MonadPositions (KeywordsT p t m) where
+  pointInfo = lift . pointInfo
+  fileInfo = lift . fileInfo
 
-instance MonadSourceFiles m => MonadSourceFiles (KeywordsT t m) where
+instance MonadSourceFiles m => MonadSourceFiles (KeywordsT p t m) where
   sourceFile = lift . sourceFile
 
-instance MonadSourceBuffer m => MonadSourceBuffer (KeywordsT t m) where
+instance MonadSourceBuffer m => MonadSourceBuffer (KeywordsT p t m) where
   linebreak = lift . linebreak
   startFile fname = lift . startFile fname
   finishFile = lift finishFile
 
-instance MonadState s m => MonadState s (KeywordsT t m) where
+instance MonadState s m => MonadState s (KeywordsT p t m) where
   get = lift get
   put = lift . put
 
-instance MonadSymbols m => MonadSymbols (KeywordsT t m) where
+instance MonadSymbols m => MonadSymbols (KeywordsT p t m) where
   nullSym = lift nullSym
   allNames = lift allNames
   allSyms = lift allSyms
   name = lift . name
 
-instance MonadReader r m => MonadReader r (KeywordsT t m) where
+instance MonadReader r m => MonadReader r (KeywordsT p t m) where
   ask = lift ask
   local f = mapKeywordsT (local f)
 
-instance MonadWriter w m => MonadWriter w (KeywordsT t m) where
+instance MonadWriter w m => MonadWriter w (KeywordsT p t m) where
   tell = lift . tell
   listen = mapKeywordsT listen
   pass = mapKeywordsT pass
 
-instance MonadPlus m => MonadPlus (KeywordsT t m) where
+instance MonadPlus m => MonadPlus (KeywordsT p t m) where
   mzero = lift mzero
   mplus s1 s2 = KeywordsT (mplus (unpackKeywordsT s1) (unpackKeywordsT s2))
 
-instance MonadFix m => MonadFix (KeywordsT t m) where
+instance MonadFix m => MonadFix (KeywordsT p t m) where
   mfix f = KeywordsT (mfix (unpackKeywordsT . f))

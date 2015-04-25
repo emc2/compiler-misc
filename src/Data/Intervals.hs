@@ -28,6 +28,7 @@
 -- OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 -- SUCH DAMAGE.
 {-# OPTIONS_GHC -funbox-strict-fields -Wall -Werror #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 
 -- | This module contains datatypes representing sets of intervals of
 -- integers.
@@ -57,6 +58,8 @@ import Data.List hiding (span)
 import Data.Maybe
 import Data.Interval(Interval(..))
 import Prelude hiding (span)
+import Text.XML.Expat.Pickle
+import Text.XML.Expat.Tree
 
 import qualified Data.Interval as Interval
 
@@ -175,20 +178,6 @@ packOffsets =
   in
     liftM reverse . snd . foldl genOffset (0, Just []) . intervals
 
-add :: Integral n => Interval n -> Interval n -> Interval n
-add (Interval lo1 hi1) (Interval lo2 hi2) = Interval (lo1 + lo2) (hi1 + hi2)
-add (Interval lo hi) (Single num) = Interval (lo + num) (hi + num)
-add (Interval lo _) (Min num) = Min (lo + num)
-add (Interval _ hi) (Max num) = Max (hi + num)
-add i1 @ (Single _) i2 @ (Interval _ _) = add i2 i1
-add (Single num) (Single num') = Single (num + num')
-add (Single num) (Min num') = Min (num + num')
-add (Single num) (Max num') = Max (num + num')
-add i1 @ (Min _) i2 @ (Interval _ _) = add i2 i1
-add i1 @ (Min _) i2 @ (Single _) = add i2 i1
-add (Min num1) (Min num2) = Min (num1 + num2)
-
-
 -- | A possible list of (a, b) pairs, so that if x < a then x + b else
 -- ... will expand a condensed integer back out into its original
 -- interval of values.  This is useful for generating unpacking code.
@@ -209,3 +198,9 @@ instance Show n => Show (Intervals n) where
 
 instance Hashable n => Hashable (Intervals n) where
   hashWithSalt s Intervals { intervals = is } = hashWithSalt s is
+
+instance (GenericXMLString tag, Show tag,
+          GenericXMLString text, Show text,
+          Read n, Show n) =>
+         XmlPickler [NodeG [] tag text] (Intervals n) where
+  xpickle = xpWrap (Intervals, intervals) (xpList xpickle)

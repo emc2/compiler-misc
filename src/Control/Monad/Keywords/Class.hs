@@ -45,28 +45,27 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer
 import Data.ByteString
-import Data.Position
 import Data.Symbol
 
 import qualified Data.ByteString.Lazy as Lazy
 
 -- | Class of monads encapsulating a keyword table.
-class Monad m => MonadKeywords tok m where
-  -- | Get information about a 'Position'
+class Monad m => MonadKeywords pos tok m where
+  -- | Create a keyword.
   mkKeyword :: ByteString
             -- ^ The text.
-            -> Position
+            -> pos
             -- ^ Start and end 'Position'.
             -> m (Maybe tok)
 
 -- | Make a keyword token if the given text is a keyword; otherwise,
 -- make a token using a supplied constructor.
-keywordOrToken :: (MonadGensym m, MonadKeywords tok m) =>
-                  (Symbol -> Position -> tok)
+keywordOrToken :: (MonadGensym m, MonadKeywords pos tok m) =>
+                  (Symbol -> pos -> tok)
                -- ^ Function used to construct tokens.
                -> Lazy.ByteString
                -- ^ The text.
-               -> Position
+               -> pos
                -- ^ Position of the token.
                -> m tok
 keywordOrToken func lazytext pos =
@@ -81,20 +80,21 @@ keywordOrToken func lazytext pos =
           sym <- symbol text
           return (func sym pos)
 
-instance MonadKeywords t m => MonadKeywords t (ContT r m) where
+instance MonadKeywords p t m => MonadKeywords p t (ContT r m) where
   mkKeyword p = lift . mkKeyword p
 
-instance (MonadKeywords t m, Error e) => MonadKeywords t (ErrorT e m) where
+instance (MonadKeywords p t m, Error e) => MonadKeywords p t (ErrorT e m) where
   mkKeyword p = lift . mkKeyword p
 
-instance MonadKeywords t m => MonadKeywords t (ListT m) where
+instance MonadKeywords p t m => MonadKeywords p t (ListT m) where
   mkKeyword p = lift . mkKeyword p
 
-instance MonadKeywords t m => MonadKeywords t (ReaderT r m) where
+instance MonadKeywords p t m => MonadKeywords p t (ReaderT r m) where
   mkKeyword p = lift . mkKeyword p
 
-instance MonadKeywords t m => MonadKeywords t (StateT s m) where
+instance MonadKeywords p t m => MonadKeywords p t (StateT s m) where
   mkKeyword p = lift . mkKeyword p
 
-instance (MonadKeywords t m, Monoid w) => MonadKeywords t (WriterT w m) where
+instance (MonadKeywords p t m, Monoid w) =>
+         MonadKeywords p t (WriterT w m) where
   mkKeyword p = lift . mkKeyword p

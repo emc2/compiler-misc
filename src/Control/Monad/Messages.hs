@@ -64,6 +64,7 @@ import Control.Monad.Writer
 import System.IO
 
 import qualified Data.Message as Message
+import qualified Data.Position as Position
 
 data MessageState msgs =
   MessageState {
@@ -92,8 +93,9 @@ runMessages = runMessagesT
 -- | Execute the computation wrapped in a MessagesT monad transformer,
 -- output all messages generated to the given handle, return the
 -- result only if the maximum severity is below a certain level.
-putMessagesT :: (Message.Messages msg msgs, MonadSourceFiles m,
-                 MonadPositions m, MonadIO m) =>
+putMessagesT :: (Message.Messages msg msgs, Message.MessagePosition pos msg,
+                 Position.Position info pos, Position.PositionInfo info,
+                 MonadSourceFiles m, MonadPositions m, MonadIO m) =>
                 Handle
              -> Message.Severity
              -> MessagesT msgs msg m a
@@ -112,6 +114,9 @@ putMessagesT handle maxsev m =
 -- strings, return the result only if the maximum severity is below a
 -- certain level.
 putMessagesTNoContext :: (Message.Messages msg msgs,
+                          Message.MessagePosition pos msg,
+                          Position.Position info pos,
+                          Position.PositionInfo info,
                           MonadPositions m, MonadIO m) =>
                          Handle
                       -> Message.Severity
@@ -130,7 +135,8 @@ putMessagesTNoContext handle maxsev m =
 -- output all messages generated to the given handle, return the
 -- result only if the maximum severity is below a certain level.
 putMessagesTXML :: (Message.Messages msg msgs, MonadSourceFiles m,
-                    MonadPositions m, MonadIO m) =>
+                    Message.MessagePosition pos msg, Position.Position info pos,
+                    Position.PositionInfo info, MonadPositions m, MonadIO m) =>
                    Handle
                 -> Message.Severity
                 -> MessagesT msgs msg m a
@@ -148,6 +154,9 @@ putMessagesTXML handle maxsev m =
 -- output all messages generated to the given handle, return the
 -- result only if the maximum severity is below a certain level.
 putMessagesTXMLNoContext :: (Message.Messages msg msgs,
+                             Message.MessagePosition pos msg,
+                             Position.Position info pos,
+                             Position.PositionInfo info,
                              MonadPositions m, MonadIO m) =>
                             Handle
                          -> Message.Severity
@@ -235,15 +244,16 @@ instance (Error e, Monoid msgs, MonadError e m) =>
 
 instance (Monoid msgs, MonadGenpos m) =>
          MonadGenpos (MessagesT msgs msg m) where
-  position = lift . position
+  point = lift . point
+  filename = lift . filename
 
 instance (Monoid msgs, MonadGensym m) =>
          MonadGensym (MessagesT msgs msg m) where
   symbol = lift . symbol
   unique = lift . unique
 
-instance (Monoid msgs, MonadKeywords t m) =>
-         MonadKeywords t (MessagesT msgs msg m) where
+instance (Monoid msgs, MonadKeywords p t m) =>
+         MonadKeywords p t (MessagesT msgs msg m) where
   mkKeyword p = lift . mkKeyword p
 
 instance (Monoid msgs, MonadLoader path info m) =>
@@ -252,7 +262,8 @@ instance (Monoid msgs, MonadLoader path info m) =>
 
 instance (Monoid msgs, MonadPositions m) =>
          MonadPositions (MessagesT msgs msg m) where
-  positionInfo = lift . positionInfo
+  pointInfo = lift . pointInfo
+  fileInfo = lift . fileInfo
 
 instance (Monoid msgs, MonadSourceFiles m) =>
          MonadSourceFiles (MessagesT msgs msg m) where

@@ -79,6 +79,7 @@ module Text.Format(
        dot,
        backslash,
        equals,
+       space,
 
        -- *** Derived
        nest,
@@ -869,7 +870,7 @@ cat docs = Choose { chooseOptions = [hcat docs, vcat docs] }
 fillSep :: [Doc] -> Doc
 fillSep = concat . intersperse softline
 
--- | Join a list of 'Doc's with 'softline's in between each.  This is
+-- | Join a list of 'Doc's with 'softbreak's in between each.  This is
 -- generally more efficient than repeatedly using '<//>'.
 fillCat :: [Doc] -> Doc
 fillCat = concat . intersperse softbreak

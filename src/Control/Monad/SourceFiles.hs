@@ -36,7 +36,6 @@ module Control.Monad.SourceFiles(
        ) where
 
 import Control.Applicative
-import Control.Exception
 import Control.Monad.Artifacts.Class
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
@@ -52,16 +51,12 @@ import Control.Monad.Reader
 import Control.Monad.SourceFiles.Class
 import Control.Monad.State
 import Control.Monad.Symbols.Class
-import Data.HashTable.IO(BasicHashTable)
 import Data.Array
 import Data.ByteString(ByteString)
-import Data.ByteString.Char8(unpack)
+import Data.Position.Filename
 import Data.Word
-import System.IO.Error
 
-import qualified Data.HashTable.IO as HashTable
-
-type Table = BasicHashTable ByteString (Array Word ByteString)
+type Table = Array Filename (Array Word ByteString)
 
 newtype SourceFilesT m a =
   SourceFilesT { unpackSourceFilesT :: ReaderT Table m a }
@@ -86,16 +81,11 @@ runSourceFilesT :: MonadIO m =>
 runSourceFilesT s = runReaderT (unpackSourceFilesT s)
 
 sourceFile' :: MonadIO m =>
-               ByteString -> ReaderT Table m (Array Word ByteString)
-sourceFile' path =
+               Filename -> ReaderT Table m (Array Word ByteString)
+sourceFile' fname =
   do
     tab <- ask
-    res <- liftIO (HashTable.lookup tab path)
-    case res of
-      Just out -> return out
-      Nothing -> throw (mkIOError doesNotExistErrorType
-                                  "Cannot locate source file"
-                                  Nothing (Just (unpack path)))
+    return $! tab ! fname
 
 instance Monad m => Monad (SourceFilesT m) where
   return = SourceFilesT . return
@@ -147,13 +137,14 @@ instance (Error e, MonadError e m) => MonadError e (SourceFilesT m) where
     SourceFilesT (unpackSourceFilesT m `catchError` (unpackSourceFilesT . h))
 
 instance MonadGenpos m => MonadGenpos (SourceFilesT m) where
-  position = lift . position
+  point = lift . point
+  filename = lift . filename
 
 instance MonadGensym m => MonadGensym (SourceFilesT m) where
   symbol = lift . symbol
   unique = lift . unique
 
-instance MonadKeywords t m => MonadKeywords t (SourceFilesT m) where
+instance MonadKeywords p t m => MonadKeywords p t (SourceFilesT m) where
   mkKeyword p = lift . mkKeyword p
 
 instance MonadLoader path info m => MonadLoader path info (SourceFilesT m) where
@@ -163,7 +154,8 @@ instance MonadMessages msg m => MonadMessages msg (SourceFilesT m) where
   message = lift . message
 
 instance MonadPositions m => MonadPositions (SourceFilesT m) where
-  positionInfo = lift . positionInfo
+  pointInfo = lift . pointInfo
+  fileInfo = lift . fileInfo
 
 instance MonadState s m => MonadState s (SourceFilesT m) where
   get = lift get
@@ -177,7 +169,8 @@ instance MonadSymbols m => MonadSymbols (SourceFilesT m) where
 
 instance MonadPlus m => MonadPlus (SourceFilesT m) where
   mzero = lift mzero
-  mplus s1 s2 = SourceFilesT (mplus (unpackSourceFilesT s1) (unpackSourceFilesT s2))
+  mplus s1 s2 = SourceFilesT (mplus (unpackSourceFilesT s1)
+                                    (unpackSourceFilesT s2))
 
 instance MonadFix m => MonadFix (SourceFilesT m) where
   mfix f = SourceFilesT (mfix (unpackSourceFilesT . f))

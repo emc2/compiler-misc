@@ -55,20 +55,30 @@ import Control.Monad.State
 import Control.Monad.Symbols.Class
 import Control.Monad.Writer
 import Data.Array
-import Data.Position
-import Data.PositionInfo
+import Data.Position.Filename
+import Data.Position.Point
 
-newtype PositionsT m a =
-  PositionsT { unpackPositionsT :: (ReaderT (Array Position PositionInfo) m) a }
+data Info =
+  Info {
+    pointInfoArray :: !(Array Point PointInfo),
+    fileInfoArray :: !(Array Filename FileInfo)
+  }
+
+newtype PositionsT m a = PositionsT { unpackPositionsT :: (ReaderT Info m) a }
 
 type Positions a = PositionsT IO a
 
 -- | Execute the computation represented by a Positions monad.
 runPositions :: Positions a
              -- ^ The Positions monad to execute.
-             -> (Position, Position)
+             -> (Point, Point)
              -- ^ The low and high range of the symbols.
-             -> [(Position, PositionInfo)]
+             -> [(Point, PointInfo)]
+             -- ^ The mapping of symbols.  The mapping to the lowest
+             -- index is taken as the null symbol.
+             -> (Filename, Filename)
+             -- ^ The low and high range of the symbols.
+             -> [(Filename, FileInfo)]
              -- ^ The mapping of symbols.  The mapping to the lowest
              -- index is taken as the null symbol.
              -> IO a
@@ -76,24 +86,34 @@ runPositions = runPositionsT
 
 -- | Execute the computation wrapped in a PositionsT monad transformer.
 runPositionsT :: Monad m =>
-               PositionsT m a
-               -- ^ The PositionsT monad to execute.
-               -> (Position, Position)
-               -- ^ The low and high range of the symbols.  The lowest
-               -- index is used as the index of the null symbol.
-               -> [(Position, PositionInfo)]
-               -- ^ The mapping of symbols to indexes.  The mapping to the
-               -- lowest index is taken as the null symbol.
-               -> m a
-runPositionsT s bound = runReaderT (unpackPositionsT s) . array bound
+                 PositionsT m a
+                 -- ^ The PositionsT monad to execute.
+                 -> (Point, Point)
+                 -- ^ The low and high range of the symbols.  The lowest
+                 -- index is used as the index of the null symbol.
+                 -> [(Point, PointInfo)]
+                 -- ^ The mapping of symbols to indexes.  The mapping to the
+                 -- lowest index is taken as the null symbol.
+                 -> (Filename, Filename)
+                 -- ^ The low and high range of the symbols.
+                 -> [(Filename, FileInfo)]
+                 -- ^ The mapping of symbols.  The mapping to the lowest
+                 -- index is taken as the null symbol.
+                 -> m a
+runPositionsT s posbounds positions filebounds file =
+  runReaderT (unpackPositionsT s)
+             Info { pointInfoArray = array posbounds positions,
+                    fileInfoArray = array filebounds file }
 
 mapPositionsT :: (Monad m, Monad n) =>
                  (m a -> n b) -> PositionsT m a -> PositionsT n b
 mapPositionsT f = PositionsT . mapReaderT f . unpackPositionsT
 
-positionInfo' :: Monad m => Position ->
-                 (ReaderT (Array Position PositionInfo) m) PositionInfo
-positionInfo' pos = liftM (! pos) ask
+pointInfo' :: Monad m => Point -> (ReaderT Info m) PointInfo
+pointInfo' pos = liftM ((! pos) . pointInfoArray) ask
+
+fileInfo' :: Monad m => Filename -> (ReaderT Info m) FileInfo
+fileInfo' pos = liftM ((! pos) . fileInfoArray) ask
 
 instance Monad m => Monad (PositionsT m) where
   return = PositionsT . return
@@ -111,7 +131,8 @@ instance Functor (PositionsT m) where
   fmap = fmap
 
 instance Monad m => MonadPositions (PositionsT m) where
-  positionInfo = PositionsT . positionInfo'
+  pointInfo = PositionsT . pointInfo'
+  fileInfo = PositionsT . fileInfo'
 
 instance MonadIO m => MonadIO (PositionsT m) where
   liftIO = PositionsT . liftIO
@@ -147,7 +168,7 @@ instance MonadGensym m => MonadGensym (PositionsT m) where
   symbol = lift . symbol
   unique = lift . unique
 
-instance MonadKeywords t m => MonadKeywords t (PositionsT m) where
+instance MonadKeywords p t m => MonadKeywords p t (PositionsT m) where
   mkKeyword p = lift . mkKeyword p
 
 instance MonadLoader path info m => MonadLoader path info (PositionsT m) where

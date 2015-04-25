@@ -112,13 +112,14 @@ instance (Error e, MonadError e m) => MonadError e (SkipCommentsT m) where
                     (runSkipCommentsT . h))
 
 instance MonadGenpos m => MonadGenpos (SkipCommentsT m) where
-  position = lift . position
+  point = lift . point
+  filename = lift . filename
 
 instance MonadGensym m => MonadGensym (SkipCommentsT m) where
   symbol = lift . symbol
   unique = lift . unique
 
-instance MonadKeywords t m => MonadKeywords t (SkipCommentsT m) where
+instance MonadKeywords p t m => MonadKeywords p t (SkipCommentsT m) where
   mkKeyword p = lift . mkKeyword p
 
 instance MonadLoader path info m =>
@@ -126,7 +127,8 @@ instance MonadLoader path info m =>
   load = lift . load
 
 instance MonadPositions m => MonadPositions (SkipCommentsT m) where
-  positionInfo = lift . positionInfo
+  pointInfo = lift . pointInfo
+  fileInfo = lift . fileInfo
 
 instance MonadMessages msg m => MonadMessages msg (SkipCommentsT m) where
   message = lift . message

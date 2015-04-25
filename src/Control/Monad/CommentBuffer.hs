@@ -52,7 +52,7 @@ import Control.Monad.SourceBuffer.Class
 import Control.Monad.State
 import Control.Monad.Symbols.Class
 import Data.ByteString hiding (reverse, empty)
-import Data.Position
+import Data.Position.Point
 
 import qualified Data.ByteString.Lazy as Lazy
 
@@ -60,7 +60,7 @@ data BufferState =
   BufferState {
     partialComment :: ![Lazy.ByteString],
     fullComments :: ![ByteString],
-    savedComments :: ![(Position, [ByteString])]
+    savedComments :: ![(Point, [ByteString])]
   }
 
 newtype CommentBufferT m a =
@@ -110,7 +110,7 @@ addComment' text =
     s @ BufferState { fullComments = full } <- get
     put s { fullComments = Lazy.toStrict text : full }
 
-saveCommentsAsPreceeding' :: Monad m => Position -> (StateT BufferState m) ()
+saveCommentsAsPreceeding' :: Monad m => Point -> (StateT BufferState m) ()
 saveCommentsAsPreceeding' pos =
   do
     s @ BufferState { fullComments = full, savedComments = saved } <- get
@@ -168,13 +168,14 @@ instance (Error e, MonadError e m) => MonadError e (CommentBufferT m) where
                     (unpackCommentBufferT . h))
 
 instance MonadGenpos m => MonadGenpos (CommentBufferT m) where
-  position = lift . position
+  point = lift . point
+  filename = lift . filename
 
 instance MonadGensym m => MonadGensym (CommentBufferT m) where
   symbol = lift . symbol
   unique = lift . unique
 
-instance MonadKeywords t m => MonadKeywords t (CommentBufferT m) where
+instance MonadKeywords p t m => MonadKeywords p t (CommentBufferT m) where
   mkKeyword p = lift . mkKeyword p
 
 instance MonadLoader path info m =>
@@ -185,7 +186,8 @@ instance MonadMessages msg m => MonadMessages msg (CommentBufferT m) where
   message = lift . message
 
 instance MonadPositions m => MonadPositions (CommentBufferT m) where
-  positionInfo = lift . positionInfo
+  pointInfo = lift . pointInfo
+  fileInfo = lift . fileInfo
 
 instance MonadSourceFiles m => MonadSourceFiles (CommentBufferT m) where
   sourceFile = lift . sourceFile

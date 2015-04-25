@@ -27,56 +27,34 @@
 -- OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
 -- OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 -- SUCH DAMAGE.
-{-# OPTIONS_GHC -Wall -Werror #-}
+{-# OPTIONS_GHC -funbox-strict-fields -Wall -Werror #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses,
+             FunctionalDependencies #-}
 
--- | Defines a class of monads with access to information about
--- 'Position's.
-module Control.Monad.Positions.Class(
-       MonadPositions(..)
+-- | Defines datatype for information about source element positions.
+module Data.Position.Class(
+       PositionInfo(..),
+       Position(..)
        ) where
 
-import Control.Monad.Cont
-import Control.Monad.Error
-import Control.Monad.List
-import Control.Monad.Reader
-import Control.Monad.State
-import Control.Monad.Writer
+import Data.ByteString(ByteString)
 import Data.Position.Filename
 import Data.Position.Point
 
--- | Class of monads with access to information about 'Position's.
-class Monad m => MonadPositions m where
-  -- | Get information about a 'Position'
-  pointInfo :: Point
-            -- ^ The 'Position'
-            -> m PointInfo
+-- | A typeclass representing information available about 'Position'
+-- instances.  This is used to traverse whatever striucture the
+-- 'Position' instance may have.
+class PositionInfo info where
+  -- | Get the filename and offsets, if they exist.
+  location :: info -> Maybe (Filename, Maybe (Point, Point))
+  -- | Children of this @PositionInfo@  All titles lines will be indented.
+  children :: info -> Maybe (ByteString, [info])
+  -- | Whether or not to show source context as well.  Note that
+  -- source context is omitted for some message rendering modes.
+  showContext :: info -> Bool
+  description :: info -> ByteString
 
-  -- | Get information about a 'Filename'
-  fileInfo :: Filename
-           -- ^ The 'Filename'
-           -> m FileInfo
-
-
-instance MonadPositions m => MonadPositions (ContT r m) where
-  pointInfo = lift . pointInfo
-  fileInfo = lift . fileInfo
-
-instance (MonadPositions m, Error e) => MonadPositions (ErrorT e m) where
-  pointInfo = lift . pointInfo
-  fileInfo = lift . fileInfo
-
-instance MonadPositions m => MonadPositions (ListT m) where
-  pointInfo = lift . pointInfo
-  fileInfo = lift . fileInfo
-
-instance MonadPositions m => MonadPositions (ReaderT r m) where
-  pointInfo = lift . pointInfo
-  fileInfo = lift . fileInfo
-
-instance MonadPositions m => MonadPositions (StateT s m) where
-  pointInfo = lift . pointInfo
-  fileInfo = lift . fileInfo
-
-instance (MonadPositions m, Monoid w) => MonadPositions (WriterT w m) where
-  pointInfo = lift . pointInfo
-  fileInfo = lift . fileInfo
+-- | A typeclass representing a position.
+class Position info pos | pos -> info where
+  -- | Get a 'PositionInfo' instance to traverse this 'Position'.
+  positionInfo :: pos -> [info]

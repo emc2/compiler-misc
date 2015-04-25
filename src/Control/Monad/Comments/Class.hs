@@ -41,12 +41,12 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer
 import Data.ByteString
-import Data.Position
+import Data.Position.Point
 
--- | Class of monads that store comments for each position.
+-- | Class of monads that store comments referenced by a 'Point'.
 class Monad m => MonadComments m where
-  -- | Get all comments preceeding a given position.
-  preceedingComments :: Position -> m [ByteString]
+  -- | Get all comments preceeding a given 'Point'.
+  preceedingComments :: Point -> m [ByteString]
 
 instance MonadComments m => MonadComments (ContT r m) where
   preceedingComments = lift . preceedingComments

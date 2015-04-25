@@ -57,9 +57,9 @@ import Control.Monad.SourceFiles.Class
 import Control.Monad.SourceBuffer.Class
 import Data.Array
 import Data.ByteString (ByteString)
-import Data.ByteString.Char8(unpack)
 import Data.HashTable.IO(BasicHashTable)
 import Data.Int
+import Data.Position.Filename
 import Data.Word
 import Prelude hiding (lines, readFile)
 import System.IO.Error
@@ -67,11 +67,11 @@ import System.IO.Error
 import qualified Data.ByteString.Lazy.Char8 as Lazy
 import qualified Data.HashTable.IO as HashTable
 
-type Table = BasicHashTable ByteString (Array Word ByteString)
+type Table = BasicHashTable Filename (Array Word ByteString)
 
 data BufferState =
   BufferState {
-    stFileName :: !ByteString,
+    stFileName :: !Filename,
     stContents :: !Lazy.ByteString,
     stBuffer :: ![ByteString],
     stOffset :: !Int64
@@ -104,7 +104,7 @@ runSourceBufferT s =
     return out
 
 sourceFile' :: MonadIO m =>
-               ByteString ->
+               Filename ->
                (StateT BufferState (ReaderT Table m)) (Array Word ByteString)
 sourceFile' path =
   do
@@ -114,9 +114,9 @@ sourceFile' path =
       Just out -> return out
       Nothing -> throw (mkIOError doesNotExistErrorType
                                   "Cannot locate source file"
-                                  Nothing (Just (unpack path)))
+                                  Nothing Nothing)
 
-startFile' :: Monad m => ByteString -> Lazy.ByteString ->
+startFile' :: Monad m => Filename -> Lazy.ByteString ->
               (StateT BufferState (ReaderT Table m)) ()
 startFile' fname fcontents =
   put BufferState { stFileName = fname, stContents = fcontents,
@@ -197,7 +197,8 @@ instance MonadCont m => MonadCont (SourceBufferT m) where
     SourceBufferT (callCC (\c -> unpackSourceBufferT (f (SourceBufferT . c))))
 
 instance MonadGenpos m => MonadGenpos (SourceBufferT m) where
-  position = lift . position
+  point = lift . point
+  filename = lift . filename
 
 instance MonadGensym m => MonadGensym (SourceBufferT m) where
   symbol = SourceBufferT . symbol
@@ -208,7 +209,7 @@ instance (Error e, MonadError e m) => MonadError e (SourceBufferT m) where
   m `catchError` h =
     SourceBufferT (unpackSourceBufferT m `catchError` (unpackSourceBufferT . h))
 
-instance MonadKeywords t m => MonadKeywords t (SourceBufferT m) where
+instance MonadKeywords p t m => MonadKeywords p t (SourceBufferT m) where
   mkKeyword p = lift . mkKeyword p
 
 instance MonadLoader path info m =>
@@ -219,7 +220,8 @@ instance MonadMessages msg m => MonadMessages msg (SourceBufferT m) where
   message = lift . message
 
 instance MonadPositions m => MonadPositions (SourceBufferT m) where
-  positionInfo = lift . positionInfo
+  pointInfo = lift . pointInfo
+  fileInfo = lift . fileInfo
 
 instance MonadState s m => MonadState s (SourceBufferT m) where
   get = lift get

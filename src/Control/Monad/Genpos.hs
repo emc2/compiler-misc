@@ -56,51 +56,66 @@ import Control.Monad.SourceBuffer.Class
 import Control.Monad.State
 import Control.Monad.Symbols.Class
 import Data.HashTable.IO(BasicHashTable)
-import Data.Position
-import Data.PositionInfo
+import Data.Position.Filename
+import Data.Position.Point
 import Data.Maybe
 
 import qualified Data.HashTable.IO as HashTable
 
-data Bounds = Bounds { loBound :: !Position, hiBound :: !Position }
+data Bounds = Bounds { loPos :: !Point, hiPos :: !Point,
+                       loFile :: !Filename, hiFile :: !Filename }
 
-type Table = BasicHashTable Position PositionInfo
+data Table = Table { posTable :: !(BasicHashTable Point PointInfo),
+                     fileTable :: !(BasicHashTable Filename FileInfo) }
 
 newtype GenposT m a =
   GenposT { unpackGenposT :: StateT Bounds (ReaderT Table m) a }
 
 type Genpos = GenposT IO
 
-initBounds :: (Position, Position)
-initBounds = (firstPosition, firstPosition)
-
 -- | Execute the computation represented by a Genpos monad.
 runGenpos :: Genpos a
-           -- ^ The Symbols monad to execute.
-           -> (Position, Position)
-           -- ^ The low and high range of the positions.
-           -> [(Position, PositionInfo)]
-           -- ^ The mapping of symbols.  The mapping to the lowest
-           -- index is taken as the null symbol.
-           -> IO a
+          -- ^ The Symbols monad to execute.
+          -> (Point, Point)
+          -- ^ The low and high range of the positions.
+          -> [(Point, PointInfo)]
+          -- ^ The mapping of symbols.  The mapping to the lowest
+          -- index is taken as the null symbol.
+          -> (Filename, Filename)
+          -- ^ The low and high range of the symbols.
+          -> [(Filename, FileInfo)]
+          -- ^ The mapping of symbols.  The mapping to the lowest
+          -- index is taken as the null symbol.
+          -> IO a
 runGenpos = runGenposT
 
 -- | Execute the computation wrapped in a GenposT monad transformer.
 runGenposT :: MonadIO m =>
               GenposT m a
            -- ^ The SymbolsT monad to execute.
-           -> (Position, Position)
+           -> (Point, Point)
            -- ^ The low and high range of the positions.  The lowest
            -- index is used as the index of the null symbol.
-           -> [(Position, PositionInfo)]
+           -> [(Point, PointInfo)]
            -- ^ The mapping of symbols to indexes.  The mapping to the
            -- lowest index is taken as the null symbol.
+           -> (Filename, Filename)
+           -- ^ The low and high range of the symbols.
+           -> [(Filename, FileInfo)]
+           -- ^ The mapping of symbols.  The mapping to the lowest
+           -- index is taken as the null symbol.
            -> m a
-runGenposT s (lo, hi) vals =
+runGenposT s (lopos, hipos) positions (lofile, hifile) files =
   do
-    tab <- liftIO (HashTable.fromList vals)
+    postab <- liftIO (HashTable.fromList positions)
+    filetab <- liftIO (HashTable.fromList files)
     (out, _) <- runReaderT (runStateT (unpackGenposT s)
-                                      Bounds { loBound = lo, hiBound = hi }) tab
+                                      Bounds { loPos = lopos,
+                                               hiPos = hipos,
+                                               loFile = lofile,
+                                               hiFile = hifile})
+                           Table { posTable = postab,
+                                   fileTable = filetab }
     return out
 
 -- | Execute a Genpos monad with a starting state with only the null
@@ -117,25 +132,43 @@ startGenposT :: MonadIO m =>
              -- ^ The SymbolsT monad to execute.
              -> m a
 startGenposT s =
-  runGenposT s initBounds []
+  runGenposT s (firstPoint, firstPoint) [] (firstFilename, firstFilename) []
 
-position' :: MonadIO m =>
-             PositionInfo
-          -> (StateT Bounds (ReaderT Table m)) Position
-position' pos =
+point' :: MonadIO m =>
+             PointInfo
+          -> (StateT Bounds (ReaderT Table m)) Point
+point' pos =
   do
-    tab <- ask
-    bounds @ Bounds { hiBound = hi } <- get
-    put bounds { hiBound = succ hi }
+    Table { posTable = tab } <- ask
+    bounds @ Bounds { hiPos = hi } <- get
+    put bounds { hiPos = succ hi }
     liftIO (HashTable.insert tab hi pos)
     return hi
 
-positionInfo' :: MonadIO m => Position ->
-                 (StateT Bounds (ReaderT Table m)) PositionInfo
-positionInfo' pos =
+filename' :: MonadIO m =>
+             FileInfo
+          -> (StateT Bounds (ReaderT Table m)) Filename
+filename' fileinfo =
   do
-    tab <- ask
+    Table { fileTable = tab } <- ask
+    bounds @ Bounds { hiFile = hi } <- get
+    put bounds { hiFile = succ hi }
+    liftIO (HashTable.insert tab hi fileinfo)
+    return hi
+
+pointInfo' :: MonadIO m => Point -> (StateT Bounds (ReaderT Table m)) PointInfo
+pointInfo' pos =
+  do
+    Table { posTable = tab } <- ask
     res <- liftIO (HashTable.lookup tab pos)
+    return (fromJust res)
+
+fileInfo' :: MonadIO m => Filename ->
+             (StateT Bounds (ReaderT Table m)) FileInfo
+fileInfo' file =
+  do
+    Table { fileTable = tab } <- ask
+    res <- liftIO (HashTable.lookup tab file)
     return (fromJust res)
 
 instance Monad m => Monad (GenposT m) where
@@ -154,7 +187,8 @@ instance Functor (GenposT m) where
   fmap = fmap
 
 instance MonadIO m => MonadGenpos (GenposT m) where
-  position = GenposT . position'
+  point = GenposT . point'
+  filename = GenposT . filename'
 
 instance MonadCommentBuffer m => MonadCommentBuffer (GenposT m) where
   startComment = lift startComment
@@ -165,7 +199,8 @@ instance MonadCommentBuffer m => MonadCommentBuffer (GenposT m) where
   clearComments = lift clearComments
 
 instance MonadIO m => MonadPositions (GenposT m) where
-  positionInfo = GenposT . positionInfo'
+  pointInfo = GenposT . pointInfo'
+  fileInfo = GenposT . fileInfo'
 
 instance MonadIO m => MonadIO (GenposT m) where
   liftIO = GenposT . liftIO
@@ -193,7 +228,7 @@ instance MonadGensym m => MonadGensym (GenposT m) where
   symbol = lift . symbol
   unique = lift . unique
 
-instance MonadKeywords t m => MonadKeywords t (GenposT m) where
+instance MonadKeywords p t m => MonadKeywords p t (GenposT m) where
   mkKeyword p = lift . mkKeyword p
 
 instance MonadLoader path info m => MonadLoader path info (GenposT m) where

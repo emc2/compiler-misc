@@ -39,10 +39,10 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer
 import Data.ByteString.Lazy
-import Data.Position
+import Data.Position.Point
 
 -- | Class of monads that accumulate comments in a buffer and then
--- store them referenced by a particular 'Position'.
+-- store them referenced by a particular 'Point'.
 class Monad m => MonadCommentBuffer m where
   -- | Start a comment.
   startComment :: m ()
@@ -52,8 +52,8 @@ class Monad m => MonadCommentBuffer m where
   finishComment :: m ()
   -- | Add a whole comment to the comment buffer.
   addComment :: ByteString -> m ()
-  -- | Save all buffered comments as preceeding the given 'Position'.
-  saveCommentsAsPreceeding :: Position -> m ()
+  -- | Save all buffered comments as preceeding the given 'Point'.
+  saveCommentsAsPreceeding :: Point -> m ()
   -- | Clear the comment buffer.
   clearComments :: m ()
 

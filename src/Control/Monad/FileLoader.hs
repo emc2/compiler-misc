@@ -30,13 +30,13 @@
 
 -- | Provides a 'MonadLoader' instance that accesses the filesystem.
 -- Note: this does not do any caching.
-module Control.Monad.SourceLoader(
+module Control.Monad.FileLoader(
        MonadLoader(..),
-       SourceLoaderT,
-       SourceLoader,
-       runSourceLoaderT,
-       runSourceLoader,
-       mapSourceLoaderT
+       FileLoaderT,
+       FileLoader,
+       runFileLoaderT,
+       runFileLoader,
+       mapFileLoaderT
        ) where
 
 import Control.Applicative
@@ -62,31 +62,31 @@ import System.IO.Error
 import qualified Data.ByteString.UTF8 as Strict
 import qualified Data.ByteString.Lazy as Lazy
 
-newtype SourceLoaderT m a =
-  SourceLoaderT { unpackSourceLoaderT :: ReaderT [Strict.ByteString] m a }
+newtype FileLoaderT m a =
+  FileLoaderT { unpackFileLoaderT :: ReaderT [Strict.ByteString] m a }
 
-type SourceLoader = SourceLoaderT IO
+type FileLoader = FileLoaderT IO
 
--- | Execute the computation represented by a SourceLoader monad.
-runSourceLoader :: SourceLoader a
-               -- ^ The SourceLoaderT monad to execute.
+-- | Execute the computation represented by a FileLoader monad.
+runFileLoader :: FileLoader a
+              -- ^ The FileLoaderT monad to execute.
+              -> [Strict.ByteString]
+              -- ^ The search paths at which to search for files.
+              -> IO a
+runFileLoader = runFileLoaderT
+
+-- | Execute the computation wrapped in a FileLoaderT monad transformer.
+runFileLoaderT :: MonadIO m =>
+                  FileLoaderT m a
+               -- ^ The FileLoaderT monad to execute.
                -> [Strict.ByteString]
                -- ^ The search paths at which to search for files.
-               -> IO a
-runSourceLoader = runSourceLoaderT
+               -> m a
+runFileLoaderT s = runReaderT (unpackFileLoaderT s)
 
--- | Execute the computation wrapped in a SourceLoaderT monad transformer.
-runSourceLoaderT :: MonadIO m =>
-                    SourceLoaderT m a
-                -- ^ The SourceLoaderT monad to execute.
-                -> [Strict.ByteString]
-                -- ^ The search paths at which to search for files.
-                -> m a
-runSourceLoaderT s = runReaderT (unpackSourceLoaderT s)
-
-mapSourceLoaderT :: (Monad m, Monad n) =>
-                    (m a -> n b) -> SourceLoaderT m a -> SourceLoaderT n b
-mapSourceLoaderT f = SourceLoaderT . mapReaderT f . unpackSourceLoaderT
+mapFileLoaderT :: (Monad m, Monad n) =>
+                   (m a -> n b) -> FileLoaderT m a -> FileLoaderT n b
+mapFileLoaderT f = FileLoaderT . mapReaderT f . unpackFileLoaderT
 
 load' :: MonadIO m =>
          Strict.ByteString ->
@@ -116,40 +116,40 @@ load' path =
     prefixes <- ask
     liftIO (loadPrefixes prefixes)
 
-instance Monad m => Monad (SourceLoaderT m) where
-  return = SourceLoaderT . return
-  s >>= f = SourceLoaderT $ unpackSourceLoaderT s >>= unpackSourceLoaderT . f
+instance Monad m => Monad (FileLoaderT m) where
+  return = FileLoaderT . return
+  s >>= f = FileLoaderT $ unpackFileLoaderT s >>= unpackFileLoaderT . f
 
-instance Monad m => Applicative (SourceLoaderT m) where
+instance Monad m => Applicative (FileLoaderT m) where
   pure = return
   (<*>) = ap
 
 instance (MonadPlus m, Alternative m) =>
-         Alternative (SourceLoaderT m) where
+         Alternative (FileLoaderT m) where
   empty = lift empty
   s1 <|> s2 =
-    SourceLoaderT (unpackSourceLoaderT s1 <|> unpackSourceLoaderT s2)
+    FileLoaderT (unpackFileLoaderT s1 <|> unpackFileLoaderT s2)
 
-instance Functor (SourceLoaderT m) where
+instance Functor (FileLoaderT m) where
   fmap = fmap
 
-instance MonadIO m => MonadIO (SourceLoaderT m) where
-  liftIO = SourceLoaderT . liftIO
+instance MonadIO m => MonadIO (FileLoaderT m) where
+  liftIO = FileLoaderT . liftIO
 
-instance MonadTrans (SourceLoaderT) where
-  lift = SourceLoaderT . lift
+instance MonadTrans (FileLoaderT) where
+  lift = FileLoaderT . lift
 
 instance MonadIO m =>
-         MonadLoader Strict.ByteString Lazy.ByteString (SourceLoaderT m) where
-  load = SourceLoaderT . load'
+         MonadLoader Strict.ByteString Lazy.ByteString (FileLoaderT m) where
+  load = FileLoaderT . load'
 
-instance MonadArtifacts path m => MonadArtifacts path (SourceLoaderT m) where
+instance MonadArtifacts path m => MonadArtifacts path (FileLoaderT m) where
   artifact path = lift . artifact path
   artifactBytestring path = lift . artifactBytestring path
   artifactLazyBytestring path = lift . artifactLazyBytestring path
 
 instance MonadCommentBuffer m =>
-         MonadCommentBuffer (SourceLoaderT m) where
+         MonadCommentBuffer (FileLoaderT m) where
   startComment = lift startComment
   appendComment = lift . appendComment
   finishComment = lift finishComment
@@ -157,68 +157,69 @@ instance MonadCommentBuffer m =>
   saveCommentsAsPreceeding = lift . saveCommentsAsPreceeding
   clearComments = lift clearComments
 
-instance MonadComments m => MonadComments (SourceLoaderT m) where
+instance MonadComments m => MonadComments (FileLoaderT m) where
   preceedingComments = lift . preceedingComments
 
-instance MonadCont m => MonadCont (SourceLoaderT m) where
+instance MonadCont m => MonadCont (FileLoaderT m) where
   callCC f =
-    SourceLoaderT (callCC (\c -> unpackSourceLoaderT (f (SourceLoaderT . c))))
+    FileLoaderT (callCC (\c -> unpackFileLoaderT (f (FileLoaderT . c))))
 
-instance (Error e, MonadError e m) =>
-         MonadError e (SourceLoaderT m) where
+instance (Error e, MonadError e m) => MonadError e (FileLoaderT m) where
   throwError = lift . throwError
   m `catchError` h =
-    SourceLoaderT (unpackSourceLoaderT m `catchError` (unpackSourceLoaderT . h))
+    FileLoaderT (unpackFileLoaderT m `catchError` (unpackFileLoaderT . h))
 
-instance MonadGenpos m => MonadGenpos (SourceLoaderT m) where
-  position = lift . position
+instance MonadGenpos m => MonadGenpos (FileLoaderT m) where
+  point = lift . point
+  filename = lift . filename
 
-instance MonadGensym m => MonadGensym (SourceLoaderT m) where
+instance MonadGensym m => MonadGensym (FileLoaderT m) where
   symbol = lift . symbol
   unique = lift . unique
 
-instance MonadKeywords t m => MonadKeywords t (SourceLoaderT m) where
+instance MonadKeywords p t m => MonadKeywords p t (FileLoaderT m) where
   mkKeyword p = lift . mkKeyword p
 
-instance MonadMessages msg m => MonadMessages msg (SourceLoaderT m) where
+instance MonadMessages msg m => MonadMessages msg (FileLoaderT m) where
   message = lift . message
 
-instance MonadPositions m => MonadPositions (SourceLoaderT m) where
-  positionInfo = lift . positionInfo
+instance MonadPositions m => MonadPositions (FileLoaderT m) where
+  pointInfo = lift . pointInfo
+  fileInfo = lift . fileInfo
 
 instance MonadSourceFiles m =>
-         MonadSourceFiles (SourceLoaderT m) where
+         MonadSourceFiles (FileLoaderT m) where
   sourceFile = lift . sourceFile
 
 instance MonadSourceBuffer m =>
-         MonadSourceBuffer (SourceLoaderT m) where
+         MonadSourceBuffer (FileLoaderT m) where
   linebreak = lift . linebreak
   startFile fname = lift . startFile fname
   finishFile = lift finishFile
 
-instance MonadState s m => MonadState s (SourceLoaderT m) where
+instance MonadState s m => MonadState s (FileLoaderT m) where
   get = lift get
   put = lift . put
 
-instance MonadReader r m => MonadReader r (SourceLoaderT m) where
+instance MonadReader r m => MonadReader r (FileLoaderT m) where
   ask = lift ask
-  local f = mapSourceLoaderT (local f)
+  local f = mapFileLoaderT (local f)
 
-instance MonadSymbols m => MonadSymbols (SourceLoaderT m) where
+instance MonadSymbols m => MonadSymbols (FileLoaderT m) where
   nullSym = lift nullSym
   allNames = lift allNames
   allSyms = lift allSyms
   name = lift . name
 
-instance MonadWriter w m => MonadWriter w (SourceLoaderT m) where
+instance MonadWriter w m => MonadWriter w (FileLoaderT m) where
   tell = lift . tell
-  listen = mapSourceLoaderT listen
-  pass = mapSourceLoaderT pass
+  listen = mapFileLoaderT listen
+  pass = mapFileLoaderT pass
 
-instance MonadPlus m => MonadPlus (SourceLoaderT m) where
+instance MonadPlus m => MonadPlus (FileLoaderT m) where
   mzero = lift mzero
-  mplus s1 s2 = SourceLoaderT (mplus (unpackSourceLoaderT s1)
-                                     (unpackSourceLoaderT s2))
+  mplus s1 s2 = FileLoaderT (mplus (unpackFileLoaderT s1)
+                                   (unpackFileLoaderT s2))
 
-instance MonadFix m => MonadFix (SourceLoaderT m) where
-  mfix f = SourceLoaderT (mfix (unpackSourceLoaderT . f))
+instance MonadFix m => MonadFix (FileLoaderT m) where
+  mfix f = FileLoaderT (mfix (unpackFileLoaderT . f))

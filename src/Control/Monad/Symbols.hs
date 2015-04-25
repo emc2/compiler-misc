@@ -154,7 +154,8 @@ instance (Error e, MonadError e m) => MonadError e (SymbolsT m) where
     SymbolsT (unpackSymbolsT m `catchError` (unpackSymbolsT . h))
 
 instance MonadGenpos m => MonadGenpos (SymbolsT m) where
-  position = lift . position
+  point = lift . point
+  filename = lift . filename
 
 instance MonadGensym m => MonadGensym (SymbolsT m) where
   symbol = lift . symbol
@@ -167,7 +168,8 @@ instance MonadLoader path info m => MonadLoader path info (SymbolsT m) where
   load = lift . load
 
 instance MonadPositions m => MonadPositions (SymbolsT m) where
-  positionInfo = lift . positionInfo
+  pointInfo = lift . pointInfo
+  fileInfo = lift . fileInfo
 
 instance MonadSourceFiles m => MonadSourceFiles (SymbolsT m) where
   sourceFile = lift . sourceFile

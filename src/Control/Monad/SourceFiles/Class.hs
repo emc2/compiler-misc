@@ -41,17 +41,18 @@ import Control.Monad.State
 import Control.Monad.Writer
 import Data.Array
 import Data.ByteString hiding (map)
+import Data.Position.Filename
 import Data.Word
 
 -- | Class of monads that have access to source code.
 class Monad m => MonadSourceFiles m where
   -- | Get all lines from the source file.
-  sourceFile :: ByteString
+  sourceFile :: Filename
              -- ^ The path to the source file.
              -> m (Array Word ByteString)
              -- ^ An array of all lines in the source file.
 
-  sourceFileSpan :: ByteString
+  sourceFileSpan :: Filename
                  -- ^ The path to the source file.
                  -> Word
                  -- ^ The starting line

@@ -115,15 +115,17 @@ runAlexT :: Monad m =>
             AlexT us m a
          -> ByteString.ByteString
          -> Strict.ByteString
+         -> Strict.ByteString
          -> us
          -> m a
-runAlexT alex input fname userstate =
+runAlexT alex input fname dir userstate =
   do
     (out, _) <- runStateT alex AlexState { alex_pos = alexStartPos,
                                            alex_inp = input,
                                            alex_chr = '\n',
                                            alex_scd = 0,
                                            alex_fname = fname,
+                                           alex_dir = dir,
                                            alex_badchars = Nothing,
                                            alex_ust = userstate }
     return out
@@ -142,6 +144,7 @@ data AlexInternalState userstate =
     alex_chr :: !Char,      -- the character before the input
     alex_scd :: !Int,        -- the current startcode
     alex_fname :: !Strict.ByteString,
+    alex_dir :: !Strict.ByteString,
     alex_badchars :: Maybe (ByteString.ByteString, Int, AlexPosn, AlexPosn),
     alex_ust :: !userstate -- AlexUserState will be defined in the user program
   }
@@ -182,6 +185,12 @@ alexGetFileName =
     AlexState { alex_fname = fname } <- get
     return fname
 
+alexGetDir :: MonadState (AlexInternalState us) m => m Strict.ByteString
+alexGetDir =
+  do
+    AlexState { alex_dir = dir } <- get
+    return dir
+
 alexSetStartCode :: MonadState (AlexInternalState us) m => Int -> m ()
 alexSetStartCode sc =
   do
@@ -218,14 +227,6 @@ data AlexResultHandlers m result =
     handleToken :: AlexInput -> Int -> AlexMonadAction m result -> m result
   }
 
-mkPosition :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
-              AlexPosn -> AlexPosn -> m Position
-mkPosition (AlexPn _ startline startcol) (AlexPn _ endline endcol) =
-  do
-    fname <- alexGetFileName
-    between fname (fromIntegral startline) (fromIntegral startcol)
-            (fromIntegral endline) (fromIntegral (endcol - 1))
-
 mkAlexActions :: forall us m result .
                  (MonadState (AlexInternalState us) m, MonadGenpos m) =>
                  (AlexResultHandlers m result -> AlexInput -> Int -> m result)
@@ -233,7 +234,7 @@ mkAlexActions :: forall us m result .
               -- should be a simple call to @alexScan@, followed by a
               -- case statement that calls the appropriate action in
               -- the 'AlexResultHandlers' structure.
-              -> (ByteString.ByteString -> Position -> m ())
+              -> (ByteString.ByteString -> Filename -> Point -> Point -> m ())
               -- ^ An action to be taken when a lexical error occurs.
               -> m result
               -- ^ An action to be taken at the end of input.
@@ -250,11 +251,18 @@ mkAlexActions scanWrapper alexError alexEOF =
                 AlexPn _ endline endcol) ->
             do
               put st { alex_badchars = Nothing }
-              fname <- alexGetFileName
-              pos <- between fname (fromIntegral startline)
-                             (fromIntegral startcol) (fromIntegral endline)
-                             (fromIntegral endcol)
-              alexError (Char8.take (fromIntegral len) chars) pos
+              fnamestr <- alexGetFileName
+              dir <- alexGetDir
+              fname <- filename FileInfo { fileInfoName = fnamestr,
+                                           fileInfoDir = dir }
+              startpos <-
+                point PointInfo { pointLine = fromIntegral startline,
+                                  pointColumn = fromIntegral startcol }
+              endpos <-
+                point PointInfo { pointLine = fromIntegral endline,
+                                  pointColumn = fromIntegral endcol }
+              alexError (Char8.take (fromIntegral len) chars)
+                        fname startpos endpos
 
     bufferBadChars :: ByteString.ByteString -> AlexPosn -> m ()
     bufferBadChars chars pos =
@@ -327,12 +335,18 @@ linebreakAtOffset offset _ (AlexPn off _ _) _ =
   SourceBuffer.linebreak (off + offset)
 
 log :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
-       (ByteString.ByteString -> Position -> m ()) ->
+       (ByteString.ByteString -> Filename -> Point -> Point -> m ()) ->
        AlexMonadAction m ()
-log t startpos endpos bstr =
+log t (AlexPn _ startline startcol) (AlexPn _ endline endcol) bstr =
   do
-    pos <- mkPosition startpos endpos
-    t bstr pos
+    fnamestr <- alexGetFileName
+    dir <- alexGetDir
+    fname <- filename FileInfo { fileInfoName = fnamestr, fileInfoDir = dir }
+    startpos <- point PointInfo { pointLine = fromIntegral startline,
+                                  pointColumn = fromIntegral startcol }
+    endpos <- point PointInfo { pointLine = fromIntegral endline,
+                                pointColumn = fromIntegral endcol }
+    t bstr fname startpos endpos
 
 -- | Perform an action that uses the matched text.
 record :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
@@ -341,25 +355,37 @@ record :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
 record t = const . const t
 
 report :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
-          (Position -> m ())
+          (Filename -> Point -> Point -> m ())
        -> AlexMonadAction m ()
 report = log . const
 
 produce :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
-           (ByteString.ByteString -> Position -> m a)
+           (ByteString.ByteString -> Filename -> Point -> Point -> m a)
         -> AlexMonadAction m a
-produce t startpos endpos bstr =
+produce t (AlexPn _ startline startcol) (AlexPn _ endline endcol) bstr =
   do
-    pos <- mkPosition startpos endpos
-    t bstr pos
+    fnamestr <- alexGetFileName
+    dir <- alexGetDir
+    fname <- filename FileInfo { fileInfoName = fnamestr, fileInfoDir = dir }
+    startpos <- point PointInfo { pointLine = fromIntegral startline,
+                                  pointColumn = fromIntegral startcol }
+    endpos <- point PointInfo { pointLine = fromIntegral endline,
+                                pointColumn = fromIntegral endcol }
+    t bstr fname startpos endpos
 
 token :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
-         (Position -> m a)
+         (Filename -> Point -> Point -> m a)
       -> AlexMonadAction m a
-token t startpos endpos _ =
+token t (AlexPn _ startline startcol) (AlexPn _ endline endcol) _ =
   do
-    pos <- mkPosition startpos endpos
-    t pos
+    fnamestr <- alexGetFileName
+    dir <- alexGetDir
+    fname <- filename FileInfo { fileInfoName = fnamestr, fileInfoDir = dir }
+    startpos <- point PointInfo { pointLine = fromIntegral startline,
+                                  pointColumn = fromIntegral startcol }
+    endpos <- point PointInfo { pointLine = fromIntegral endline,
+                                pointColumn = fromIntegral endcol }
+    t fname startpos endpos
 
 orElse :: Monad m =>
           AlexMonadAction m (Maybe a) ->
