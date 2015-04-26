@@ -69,6 +69,7 @@ data PointInfo =
       -- | The column number, staring at 1.
       pointColumn :: !Word
     }
+  deriving (Ord, Eq)
 
 -- | A starting point for enumerating @Point@s.
 firstPoint :: Point

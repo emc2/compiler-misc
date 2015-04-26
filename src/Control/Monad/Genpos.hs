@@ -66,7 +66,9 @@ data Bounds = Bounds { loPos :: !Point, hiPos :: !Point,
                        loFile :: !Filename, hiFile :: !Filename }
 
 data Table = Table { posTable :: !(BasicHashTable Point PointInfo),
-                     fileTable :: !(BasicHashTable Filename FileInfo) }
+                     posRevTable :: !(BasicHashTable PointInfo Point),
+                     fileTable :: !(BasicHashTable Filename FileInfo),
+                     fileRevTable :: !(BasicHashTable FileInfo Filename)}
 
 newtype GenposT m a =
   GenposT { unpackGenposT :: StateT Bounds (ReaderT Table m) a }
@@ -106,16 +108,23 @@ runGenposT :: MonadIO m =>
            -- index is taken as the null symbol.
            -> m a
 runGenposT s (lopos, hipos) positions (lofile, hifile) files =
-  do
+  let
+    revpositions = map (\(a, b) -> (b, a)) positions
+    revfiles = map (\(a, b) -> (b, a)) files
+  in do
     postab <- liftIO (HashTable.fromList positions)
+    revpostab <- liftIO (HashTable.fromList revpositions)
     filetab <- liftIO (HashTable.fromList files)
+    revfiletab <- liftIO (HashTable.fromList revfiles)
     (out, _) <- runReaderT (runStateT (unpackGenposT s)
                                       Bounds { loPos = lopos,
                                                hiPos = hipos,
                                                loFile = lofile,
                                                hiFile = hifile})
                            Table { posTable = postab,
-                                   fileTable = filetab }
+                                   posRevTable = revpostab,
+                                   fileTable = filetab,
+                                   fileRevTable = revfiletab }
     return out
 
 -- | Execute a Genpos monad with a starting state with only the null
@@ -135,26 +144,36 @@ startGenposT s =
   runGenposT s (firstPoint, firstPoint) [] (firstFilename, firstFilename) []
 
 point' :: MonadIO m =>
-             PointInfo
-          -> (StateT Bounds (ReaderT Table m)) Point
+          PointInfo
+       -> (StateT Bounds (ReaderT Table m)) Point
 point' pos =
   do
-    Table { posTable = tab } <- ask
-    bounds @ Bounds { hiPos = hi } <- get
-    put bounds { hiPos = succ hi }
-    liftIO (HashTable.insert tab hi pos)
-    return hi
+    Table { posTable = tab, posRevTable = revtab } <- ask
+    res <- liftIO $! HashTable.lookup revtab pos
+    case res of
+      Just out -> return out
+      Nothing ->
+        do
+          bounds @ Bounds { hiPos = hi } <- get
+          put bounds { hiPos = succ hi }
+          liftIO (HashTable.insert tab hi pos)
+          return hi
 
 filename' :: MonadIO m =>
              FileInfo
           -> (StateT Bounds (ReaderT Table m)) Filename
 filename' fileinfo =
   do
-    Table { fileTable = tab } <- ask
-    bounds @ Bounds { hiFile = hi } <- get
-    put bounds { hiFile = succ hi }
-    liftIO (HashTable.insert tab hi fileinfo)
-    return hi
+    Table { fileTable = tab, fileRevTable = revtab } <- ask
+    res <- liftIO $! HashTable.lookup revtab fileinfo
+    case res of
+      Just out -> return out
+      Nothing ->
+        do
+          bounds @ Bounds { hiFile = hi } <- get
+          put bounds { hiFile = succ hi }
+          liftIO (HashTable.insert tab hi fileinfo)
+          return hi
 
 pointInfo' :: MonadIO m => Point -> (StateT Bounds (ReaderT Table m)) PointInfo
 pointInfo' pos =
