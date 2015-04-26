@@ -57,6 +57,7 @@ import Control.Monad.SourceBuffer.Class
 import Control.Monad.State
 import Control.Monad.Symbols.Class
 import Control.Monad.Writer
+import Data.Position.Filename
 import System.IO.Error
 
 import qualified Data.ByteString.UTF8 as Strict
@@ -88,33 +89,41 @@ mapFileLoaderT :: (Monad m, Monad n) =>
                    (m a -> n b) -> FileLoaderT m a -> FileLoaderT n b
 mapFileLoaderT f = FileLoaderT . mapReaderT f . unpackFileLoaderT
 
-load' :: MonadIO m =>
+load' :: (MonadIO m, MonadGenpos m) =>
          Strict.ByteString ->
-         ReaderT [Strict.ByteString] m (Either IOError Lazy.ByteString)
+         ReaderT [Strict.ByteString] m
+                 (Either IOError (Filename, Lazy.ByteString))
 load' path =
   let
     fpath = Strict.toString path
 
     -- Try each path in the prefixes, continue until something other
     -- than doesNotExistError happens.
-    loadPrefixes :: [Strict.ByteString] -> IO (Either IOError Lazy.ByteString)
+    loadPrefixes :: (MonadIO m, MonadGenpos m) =>
+                    [Strict.ByteString] ->
+                    m (Either IOError (Filename, Lazy.ByteString))
     -- Try each prefix path in turn.
     loadPrefixes (first : rest) =
       let
         fullpath = Strict.toString first ++ fpath
       in do
-        contents <- tryIOError (Lazy.readFile fullpath)
-        case contents of
+        res <- liftIO $! tryIOError (Lazy.readFile fullpath)
+        case res of
           -- If we get a doesNotExistError, then continue.
           Left err | isDoesNotExistError err -> loadPrefixes rest
+                   | otherwise -> return $! Left err
           -- Otherwise, return what we got.
-          _ -> return contents
+          Right contents ->
+            do
+              fname <- filename FileInfo { fileInfoName = path,
+                                           fileInfoDir = first }
+              return $! Right (fname, contents)
     -- If we get to the end of the prefixes, and we have an error, throw it
     loadPrefixes [] = return $! Left $! mkIOError doesNotExistErrorType ""
                                                   Nothing (Just fpath)
   in do
     prefixes <- ask
-    liftIO (loadPrefixes prefixes)
+    loadPrefixes prefixes
 
 instance Monad m => Monad (FileLoaderT m) where
   return = FileLoaderT . return
@@ -139,7 +148,7 @@ instance MonadIO m => MonadIO (FileLoaderT m) where
 instance MonadTrans (FileLoaderT) where
   lift = FileLoaderT . lift
 
-instance MonadIO m =>
+instance (MonadIO m, MonadGenpos m) =>
          MonadLoader Strict.ByteString Lazy.ByteString (FileLoaderT m) where
   load = FileLoaderT . load'
 

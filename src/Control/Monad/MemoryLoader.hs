@@ -60,8 +60,10 @@ import Control.Monad.State
 import Control.Monad.Symbols.Class
 import Control.Monad.Writer
 import Data.HashTable.IO(BasicHashTable)
+import Data.Position.Filename
 import System.IO.Error
 
+import qualified Data.ByteString as Strict
 import qualified Data.ByteString.UTF8 as Strict
 import qualified Data.HashTable.IO as HashTable
 
@@ -74,19 +76,19 @@ type MemoryLoader info = MemoryLoaderT info IO
 
 -- | Execute the computation represented by a MemoryLoader monad.
 runMemoryLoader :: MemoryLoader info a
-               -- ^ The MemoryLoaderT monad to execute.
-               -> Table info
-               -- ^ A hash table containing the contents of all files.
-               -> IO a
+                -- ^ The MemoryLoaderT monad to execute.
+                -> Table info
+                -- ^ A hash table containing the contents of all files.
+                -> IO a
 runMemoryLoader = runMemoryLoaderT
 
 -- | Execute the computation wrapped in a MemoryLoaderT monad transformer.
 runMemoryLoaderT :: MonadIO m =>
                     MemoryLoaderT info m a
-                -- ^ The MemoryLoaderT monad to execute.
-                -> Table info
-                -- ^ A hash table containing the contents of all files.
-                -> m a
+                 -- ^ The MemoryLoaderT monad to execute.
+                 -> Table info
+                 -- ^ A hash table containing the contents of all files.
+                 -> m a
 runMemoryLoaderT s = runReaderT (unpackMemoryLoaderT s)
 
 mapMemoryLoaderT :: (Monad m, Monad n) =>
@@ -94,8 +96,8 @@ mapMemoryLoaderT :: (Monad m, Monad n) =>
                     MemoryLoaderT info n b
 mapMemoryLoaderT f = MemoryLoaderT . mapReaderT f . unpackMemoryLoaderT
 
-load' :: MonadIO m => Strict.ByteString ->
-         ReaderT (Table info) m (Either IOError info)
+load' :: (MonadIO m, MonadGenpos m) => Strict.ByteString ->
+         ReaderT (Table info) m (Either IOError (Filename, info))
 load' path =
   let
     fpath = Strict.toString path
@@ -103,7 +105,11 @@ load' path =
     table <- ask
     entry <- liftIO (HashTable.lookup table path)
     case entry of
-      Just out -> return $! Right out
+      Just out ->
+        do
+          fname <- filename FileInfo { fileInfoName = path,
+                                       fileInfoDir = Strict.empty }
+          return $! Right (fname,  out)
       Nothing -> return $! Left $! mkIOError doesNotExistErrorType
                                              "No such entry"
                                              Nothing (Just fpath)
@@ -131,7 +137,7 @@ instance MonadIO m => MonadIO (MemoryLoaderT info m) where
 instance MonadTrans (MemoryLoaderT info) where
   lift = MemoryLoaderT . lift
 
-instance MonadIO m =>
+instance (MonadIO m, MonadGenpos m) =>
          MonadLoader Strict.ByteString info (MemoryLoaderT info m) where
   load = MemoryLoaderT . load'
 
