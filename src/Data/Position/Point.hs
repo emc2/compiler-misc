@@ -43,6 +43,7 @@ module Data.Position.Point(
 
 import Data.Hashable
 import Data.Ix
+import Data.Position.Filename
 import Data.Word
 import Text.Format hiding (line)
 import Text.XML.Expat.Pickle
@@ -61,6 +62,8 @@ newtype Point =
 -- | A specific line and column in a source file.
 data PointInfo =
   PointInfo {
+      -- | The file name associated with this point.
+      pointFile :: !Filename,
       -- | The line number, starting at 1.
       pointLine :: !Word,
       -- | The column number, staring at 1.
@@ -107,9 +110,12 @@ instance Hashable PointInfo where
 
 instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
          XmlPickler (Attributes tag text) PointInfo where
-  xpickle = xpWrap (\(line, col) ->
-                     PointInfo { pointLine = line, pointColumn = col },
-                    \PointInfo { pointLine = line, pointColumn = col } ->
-                     (line, col))
-                   (xpPair (xpAttr (gxFromString "line") xpPrim)
-                           (xpAttr (gxFromString "col") xpPrim))
+  xpickle = xpWrap (\(fname, line, col) ->
+                     PointInfo { pointFile = fname, pointLine = line,
+                                 pointColumn = col },
+                    \PointInfo { pointFile = fname, pointLine = line,
+                                 pointColumn = col } ->
+                     (fname, line, col))
+                   (xpTriple xpickle
+                             (xpAttr (gxFromString "line") xpPrim)
+                             (xpAttr (gxFromString "col") xpPrim))

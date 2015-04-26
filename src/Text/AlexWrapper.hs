@@ -256,12 +256,14 @@ mkAlexActions scanWrapper alexError alexEOF =
               fname <- filename FileInfo { fileInfoName = fnamestr,
                                            fileInfoDir = dir }
               startpos <-
-                point PointInfo { pointLine = fromIntegral startline,
+                point PointInfo { pointFile = fname,
+                                  pointLine = fromIntegral startline,
                                   pointColumn = fromIntegral startcol }
               endpos <-
                 if endline == startline && endcol == startcol
                   then return startpos
-                  else point PointInfo { pointLine = fromIntegral endline,
+                  else point PointInfo { pointFile = fname,
+                                         pointLine = fromIntegral endline,
                                          pointColumn = fromIntegral endcol }
               alexError (Char8.take (fromIntegral len) chars)
                         fname startpos endpos
@@ -344,12 +346,14 @@ log t (AlexPn _ startline startcol) (AlexPn _ endline endcol) bstr =
     fnamestr <- alexGetFileName
     dir <- alexGetDir
     fname <- filename FileInfo { fileInfoName = fnamestr, fileInfoDir = dir }
-    startpos <- point PointInfo { pointLine = fromIntegral startline,
+    startpos <- point PointInfo { pointFile = fname,
+                                  pointLine = fromIntegral startline,
                                   pointColumn = fromIntegral startcol }
     endpos <-
       if endline == startline && endcol == startcol
         then return startpos
-        else point PointInfo { pointLine = fromIntegral endline,
+        else point PointInfo { pointFile = fname,
+                               pointLine = fromIntegral endline,
                                pointColumn = fromIntegral endcol }
     t bstr fname startpos endpos
 
@@ -372,12 +376,14 @@ produce t (AlexPn _ startline startcol) (AlexPn _ endline endcol) bstr =
     fnamestr <- alexGetFileName
     dir <- alexGetDir
     fname <- filename FileInfo { fileInfoName = fnamestr, fileInfoDir = dir }
-    startpos <- point PointInfo { pointLine = fromIntegral startline,
+    startpos <- point PointInfo { pointFile = fname,
+                                  pointLine = fromIntegral startline,
                                   pointColumn = fromIntegral startcol }
     endpos <-
       if endline == startline && endcol == startcol
         then return startpos
-        else point PointInfo { pointLine = fromIntegral endline,
+        else point PointInfo { pointFile = fname,
+                               pointLine = fromIntegral endline,
                                pointColumn = fromIntegral endcol }
     t bstr fname startpos endpos
 
@@ -389,12 +395,14 @@ token t (AlexPn _ startline startcol) (AlexPn _ endline endcol) _ =
     fnamestr <- alexGetFileName
     dir <- alexGetDir
     fname <- filename FileInfo { fileInfoName = fnamestr, fileInfoDir = dir }
-    startpos <- point PointInfo { pointLine = fromIntegral startline,
+    startpos <- point PointInfo { pointFile = fname,
+                                  pointLine = fromIntegral startline,
                                   pointColumn = fromIntegral startcol }
     endpos <-
       if endline == startline && endcol == startcol
         then return startpos
-        else point PointInfo { pointLine = fromIntegral endline,
+        else point PointInfo { pointFile = fname,
+                               pointLine = fromIntegral endline,
                                pointColumn = fromIntegral endcol }
     t fname startpos endpos
 

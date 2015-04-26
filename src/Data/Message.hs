@@ -301,7 +301,8 @@ messageContent msg =
                    info -> m MessageContentPosition
     getPosition info =
       do
-        msgpos <- case Position.location info of
+        loc <- Position.location info
+        msgpos <- case loc of
           Just (fname, Just (startpoint, endpoint)) ->
             do
               Position.FileInfo { Position.fileInfoName = fstr } <-
@@ -362,7 +363,8 @@ messageContentNoContext msg =
                    info -> m MessageContentPosition
     getPosition info =
       do
-        msgpos <- case Position.location info of
+        loc <- Position.location info
+        msgpos <- case loc of
           Just (fname, Just (startpoint, endpoint)) ->
             do
               Position.FileInfo { Position.fileInfoName = fstr } <-

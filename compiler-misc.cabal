@@ -86,6 +86,7 @@ Library
                         Data.Intervals
                         Data.Message
                         Data.Position
+                        Data.Position.BasicPosition
                         Data.Position.Class
                         Data.Position.Filename
                         Data.Position.Point

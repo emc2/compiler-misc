@@ -37,6 +37,7 @@ module Data.Position.Class(
        Position(..)
        ) where
 
+import Control.Monad.Positions.Class
 import Data.ByteString(ByteString)
 import Data.Position.Filename
 import Data.Position.Point
@@ -46,7 +47,8 @@ import Data.Position.Point
 -- 'Position' instance may have.
 class PositionInfo info where
   -- | Get the filename and offsets, if they exist.
-  location :: info -> Maybe (Filename, Maybe (Point, Point))
+  location :: MonadPositions m =>
+              info -> m (Maybe (Filename, Maybe (Point, Point)))
   -- | Children of this @PositionInfo@  All titles lines will be indented.
   children :: info -> Maybe (ByteString, [info])
   -- | Whether or not to show source context as well.  Note that
