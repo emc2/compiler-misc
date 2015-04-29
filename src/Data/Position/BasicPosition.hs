@@ -32,13 +32,15 @@
 
 -- | Defines datatype for information about source element positions.
 module Data.Position.BasicPosition(
-       BasicPosition(..)
+       BasicPosition(..),
+       span,
        ) where
 
 import Control.Monad.Positions
 import Data.Hashable
 import Data.Semigroup
 import Data.Word
+import Prelude hiding (span)
 import Text.Format hiding (line)
 import Text.FormatM hiding (line)
 import Text.XML.Expat.Pickle
@@ -74,6 +76,11 @@ data BasicPosition =
     -- | A command-line option.
   | CmdLine
   deriving (Ord, Eq)
+
+span :: Position.Point -> Position.Point -> BasicPosition
+span start end
+  | start == end = Point { pointPos = start }
+  | otherwise = Span { spanStart = start, spanEnd = end }
 
 instance Position.PositionInfo BasicPosition where
   location Span { spanStart = startpos, spanEnd = endpos } =
