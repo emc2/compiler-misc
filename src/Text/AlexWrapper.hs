@@ -77,7 +77,6 @@ import Prelude hiding (span, log)
 import qualified Control.Monad.SourceBuffer as SourceBuffer
 import qualified Data.ByteString.Lazy as ByteString
 import qualified Data.ByteString.Internal as ByteString (w2c)
-import qualified Data.ByteString as Strict
 import qualified Data.ByteString.Lazy.Char8 as Char8
 
 type Byte = Word8
@@ -114,18 +113,16 @@ alexMove (AlexPn a l c) _    = AlexPn (a+1)  l     (c+1)
 runAlexT :: Monad m =>
             AlexT us m a
          -> ByteString.ByteString
-         -> Strict.ByteString
-         -> Strict.ByteString
+         -> Filename
          -> us
          -> m a
-runAlexT alex input fname dir userstate =
+runAlexT alex input fname userstate =
   do
     (out, _) <- runStateT alex AlexState { alex_pos = alexStartPos,
                                            alex_inp = input,
                                            alex_chr = '\n',
                                            alex_scd = 0,
                                            alex_fname = fname,
-                                           alex_dir = dir,
                                            alex_badchars = Nothing,
                                            alex_ust = userstate }
     return out
@@ -143,8 +140,7 @@ data AlexInternalState userstate =
     alex_inp :: ByteString.ByteString,      -- the current input
     alex_chr :: !Char,      -- the character before the input
     alex_scd :: !Int,        -- the current startcode
-    alex_fname :: !Strict.ByteString,
-    alex_dir :: !Strict.ByteString,
+    alex_fname :: !Filename,
     alex_badchars :: Maybe (ByteString.ByteString, Int, AlexPosn, AlexPosn),
     alex_ust :: !userstate -- AlexUserState will be defined in the user program
   }
@@ -179,17 +175,11 @@ alexGetStartCode =
     AlexState { alex_scd = sc } <- get
     return sc
 
-alexGetFileName :: MonadState (AlexInternalState us) m => m Strict.ByteString
+alexGetFileName :: MonadState (AlexInternalState us) m => m Filename
 alexGetFileName =
   do
     AlexState { alex_fname = fname } <- get
     return fname
-
-alexGetDir :: MonadState (AlexInternalState us) m => m Strict.ByteString
-alexGetDir =
-  do
-    AlexState { alex_dir = dir } <- get
-    return dir
 
 alexSetStartCode :: MonadState (AlexInternalState us) m => Int -> m ()
 alexSetStartCode sc =
@@ -251,10 +241,7 @@ mkAlexActions scanWrapper alexError alexEOF =
                 AlexPn _ endline endcol) ->
             do
               put st { alex_badchars = Nothing }
-              fnamestr <- alexGetFileName
-              dir <- alexGetDir
-              fname <- filename FileInfo { fileInfoName = fnamestr,
-                                           fileInfoDir = dir }
+              fname <- alexGetFileName
               startpos <-
                 point PointInfo { pointFile = fname,
                                   pointLine = fromIntegral startline,
@@ -343,9 +330,7 @@ log :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
        AlexMonadAction m ()
 log t (AlexPn _ startline startcol) (AlexPn _ endline endcol) bstr =
   do
-    fnamestr <- alexGetFileName
-    dir <- alexGetDir
-    fname <- filename FileInfo { fileInfoName = fnamestr, fileInfoDir = dir }
+    fname <- alexGetFileName
     startpos <- point PointInfo { pointFile = fname,
                                   pointLine = fromIntegral startline,
                                   pointColumn = fromIntegral startcol }
@@ -373,9 +358,7 @@ produce :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
         -> AlexMonadAction m a
 produce t (AlexPn _ startline startcol) (AlexPn _ endline endcol) bstr =
   do
-    fnamestr <- alexGetFileName
-    dir <- alexGetDir
-    fname <- filename FileInfo { fileInfoName = fnamestr, fileInfoDir = dir }
+    fname <- alexGetFileName
     startpos <- point PointInfo { pointFile = fname,
                                   pointLine = fromIntegral startline,
                                   pointColumn = fromIntegral startcol }
@@ -392,9 +375,7 @@ token :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
       -> AlexMonadAction m a
 token t (AlexPn _ startline startcol) (AlexPn _ endline endcol) _ =
   do
-    fnamestr <- alexGetFileName
-    dir <- alexGetDir
-    fname <- filename FileInfo { fileInfoName = fnamestr, fileInfoDir = dir }
+    fname <- alexGetFileName
     startpos <- point PointInfo { pointFile = fname,
                                   pointLine = fromIntegral startline,
                                   pointColumn = fromIntegral startcol }
