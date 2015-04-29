@@ -335,11 +335,11 @@ log t (AlexPn _ startline startcol) (AlexPn _ endline endcol) bstr =
                                   pointLine = fromIntegral startline,
                                   pointColumn = fromIntegral startcol }
     endpos <-
-      if endline == startline && endcol == startcol
+      if endline == startline && endcol - 1 == startcol
         then return startpos
         else point PointInfo { pointFile = fname,
                                pointLine = fromIntegral endline,
-                               pointColumn = fromIntegral endcol }
+                               pointColumn = fromIntegral endcol - 1 }
     t bstr fname startpos endpos
 
 -- | Perform an action that uses the matched text.
@@ -363,11 +363,11 @@ produce t (AlexPn _ startline startcol) (AlexPn _ endline endcol) bstr =
                                   pointLine = fromIntegral startline,
                                   pointColumn = fromIntegral startcol }
     endpos <-
-      if endline == startline && endcol == startcol
+      if endline == startline && endcol - 1 == startcol
         then return startpos
         else point PointInfo { pointFile = fname,
                                pointLine = fromIntegral endline,
-                               pointColumn = fromIntegral endcol }
+                               pointColumn = fromIntegral endcol - 1 }
     t bstr fname startpos endpos
 
 token :: (MonadGenpos m, MonadState (AlexInternalState us) m) =>
@@ -380,11 +380,11 @@ token t (AlexPn _ startline startcol) (AlexPn _ endline endcol) _ =
                                   pointLine = fromIntegral startline,
                                   pointColumn = fromIntegral startcol }
     endpos <-
-      if endline == startline && endcol == startcol
+      if endline == startline && endcol - 1 == startcol
         then return startpos
         else point PointInfo { pointFile = fname,
                                pointLine = fromIntegral endline,
-                               pointColumn = fromIntegral endcol }
+                               pointColumn = fromIntegral endcol - 1 }
     t fname startpos endpos
 
 orElse :: Monad m =>

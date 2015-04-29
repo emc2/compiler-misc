@@ -458,13 +458,16 @@ formatMessageContent hlight MessageContent { msgSeverity = sev,
           | startline == endline =
             vividWhite (hcat [bytestring fname, colon,
                               format startline, dot, format startcol,
-                              char '-', format endline ])
+                              char '-', format endcol ])
           | otherwise =
             vividWhite (hcat [bytestring fname, colon,
                               format startline, dot, format startcol,
                               char '-', format endline, dot, format endcol])
       in
-        nest depth (bytestring desc <+> string "at " <> locationdoc) <$$> ctxdoc
+        if Strict.null desc
+          then nest depth (string "at " <> locationdoc) <$$> ctxdoc
+          else nest depth (bytestring desc <+> string "at " <>
+                           locationdoc) <$$> ctxdoc
     formatPos depth Point { pointLine = pointline, pointCol = pointcol,
                             pointFile = fname, pointDesc = desc,
                             pointContext = ctx } =
@@ -484,24 +487,29 @@ formatMessageContent hlight MessageContent { msgSeverity = sev,
         locationdoc = vividWhite (hcat [bytestring fname, colon,
                                         format pointline, dot, format pointcol])
       in
-        nest depth (bytestring desc <+> string "at " <> locationdoc) <$$> ctxdoc
+        if Strict.null desc
+          then nest depth (string "at " <> locationdoc) <$$> ctxdoc
+          else nest depth (bytestring desc <+>
+                           string "at " <> locationdoc) <$$> ctxdoc
     formatPos depth File { fileName = fname, fileDesc = desc } =
       nest depth (bytestring desc <+> string "in " <>
                   vividWhite (bytestring fname))
     formatPos depth Other { otherDesc = desc } = nest depth (bytestring desc)
 
-    detailsdoc =
-      case mdetails of
-        Nothing -> empty
-        Just content -> indent 2 content <> line
-
     posdocs = map (formatPos 0) positions
   in case posdocs of
-    [] -> nest 2 (format sev <> colon </> mbrief) <$$> detailsdoc
-    [posdoc] -> sep [nest 2 (format sev <> colon </> mbrief), posdoc] <$$>
-                detailsdoc
-    _ -> nest 2 (format sev <> colon </> mbrief) <$$>
-         vcat posdocs <$$> detailsdoc
+    [] -> case mdetails of
+      Nothing -> nest 2 (format sev <> colon </> mbrief)
+      Just content -> nest 2 (format sev <> colon </> mbrief) <$$>
+                      indent 2 content <> line
+    [posdoc] -> case mdetails of
+      Nothing -> sep [format sev <> colon </> nest 2 mbrief, posdoc]
+      Just content -> sep [format sev <> colon </> nest 2 mbrief, posdoc] <$$>
+                      indent 2 content <> line
+    _ -> case mdetails of
+      Nothing -> format sev <> colon </> nest 2 mbrief <$$> vcat posdocs
+      Just content -> format sev <> colon </> nest 2 mbrief <$$>
+                      vcat posdocs <$$> indent 2 content <> line
 
 formatMessage :: (MonadPositions m, MonadSourceFiles m,
                   MonadIO m, MessagePosition pos msg,
