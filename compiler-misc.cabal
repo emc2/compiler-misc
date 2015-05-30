@@ -29,7 +29,7 @@ Test-Suite UnitTest
                         hashable, bytestring, bound, hashable-extras, prelude-extras,
                         array, mtl, unordered-containers, HUnit-Plus, hashtables,
                         filepath, utf8-string, hexpat, hexpat-pickle, semigroups,
-                        blaze-builder, ansi-terminal
+                        blaze-builder, ansi-terminal, dynamic-pp
   ghc-options:          -fhpc
 
 --Executable SimpleLexer
@@ -49,7 +49,7 @@ Library
                         hashable, bytestring, bound, hashable-extras, prelude-extras,
                         array, mtl < 2.2, unordered-containers, hashtables, filepath,
                         utf8-string, hexpat, hexpat-pickle, blaze-builder, semigroups,
-                        ansi-terminal, directory
+                        ansi-terminal, directory, dynamic-pp
   exposed-modules:      Bound.Scope.ExtraInstances
                         Bound.Var.ExtraInstances
                         Control.Monad.Artifacts.Class
@@ -93,8 +93,6 @@ Library
                         Data.Symbol
                         Prelude.Extras.ExtraInstances
                         Text.AlexWrapper
-                        Text.Format
-                        Text.FormatM
                         Text.Escapes
                         Text.Escapes.ByteString
                         Text.Escapes.ByteString.Lazy

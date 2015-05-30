@@ -42,7 +42,6 @@ import Data.Semigroup
 import Data.Word
 import Prelude hiding (span)
 import Text.Format hiding (line)
-import Text.FormatM hiding (line)
 import Text.XML.Expat.Pickle
 import Text.XML.Expat.Tree
 

@@ -32,8 +32,7 @@ module Tests.Text(tests) where
 
 import Test.HUnitPlus.Base
 
-import qualified Tests.Text.Format as Format
 import qualified Tests.Text.Numbers as Numbers
 
 tests :: Test
-tests = "Text" ~: [Numbers.tests, Format.tests]
+tests = "Text" ~: [Numbers.tests]
