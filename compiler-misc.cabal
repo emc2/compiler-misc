@@ -87,6 +87,7 @@ Library
                         Data.Message
                         Data.Position
                         Data.Position.BasicPosition
+                        Data.Position.DWARFPosition
                         Data.Position.Class
                         Data.Position.Filename
                         Data.Position.Point
