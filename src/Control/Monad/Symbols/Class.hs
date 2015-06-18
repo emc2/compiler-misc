@@ -24,8 +24,8 @@
 -- OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
 -- OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 -- SUCH DAMAGE.
-{-# OPTIONS_GHC -Wall -Werror #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# OPTIONS_GHC -Wall -Werror -fno-warn-orphans #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 
 -- | Defines a class representing a monad which memoizes strings as
 -- numbers.  Useful in a compiler context for representing symbols.
@@ -41,6 +41,7 @@ import Control.Monad.State
 import Control.Monad.Writer
 import Data.ByteString
 import Data.Symbol
+import Text.Format
 
 -- | A class representing monads that assign number ID's to strings.
 -- This is useful in a compiler context for representing symbols as
@@ -57,6 +58,12 @@ class Monad m => MonadSymbols m where
   -- | Get all the names
   allNames :: m [ByteString]
   allNames = allSyms >>=  mapM name
+
+instance MonadSymbols m => FormatM m Symbol where
+  formatM s =
+    do
+      namestr <- name s
+      return $! format namestr
 
 instance MonadSymbols m => MonadSymbols (ContT r m) where
   nullSym = lift nullSym
