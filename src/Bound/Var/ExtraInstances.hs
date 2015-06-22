@@ -28,12 +28,50 @@
 -- OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 -- SUCH DAMAGE.
 {-# OPTIONS_GHC -Wall -Werror -fno-warn-orphans #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, FlexibleContexts #-}
 
 module Bound.Var.ExtraInstances where
 
 import Bound.Var
 import Text.Format
+import Text.XML.Expat.Pickle
+import Text.XML.Expat.Tree(NodeG)
 
 instance (Format a, Format b) => Format (Var a b) where
   format (B b) = format b
   format (F f) = format f
+
+boundPickler :: (GenericXMLString tag, Show tag,
+                 GenericXMLString text, Show text,
+                 XmlPickler [NodeG [] tag text] bound,
+                 XmlPickler [NodeG [] tag text] free) =>
+                PU [NodeG [] tag text] (Var bound free)
+boundPickler =
+  let
+    revfunc (B pos) = pos
+    revfunc _ = error $! "Can't convert"
+  in
+    xpWrap (B, revfunc) (xpElemNodes (gxFromString "Bound") xpickle)
+
+freePickler :: (GenericXMLString tag, Show tag,
+                GenericXMLString text, Show text,
+                XmlPickler [NodeG [] tag text] bound,
+                XmlPickler [NodeG [] tag text] free) =>
+               PU [NodeG [] tag text] (Var bound free)
+freePickler =
+  let
+    revfunc (F pos) = pos
+    revfunc _ = error $! "Can't convert"
+  in
+    xpWrap (F, revfunc) (xpElemNodes (gxFromString "Free") xpickle)
+
+instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text,
+          XmlPickler [NodeG [] tag text] bound,
+          XmlPickler [NodeG [] tag text] free) =>
+          XmlPickler [NodeG [] tag text] (Var bound free) where
+  xpickle =
+    let
+      picker B {} = 0
+      picker F {} = 1
+    in
+      xpAlt picker [ boundPickler, freePickler ]

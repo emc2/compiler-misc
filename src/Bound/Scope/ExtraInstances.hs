@@ -28,13 +28,21 @@
 -- OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 -- SUCH DAMAGE.
 {-# OPTIONS_GHC -Wall -Werror -fno-warn-orphans #-}
-{-# LANGUAGE FlexibleInstances, FlexibleContexts, UndecidableInstances #-}
+{-# LANGUAGE FlexibleInstances, FlexibleContexts,
+             UndecidableInstances, MultiParamTypeClasses #-}
 
 module Bound.Scope.ExtraInstances where
 
 import Bound.Scope
 import Bound.Var
 import Text.Format
+import Text.XML.Expat.Pickle
+import Text.XML.Expat.Tree(NodeG)
 
 instance (Monad t, Format (t (Var b s))) => Format (Scope b t s) where
   format s = format (fromScope s)
+
+instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text,
+          Monad func, XmlPickler [NodeG [] tag text] (func (Var bound free))) =>
+         XmlPickler [NodeG [] tag text] (Scope bound func free) where
+  xpickle = xpWrap (toScope, fromScope) xpickle
