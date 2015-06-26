@@ -41,6 +41,10 @@ instance (Format a, Format b) => Format (Var a b) where
   format (B b) = format b
   format (F f) = format f
 
+instance (Monad m, FormatM m a, FormatM m b) => FormatM m (Var a b) where
+  formatM (B b) = formatM b
+  formatM (F f) = formatM f
+
 boundPickler :: (GenericXMLString tag, Show tag,
                  GenericXMLString text, Show text,
                  XmlPickler [NodeG [] tag text] bound,

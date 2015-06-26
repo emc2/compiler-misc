@@ -42,6 +42,10 @@ import Text.XML.Expat.Tree(NodeG)
 instance (Monad t, Format (t (Var b s))) => Format (Scope b t s) where
   format s = format (fromScope s)
 
+instance (Monad m, Monad t, FormatM m (t (Var b s))) =>
+         FormatM m (Scope b t s) where
+  formatM s = formatM (fromScope s)
+
 instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text,
           Monad func, XmlPickler [NodeG [] tag text] (func (Var bound free))) =>
          XmlPickler [NodeG [] tag text] (Scope bound func free) where
