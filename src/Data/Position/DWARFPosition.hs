@@ -38,6 +38,7 @@ module Data.Position.DWARFPosition(
 import Control.Monad.Positions
 import Data.Hashable
 import Data.Word
+import Text.Format hiding (line)
 import Text.XML.Expat.Pickle
 import Text.XML.Expat.Tree
 
@@ -45,7 +46,7 @@ import qualified Data.ByteString as Strict
 import qualified Data.ByteString.UTF8 as Strict
 import qualified Data.Position as Position
 
--- |
+-- | A simple location in a source file.
 data SimplePosition =
     -- | A span in a source file.
     Span {
@@ -134,6 +135,48 @@ instance Position.PositionInfo DWARFPosition where
   children _ = Nothing
 
   showContext _ = True
+
+instance (MonadPositions m) => FormatM m SimplePosition where
+  formatM Span { spanStart = startpos, spanEnd = endpos } =
+    do
+      Position.PointInfo { Position.pointLine = startline,
+                           Position.pointColumn = startcol,
+                           Position.pointFile = fname } <- pointInfo startpos
+      Position.PointInfo { Position.pointLine = endline,
+                           Position.pointColumn = endcol } <- pointInfo endpos
+      Position.FileInfo { Position.fileInfoName = fstr } <- fileInfo fname
+      if startline == endline
+        then return (hcat [bytestring fstr, colon, format startline, dot,
+                           format startcol, char '-', format endcol])
+        else return (hcat [bytestring fstr, colon,
+                           format startline, dot, format startcol, char '-',
+                           format endline, dot, format endcol])
+  formatM Point { pointPos = pos } =
+    do
+      Position.PointInfo { Position.pointLine = line,
+                           Position.pointColumn = col,
+                           Position.pointFile = fname } <- pointInfo pos
+      Position.FileInfo { Position.fileInfoName = fstr } <- fileInfo fname
+      return (hcat [bytestring fstr, colon, format line, dot, format col])
+
+instance (MonadPositions m) => FormatM m DWARFPosition where
+  formatM Block { blockPos = pos, blockCtx = ctx } =
+    do
+      posdoc <- formatM pos
+      ctxdoc <- formatM ctx
+      return $! posdoc <$$> nest 2 (string "in block at" <+> ctxdoc)
+  formatM Function { funcPos = pos, funcCtx = ctx } =
+    do
+      posdoc <- formatM pos
+      ctxdoc <- formatM ctx
+      return $! posdoc <$$> nest 2 (string "in function at" <+> ctxdoc)
+  formatM Simple { simplePos = pos } = formatM pos
+  formatM File { fileName = fname } =
+    do
+      Position.FileInfo { Position.fileInfoName = fstr } <- fileInfo fname
+      return (bytestring fstr)
+  formatM CmdLine = return (string "command line")
+  formatM Synthetic { synthDesc = desc } = return (bytestring desc)
 
 instance Position.Position DWARFPosition DWARFPosition where
   positionInfo pos = [pos]
