@@ -32,11 +32,13 @@
 
 module Data.Position.DWARFPosition(
        SimplePosition(..),
-       DWARFPosition(..)
+       DWARFPosition(..),
+       basicPosition
        ) where
 
 import Control.Monad.Positions
 import Data.Hashable
+import Data.Position.BasicPosition(BasicPosition)
 import Data.Word
 import Text.Format hiding (line)
 import Text.XML.Expat.Pickle
@@ -45,6 +47,7 @@ import Text.XML.Expat.Tree
 import qualified Data.ByteString as Strict
 import qualified Data.ByteString.UTF8 as Strict
 import qualified Data.Position as Position
+import qualified Data.Position.BasicPosition as BasicPosition
 
 -- | A simple location in a source file.
 data SimplePosition =
@@ -62,22 +65,20 @@ data SimplePosition =
     }
   deriving (Ord, Eq)
 
+data Context = Function | Block
+  deriving (Ord, Eq, Enum)
+
 -- | A position suitable for representation in the DWARF debugging
 -- format.  DWARF positions have a nested structure.
 data DWARFPosition =
-    -- | A position inside a block.
-    Block {
+   -- | A position inside a
+    Enclosed {
+      -- | The kind of enclosing context.
+      enclosedKind :: !Context,
       -- | The position.
-      blockPos :: SimplePosition,
-      -- | The position of the context in which this position occurs.
-      blockCtx :: DWARFPosition
-    }
-    -- | A position inside a function.
-  | Function {
-      -- | The position.
-      funcPos :: SimplePosition,
+      enclosedPos :: SimplePosition,
       -- | The position of the function in which this position occurs.
-      funcCtx :: DWARFPosition
+      enclosedCtx :: DWARFPosition
     }
     -- | A simple location in a file.
   | Simple {
@@ -97,22 +98,33 @@ data DWARFPosition =
   | CmdLine
   deriving (Ord, Eq)
 
+-- | Extract the @BasicPosition@ representing the source point for
+-- this @DWARFPosition@.
+basicPosition :: DWARFPosition -> BasicPosition
+basicPosition Enclosed { enclosedPos = Span { spanStart = start,
+                                              spanEnd = end } } =
+  BasicPosition.Span { BasicPosition.spanStart = start,
+                       BasicPosition.spanEnd = end }
+basicPosition Enclosed { enclosedPos = Point { pointPos = pos } } =
+  BasicPosition.Point { BasicPosition.pointPos = pos }
+basicPosition Simple { simplePos = Span { spanStart = start, spanEnd = end } } =
+  BasicPosition.Span { BasicPosition.spanStart = start,
+                       BasicPosition.spanEnd = end }
+basicPosition Simple { simplePos = Point { pointPos = pos } } =
+  BasicPosition.Point { BasicPosition.pointPos = pos }
+basicPosition File { fileName = fname } =
+  BasicPosition.File { BasicPosition.fileName = fname }
+basicPosition Synthetic { synthDesc = desc } =
+  BasicPosition.Synthetic { BasicPosition.synthDesc = desc }
+basicPosition CmdLine = BasicPosition.CmdLine
+
 instance Position.PositionInfo DWARFPosition where
-  location Block { blockPos = Span { spanStart = startpos,
-                                     spanEnd = endpos } } =
+  location Enclosed { enclosedPos = Span { spanStart = startpos,
+                                           spanEnd = endpos } } =
     do
       Position.PointInfo { Position.pointFile = fname } <- pointInfo startpos
       return (Just (fname, Just (startpos, endpos)))
-  location Block { blockPos = Point { pointPos = pos } } =
-    do
-      Position.PointInfo { Position.pointFile = fname } <- pointInfo pos
-      return (Just (fname, Just (pos, pos)))
-  location Function { funcPos = Span { spanStart = startpos,
-                                       spanEnd = endpos } } =
-    do
-      Position.PointInfo { Position.pointFile = fname } <- pointInfo startpos
-      return (Just (fname, Just (startpos, endpos)))
-  location Function { funcPos = Point { pointPos = pos } } =
+  location Enclosed { enclosedPos = Point { pointPos = pos } } =
     do
       Position.PointInfo { Position.pointFile = fname } <- pointInfo pos
       return (Just (fname, Just (pos, pos)))
@@ -160,16 +172,17 @@ instance (MonadPositions m) => FormatM m SimplePosition where
       return (hcat [bytestring fstr, colon, format line, dot, format col])
 
 instance (MonadPositions m) => FormatM m DWARFPosition where
-  formatM Block { blockPos = pos, blockCtx = ctx } =
-    do
+
+  formatM Enclosed { enclosedKind = kind, enclosedPos = pos,
+                     enclosedCtx = ctx } =
+    let
+      kinddoc = case kind of
+        Function -> string "in function at"
+        Block -> string "in block at"
+    in do
       posdoc <- formatM pos
       ctxdoc <- formatM ctx
-      return $! posdoc <$$> nest 2 (string "in block at" <+> ctxdoc)
-  formatM Function { funcPos = pos, funcCtx = ctx } =
-    do
-      posdoc <- formatM pos
-      ctxdoc <- formatM ctx
-      return $! posdoc <$$> nest 2 (string "in function at" <+> ctxdoc)
+      return $! posdoc <$$> nest 2 (kinddoc <+> ctxdoc)
   formatM Simple { simplePos = pos } = formatM pos
   formatM File { fileName = fname } =
     do
@@ -188,17 +201,17 @@ instance Hashable SimplePosition where
     s `hashWithSalt` (1 :: Word) `hashWithSalt` pos
 
 instance Hashable DWARFPosition where
-  hashWithSalt s Block { blockPos = pos, blockCtx = ctx } =
-    s `hashWithSalt` (0 :: Word) `hashWithSalt` pos `hashWithSalt` ctx
-  hashWithSalt s Function { funcPos = pos, funcCtx = ctx } =
-    s `hashWithSalt` (1 :: Word) `hashWithSalt` pos `hashWithSalt` ctx
+  hashWithSalt s Enclosed { enclosedPos = pos, enclosedCtx = ctx,
+                            enclosedKind = kind } =
+    s `hashWithSalt` (0 :: Word) `hashWithSalt`
+    pos `hashWithSalt` ctx `hashWithSalt` fromEnum kind
   hashWithSalt s Simple { simplePos = pos } =
-    s `hashWithSalt` (2 :: Word) `hashWithSalt` pos
+    s `hashWithSalt` (1 :: Word) `hashWithSalt` pos
   hashWithSalt s File { fileName = fname } =
-    s `hashWithSalt` (3 :: Word) `hashWithSalt` fname
+    s `hashWithSalt` (2 :: Word) `hashWithSalt` fname
   hashWithSalt s Synthetic { synthDesc = desc } =
-    s `hashWithSalt` (4 :: Word) `hashWithSalt` desc
-  hashWithSalt s CmdLine = s `hashWithSalt` (5 :: Int)
+    s `hashWithSalt` (3 :: Word) `hashWithSalt` desc
+  hashWithSalt s CmdLine = s `hashWithSalt` (4 :: Int)
 
 spanPickler :: (GenericXMLString tag, Show tag,
                 GenericXMLString text, Show text) =>
@@ -234,35 +247,32 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
     in
       xpAlt picker [spanPickler, pointPickler ]
 
-blockPickler :: (GenericXMLString tag, Show tag,
-                 GenericXMLString text, Show text) =>
-                PU [NodeG [] tag text] DWARFPosition
-blockPickler =
-  let
-    fwdfunc (pos, ctx) = Block { blockPos = pos, blockCtx = ctx }
+instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
+         XmlPickler [(tag, text)] Context where
+  xpickle = xpAlt fromEnum [xpWrap (const Function, const ())
+                                   (xpAttrFixed (gxFromString "kind")
+                                                (gxFromString "Function")),
+                            xpWrap (const Block, const ())
+                                   (xpAttrFixed (gxFromString "kind")
+                                                (gxFromString "Block"))]
 
-    revfunc Block { blockPos = pos, blockCtx = ctx } = (pos, ctx)
-    revfunc _ = error $! "Can't convert to Block"
-  in
-    xpWrap (fwdfunc, revfunc)
-           (xpElemNodes (gxFromString "Block")
-                        (xpPair (xpElemNodes (gxFromString "pos") xpickle)
-                                (xpElemNodes (gxFromString "ctx") xpickle)))
-
-functionPickler :: (GenericXMLString tag, Show tag,
+enclosedPickler :: (GenericXMLString tag, Show tag,
                     GenericXMLString text, Show text) =>
                    PU [NodeG [] tag text] DWARFPosition
-functionPickler =
+enclosedPickler =
   let
-    fwdfunc (pos, ctx) = Function { funcPos = pos, funcCtx = ctx }
+    fwdfunc (kind, (pos, ctx)) = Enclosed { enclosedPos = pos,
+                                            enclosedCtx = ctx,
+                                            enclosedKind = kind }
 
-    revfunc Function { funcPos = pos, funcCtx = ctx } = (pos, ctx)
-    revfunc _ = error $! "Can't convert to Function"
+    revfunc Enclosed { enclosedPos = pos, enclosedCtx = ctx,
+                       enclosedKind = kind } = (kind, (pos, ctx))
+    revfunc _ = error $! "Can't convert to Enclosed"
   in
     xpWrap (fwdfunc, revfunc)
-           (xpElemNodes (gxFromString "Function")
-                        (xpPair (xpElemNodes (gxFromString "pos") xpickle)
-                                (xpElemNodes (gxFromString "ctx") xpickle)))
+           (xpElem (gxFromString "Enclosed") xpickle
+                   (xpPair (xpElemNodes (gxFromString "pos") xpickle)
+                           (xpElemNodes (gxFromString "ctx") xpickle)))
 
 simplePickler :: (GenericXMLString tag, Show tag,
                   GenericXMLString text, Show text) =>
@@ -310,12 +320,11 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
          XmlPickler [NodeG [] tag text] DWARFPosition where
   xpickle =
     let
-      picker Block {} = 0
-      picker Function {} = 0
-      picker Simple {} = 2
-      picker File {} = 3
-      picker Synthetic {} = 4
-      picker CmdLine {} = 5
+      picker Enclosed {} = 0
+      picker Simple {} = 1
+      picker File {} = 2
+      picker Synthetic {} = 3
+      picker CmdLine {} = 4
     in
-      xpAlt picker [blockPickler, functionPickler, simplePickler,
-                    filePickler, syntheticPickler, cmdLinePickler]
+      xpAlt picker [enclosedPickler, simplePickler, filePickler,
+                    syntheticPickler, cmdLinePickler]
