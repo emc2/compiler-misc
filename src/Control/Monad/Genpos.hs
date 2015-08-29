@@ -43,7 +43,7 @@ import Control.Monad.Artifacts.Class
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
 import Control.Monad.Keywords.Class
@@ -238,7 +238,7 @@ instance MonadComments m => MonadComments (GenposT m) where
 instance MonadCont m => MonadCont (GenposT m) where
   callCC f = GenposT (callCC (\c -> unpackGenposT (f (GenposT . c))))
 
-instance (Error e, MonadError e m) => MonadError e (GenposT m) where
+instance (MonadError e m) => MonadError e (GenposT m) where
   throwError = lift . throwError
   m `catchError` h =
     GenposT (unpackGenposT m `catchError` (unpackGenposT . h))

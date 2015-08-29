@@ -36,7 +36,7 @@ module Control.Monad.Positions.Class(
        ) where
 
 import Control.Monad.Cont
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
@@ -61,7 +61,7 @@ instance MonadPositions m => MonadPositions (ContT r m) where
   pointInfo = lift . pointInfo
   fileInfo = lift . fileInfo
 
-instance (MonadPositions m, Error e) => MonadPositions (ErrorT e m) where
+instance (MonadPositions m) => MonadPositions (ExceptT e m) where
   pointInfo = lift . pointInfo
   fileInfo = lift . fileInfo
 

@@ -27,7 +27,7 @@ Test-Suite UnitTest
   hs-source-dirs:       src test
   build-depends:        base >= 4.4.0 && < 5, Cabal >= 1.16.0, pretty, containers,
                         hashable, bytestring, bound, hashable-extras, prelude-extras,
-                        array, mtl, unordered-containers, HUnit-Plus, hashtables,
+                        array, mtl >= 2.2, unordered-containers, HUnit-Plus, hashtables,
                         filepath, utf8-string, hexpat, hexpat-pickle, semigroups,
                         blaze-builder, ansi-terminal, dynamic-pp
   ghc-options:          -fhpc
@@ -47,7 +47,7 @@ Library
   hs-source-dirs:       src
   build-depends:        base >= 4.4.0 && < 5, Cabal >= 1.16.0, pretty, containers,
                         hashable, bytestring, bound, hashable-extras, prelude-extras,
-                        array, mtl < 2.2, unordered-containers, hashtables, filepath,
+                        array, mtl >= 2.2, unordered-containers, hashtables, filepath,
                         utf8-string, hexpat, hexpat-pickle, blaze-builder, semigroups,
                         ansi-terminal, directory, dynamic-pp
   exposed-modules:      Bound.Scope.ExtraInstances

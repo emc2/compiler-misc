@@ -35,7 +35,7 @@ module Control.Monad.Comments.Class(
        ) where
 
 import Control.Monad.Cont
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
@@ -51,7 +51,7 @@ class Monad m => MonadComments m where
 instance MonadComments m => MonadComments (ContT r m) where
   preceedingComments = lift . preceedingComments
 
-instance (Error e, MonadComments m) => MonadComments (ErrorT e m) where
+instance (MonadComments m) => MonadComments (ExceptT e m) where
   preceedingComments = lift . preceedingComments
 
 instance MonadComments m => MonadComments (ListT m) where

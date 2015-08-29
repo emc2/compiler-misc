@@ -36,7 +36,7 @@ module Control.Monad.Loader.Class(
        ) where
 
 import Control.Monad.Cont
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
@@ -51,8 +51,7 @@ class Monad m => MonadLoader path info m where
 instance MonadLoader path info m => MonadLoader path info (ContT r m) where
   load = lift . load
 
-instance (MonadLoader path info m, Error e) =>
-         MonadLoader path info (ErrorT e m) where
+instance (MonadLoader path info m) => MonadLoader path info (ExceptT e m) where
   load = lift . load
 
 instance MonadLoader path info m => MonadLoader path info (ListT m) where

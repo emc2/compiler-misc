@@ -44,7 +44,7 @@ import Control.Monad.Artifacts.Class
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
 import Control.Monad.Keywords.Class
@@ -172,7 +172,8 @@ symbol' str =
           liftIO (HashTable.insert revtab newsym str)
           return newsym
 
-unique' :: MonadIO m => (Word -> ByteString) -> (StateT Bounds (ReaderT Tables m)) Symbol
+unique' :: MonadIO m =>
+           (Word -> ByteString) -> (StateT Bounds (ReaderT Tables m)) Symbol
 unique' namefunc =
   do
     newsym <- nextSym
@@ -263,7 +264,7 @@ instance MonadComments m => MonadComments (GensymT m) where
 instance MonadCont m => MonadCont (GensymT m) where
   callCC f = GensymT (callCC (\c -> unpackGensymT (f (GensymT . c))))
 
-instance (Error e, MonadError e m) => MonadError e (GensymT m) where
+instance (MonadError e m) => MonadError e (GensymT m) where
   throwError = lift . throwError
   m `catchError` h =
     GensymT (unpackGensymT m `catchError` (unpackGensymT . h))

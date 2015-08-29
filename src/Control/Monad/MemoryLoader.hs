@@ -46,7 +46,7 @@ import Control.Monad.Artifacts.Class
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
 import Control.Monad.Keywords.Class
@@ -163,8 +163,7 @@ instance MonadCont m => MonadCont (MemoryLoaderT info m) where
   callCC f =
     MemoryLoaderT (callCC (\c -> unpackMemoryLoaderT (f (MemoryLoaderT . c))))
 
-instance (Error e, MonadError e m) =>
-         MonadError e (MemoryLoaderT info m) where
+instance (MonadError e m) => MonadError e (MemoryLoaderT info m) where
   throwError = lift . throwError
   m `catchError` h =
     MemoryLoaderT (unpackMemoryLoaderT m `catchError` (unpackMemoryLoaderT . h))

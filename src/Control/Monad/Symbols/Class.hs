@@ -34,7 +34,7 @@ module Control.Monad.Symbols.Class(
        ) where
 
 import Control.Monad.Cont
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
@@ -71,7 +71,7 @@ instance MonadSymbols m => MonadSymbols (ContT r m) where
   allSyms = lift allSyms
   name = lift . name
 
-instance (Error e, MonadSymbols m) => MonadSymbols (ErrorT e m) where
+instance (MonadSymbols m) => MonadSymbols (ExceptT e m) where
   nullSym = lift nullSym
   allNames = lift allNames
   allSyms = lift allSyms

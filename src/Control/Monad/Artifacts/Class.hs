@@ -36,7 +36,7 @@ module Control.Monad.Artifacts.Class(
 
 import Blaze.ByteString.Builder
 import Control.Monad.Cont
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
@@ -73,8 +73,7 @@ class Monad m => MonadArtifacts path m where
 instance MonadArtifacts path m => MonadArtifacts path (ContT r m) where
   artifact path = lift . artifact path
 
-instance (MonadArtifacts path m, Error e) =>
-         MonadArtifacts path (ErrorT e m) where
+instance (MonadArtifacts path m) => MonadArtifacts path (ExceptT e m) where
   artifact path = lift . artifact path
 
 instance MonadArtifacts path m => MonadArtifacts path (ListT m) where

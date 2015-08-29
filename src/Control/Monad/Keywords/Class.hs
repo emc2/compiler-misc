@@ -38,7 +38,7 @@ module Control.Monad.Keywords.Class(
        ) where
 
 import Control.Monad.Cont
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.Gensym.Class
 import Control.Monad.List
 import Control.Monad.Reader
@@ -83,7 +83,7 @@ keywordOrToken func lazytext pos =
 instance MonadKeywords p t m => MonadKeywords p t (ContT r m) where
   mkKeyword p = lift . mkKeyword p
 
-instance (MonadKeywords p t m, Error e) => MonadKeywords p t (ErrorT e m) where
+instance (MonadKeywords p t m) => MonadKeywords p t (ExceptT e m) where
   mkKeyword p = lift . mkKeyword p
 
 instance MonadKeywords p t m => MonadKeywords p t (ListT m) where

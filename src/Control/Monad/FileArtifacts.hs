@@ -47,7 +47,7 @@ import Control.Monad.Artifacts.Class
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
 import Control.Monad.Keywords.Class
@@ -176,8 +176,7 @@ instance MonadCont m => MonadCont (FileArtifactsT m) where
   callCC f =
     FileArtifactsT (callCC (\c -> unpackFileArtifactsT (f (FileArtifactsT . c))))
 
-instance (Error e, MonadError e m) =>
-         MonadError e (FileArtifactsT m) where
+instance (MonadError e m) => MonadError e (FileArtifactsT m) where
   throwError = lift . throwError
   m `catchError` h =
     FileArtifactsT (unpackFileArtifactsT m `catchError`

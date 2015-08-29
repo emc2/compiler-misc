@@ -44,7 +44,7 @@ import Control.Monad.Artifacts.Class
 import Control.Monad.CommentBuffer.Class
 import Control.Monad.Comments.Class
 import Control.Monad.Cont
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
 import Control.Monad.Keywords.Class
@@ -173,7 +173,7 @@ instance MonadCont m => MonadCont (FileLoaderT m) where
   callCC f =
     FileLoaderT (callCC (\c -> unpackFileLoaderT (f (FileLoaderT . c))))
 
-instance (Error e, MonadError e m) => MonadError e (FileLoaderT m) where
+instance (MonadError e m) => MonadError e (FileLoaderT m) where
   throwError = lift . throwError
   m `catchError` h =
     FileLoaderT (unpackFileLoaderT m `catchError` (unpackFileLoaderT . h))
