@@ -437,9 +437,9 @@ formatMessageContent hlight MessageContent { msgSeverity = sev,
               lazy = Lazy.fromStrict oneline
               (pre, mid, post) = splitThree startcol endcol lazy
             in
-              cat [string pre,
-                   highlight hlight sev (string mid),
-                   string post, line ]
+              hcat [string pre,
+                    highlight hlight sev (string mid),
+                    string post, line ]
           _ ->
             let
               firstline = Lazy.fromStrict (head ctx)
@@ -450,9 +450,9 @@ formatMessageContent hlight MessageContent { msgSeverity = sev,
               markeddocs = string startpost : map bytestring middle ++
                            [string endpre]
             in
-              cat [string startpre,
-                   highlight hlight sev (vcat markeddocs),
-                   string endpost, line]
+              hcat [string startpre,
+                    highlight hlight sev (vcat markeddocs),
+                    string endpost, line]
 
         locationdoc
           | startline == endline =
@@ -499,15 +499,15 @@ formatMessageContent hlight MessageContent { msgSeverity = sev,
     posdocs = map (formatPos 0) positions
   in case posdocs of
     [] -> case mdetails of
-      Nothing -> nest 2 (format sev <> colon </> mbrief)
+      Nothing -> nest 2 (format sev <> colon </> mbrief) <> line
       Just content -> nest 2 (format sev <> colon </> mbrief) <$$>
                       indent 2 content <> line
     [posdoc] -> case mdetails of
-      Nothing -> sep [format sev <> colon </> nest 2 mbrief, posdoc]
-      Just content -> sep [format sev <> colon </> nest 2 mbrief, posdoc] <$$>
+      Nothing -> format sev <> colon </> nest 2 mbrief </> posdoc <> line
+      Just content -> format sev <> colon </> nest 2 mbrief </> posdoc <$$>
                       indent 2 content <> line
     _ -> case mdetails of
-      Nothing -> format sev <> colon </> nest 2 mbrief <$$> vcat posdocs
+      Nothing -> format sev <> colon </> nest 2 mbrief <$$> vcat posdocs <> line
       Just content -> format sev <> colon </> nest 2 mbrief <$$>
                       vcat posdocs <$$> indent 2 content <> line
 
