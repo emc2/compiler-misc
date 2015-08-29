@@ -54,7 +54,6 @@ import Control.Monad.Symbols.Class
 import Data.Array
 import Data.ByteString(ByteString)
 import Data.Position.Filename
-import Data.Word
 
 type Table = Array Filename (Array Word ByteString)
 

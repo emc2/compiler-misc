@@ -43,7 +43,6 @@ module Data.Position.Filename(
 
 import Data.Hashable
 import Data.Ix
-import Data.Word
 import Text.Format
 import Text.XML.Expat.Pickle
 import Text.XML.Expat.Tree

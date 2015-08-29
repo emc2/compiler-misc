@@ -60,7 +60,6 @@ import Control.Monad.Symbols(Symbols, SymbolsT)
 import Data.ByteString.Char8 hiding (map, empty)
 import Data.HashTable.IO(BasicHashTable)
 import Data.Symbol
-import Data.Word
 
 import qualified Control.Monad.Symbols as Symbols
 import qualified Data.HashTable.IO as HashTable

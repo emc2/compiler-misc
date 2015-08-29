@@ -42,7 +42,6 @@ import Control.Monad.Writer
 import Data.Array
 import Data.ByteString hiding (map)
 import Data.Position.Filename
-import Data.Word
 
 -- | Class of monads that have access to source code.
 class Monad m => MonadSourceFiles m where

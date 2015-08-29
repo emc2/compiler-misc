@@ -56,7 +56,6 @@ import Control.Monad.Trans
 import Data.ByteString(ByteString)
 import Data.Hashable
 import Data.Monoid hiding ((<>))
-import Data.Word
 import System.IO
 import Text.Format
 import Text.XML.Expat.Pickle

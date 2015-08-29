@@ -60,7 +60,6 @@ import Data.ByteString (ByteString)
 import Data.HashTable.IO(BasicHashTable)
 import Data.Int
 import Data.Position.Filename
-import Data.Word
 import Prelude hiding (lines, readFile)
 import System.IO.Error
 

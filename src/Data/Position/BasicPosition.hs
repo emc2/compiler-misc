@@ -39,7 +39,6 @@ module Data.Position.BasicPosition(
 import Control.Monad.Positions
 import Data.Hashable
 import Data.Semigroup
-import Data.Word
 import Prelude hiding (span)
 import Text.Format hiding (line)
 import Text.XML.Expat.Pickle

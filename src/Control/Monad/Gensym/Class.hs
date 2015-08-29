@@ -41,7 +41,6 @@ import Control.Monad.State
 import Control.Monad.Writer
 import Data.ByteString
 import Data.Symbol
-import Data.Word
 
 -- | A class of monads that allow @ByteString@s to be memoized as @Symbol@s.
 class Monad m => MonadGensym m where

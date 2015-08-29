@@ -44,7 +44,6 @@ module Data.Position.Point(
 import Data.Hashable
 import Data.Ix
 import Data.Position.Filename
-import Data.Word
 import Text.Format hiding (line)
 import Text.XML.Expat.Pickle
 import Text.XML.Expat.Tree

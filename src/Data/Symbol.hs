@@ -44,7 +44,6 @@ module Data.Symbol(
 
 import Data.Hashable
 import Data.Ix
-import Data.Word
 import Text.XML.Expat.Pickle
 import Text.XML.Expat.Tree
 

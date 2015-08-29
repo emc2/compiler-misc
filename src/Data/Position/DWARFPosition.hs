@@ -39,7 +39,6 @@ module Data.Position.DWARFPosition(
 import Control.Monad.Positions
 import Data.Hashable
 import Data.Position.BasicPosition(BasicPosition)
-import Data.Word
 import Text.Format hiding (line)
 import Text.XML.Expat.Pickle
 import Text.XML.Expat.Tree

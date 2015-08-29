@@ -48,7 +48,6 @@ import Data.HashTable.IO(BasicHashTable)
 import Data.Position.Filename
 import Data.Position.Point
 import Data.Symbol
-import Data.Word
 
 -- | A monad transformer representing all context information that
 -- would be gathered by the frontend.
