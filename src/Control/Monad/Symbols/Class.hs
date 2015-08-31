@@ -38,6 +38,7 @@ import Control.Monad.Except
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
+import Control.Monad.Trans.Journal
 import Control.Monad.Writer
 import Data.ByteString
 import Data.Symbol
@@ -72,6 +73,12 @@ instance MonadSymbols m => MonadSymbols (ContT r m) where
   name = lift . name
 
 instance (MonadSymbols m) => MonadSymbols (ExceptT e m) where
+  nullSym = lift nullSym
+  allNames = lift allNames
+  allSyms = lift allSyms
+  name = lift . name
+
+instance (MonadSymbols m) => MonadSymbols (JournalT e m) where
   nullSym = lift nullSym
   allNames = lift allNames
   allSyms = lift allSyms

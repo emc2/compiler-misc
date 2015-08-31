@@ -40,6 +40,7 @@ import Control.Monad.Except
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
+import Control.Monad.Trans.Journal
 import Control.Monad.Writer
 import Data.Position.Filename
 import Data.Position.Point
@@ -62,6 +63,10 @@ instance MonadPositions m => MonadPositions (ContT r m) where
   fileInfo = lift . fileInfo
 
 instance (MonadPositions m) => MonadPositions (ExceptT e m) where
+  pointInfo = lift . pointInfo
+  fileInfo = lift . fileInfo
+
+instance (MonadPositions m) => MonadPositions (JournalT e m) where
   pointInfo = lift . pointInfo
   fileInfo = lift . fileInfo
 

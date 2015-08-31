@@ -50,6 +50,7 @@ import Control.Monad.Cont
 import Control.Monad.Except
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
+import Control.Monad.Journal
 import Control.Monad.Keywords.Class
 import Control.Monad.Loader.Class
 import Control.Monad.Messages.Class
@@ -181,6 +182,12 @@ instance MonadGenpos m => MonadGenpos (MemoryArtifactsT path m) where
 instance MonadGensym m => MonadGensym (MemoryArtifactsT path m) where
   symbol = lift . symbol
   unique = lift . unique
+
+instance (Monoid w, MonadJournal w m) =>
+         MonadJournal w (MemoryArtifactsT path m) where
+  journal = lift . journal
+  history = lift history
+  clear = lift clear
 
 instance MonadKeywords p t m =>
          MonadKeywords p t (MemoryArtifactsT path m) where

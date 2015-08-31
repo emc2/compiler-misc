@@ -40,6 +40,7 @@ import Control.Monad.Except
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
+import Control.Monad.Trans.Journal
 import Control.Monad.Writer
 import Data.Position.Filename
 
@@ -52,6 +53,9 @@ instance MonadLoader path info m => MonadLoader path info (ContT r m) where
   load = lift . load
 
 instance (MonadLoader path info m) => MonadLoader path info (ExceptT e m) where
+  load = lift . load
+
+instance (MonadLoader path info m) => MonadLoader path info (JournalT e m) where
   load = lift . load
 
 instance MonadLoader path info m => MonadLoader path info (ListT m) where

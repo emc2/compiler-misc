@@ -39,6 +39,7 @@ import Control.Monad.Except
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
+import Control.Monad.Trans.Journal
 import Control.Monad.Writer
 import Data.ByteString
 import Data.Position.Point
@@ -52,6 +53,9 @@ instance MonadComments m => MonadComments (ContT r m) where
   preceedingComments = lift . preceedingComments
 
 instance (MonadComments m) => MonadComments (ExceptT e m) where
+  preceedingComments = lift . preceedingComments
+
+instance (MonadComments m) => MonadComments (JournalT e m) where
   preceedingComments = lift . preceedingComments
 
 instance MonadComments m => MonadComments (ListT m) where

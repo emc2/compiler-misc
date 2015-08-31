@@ -44,6 +44,7 @@ import Control.Monad.Comments.Class
 import Control.Monad.Cont
 import Control.Monad.Except
 import Control.Monad.Gensym.Class
+import Control.Monad.Journal
 import Control.Monad.Keywords.Class
 import Control.Monad.Loader.Class
 import Control.Monad.Messages.Class
@@ -167,6 +168,11 @@ instance (MonadError e m) => MonadError e (PositionsT m) where
 instance MonadGensym m => MonadGensym (PositionsT m) where
   symbol = lift . symbol
   unique = lift . unique
+
+instance (Monoid w, MonadJournal w m) => MonadJournal w (PositionsT m) where
+  journal = lift . journal
+  history = lift history
+  clear = lift clear
 
 instance MonadKeywords p t m => MonadKeywords p t (PositionsT m) where
   mkKeyword p = lift . mkKeyword p

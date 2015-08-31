@@ -45,6 +45,7 @@ import Control.Monad.Cont
 import Control.Monad.Except
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
+import Control.Monad.Journal
 import Control.Monad.Loader.Class
 import Control.Monad.Messages.Class
 import Control.Monad.Positions.Class
@@ -160,6 +161,11 @@ instance MonadGenpos m => MonadGenpos (SymbolsT m) where
 instance MonadGensym m => MonadGensym (SymbolsT m) where
   symbol = lift . symbol
   unique = lift . unique
+
+instance (Monoid w, MonadJournal w m) => MonadJournal w (SymbolsT m) where
+  journal = lift . journal
+  history = lift history
+  clear = lift clear
 
 instance MonadMessages msg m => MonadMessages msg (SymbolsT m) where
   message = lift . message

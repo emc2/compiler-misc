@@ -40,6 +40,7 @@ import Control.Monad.Except
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
+import Control.Monad.Trans.Journal
 import Control.Monad.Writer
 
 import qualified Data.ByteString as Strict
@@ -74,6 +75,9 @@ instance MonadArtifacts path m => MonadArtifacts path (ContT r m) where
   artifact path = lift . artifact path
 
 instance (MonadArtifacts path m) => MonadArtifacts path (ExceptT e m) where
+  artifact path = lift . artifact path
+
+instance (MonadArtifacts path m) => MonadArtifacts path (JournalT e m) where
   artifact path = lift . artifact path
 
 instance MonadArtifacts path m => MonadArtifacts path (ListT m) where

@@ -47,6 +47,7 @@ import Control.Monad.Cont
 import Control.Monad.Except
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
+import Control.Monad.Journal
 import Control.Monad.Keywords.Class
 import Control.Monad.Loader.Class
 import Control.Monad.Messages.Class
@@ -268,6 +269,11 @@ instance (MonadError e m) => MonadError e (GensymT m) where
   throwError = lift . throwError
   m `catchError` h =
     GensymT (unpackGensymT m `catchError` (unpackGensymT . h))
+
+instance (Monoid w, MonadJournal w m) => MonadJournal w (GensymT m) where
+  journal = lift . journal
+  history = lift history
+  clear = lift clear
 
 instance MonadKeywords p t m => MonadKeywords p t (GensymT m) where
   mkKeyword p = lift . mkKeyword p

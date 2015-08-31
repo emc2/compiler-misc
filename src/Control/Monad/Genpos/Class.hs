@@ -38,6 +38,7 @@ import Control.Monad.List
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
 import Control.Monad.State
+import Control.Monad.Trans.Journal
 import Control.Monad.Writer
 import Data.Position.Filename
 import Data.Position.Point
@@ -60,6 +61,10 @@ instance MonadGenpos m => MonadGenpos (ContT r m) where
   filename = lift . filename
 
 instance (MonadGenpos m) => MonadGenpos (ExceptT e m) where
+  point = lift . point
+  filename = lift . filename
+
+instance (MonadGenpos m) => MonadGenpos (JournalT e m) where
   point = lift . point
   filename = lift . filename
 

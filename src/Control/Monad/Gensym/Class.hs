@@ -38,6 +38,7 @@ import Control.Monad.Except
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
+import Control.Monad.Trans.Journal
 import Control.Monad.Writer
 import Data.ByteString
 import Data.Symbol
@@ -58,6 +59,10 @@ instance MonadGensym m => MonadGensym (ContT r m) where
   unique = lift . unique
 
 instance (MonadGensym m) => MonadGensym (ExceptT e m) where
+  symbol = lift . symbol
+  unique = lift . unique
+
+instance (MonadGensym m) => MonadGensym (JournalT e m) where
   symbol = lift . symbol
   unique = lift . unique
 

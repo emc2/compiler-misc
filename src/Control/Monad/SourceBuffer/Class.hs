@@ -36,6 +36,7 @@ import Control.Monad.Except
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
+import Control.Monad.Trans.Journal
 import Control.Monad.Writer
 import Data.Position.Filename
 
@@ -65,6 +66,11 @@ instance MonadSourceBuffer m => MonadSourceBuffer (ContT r m) where
   finishFile = lift finishFile
 
 instance (MonadSourceBuffer m) => MonadSourceBuffer (ExceptT e m) where
+  linebreak = lift . linebreak
+  startFile fname = lift . startFile fname
+  finishFile = lift finishFile
+
+instance (MonadSourceBuffer m) => MonadSourceBuffer (JournalT e m) where
   linebreak = lift . linebreak
   startFile fname = lift . startFile fname
   finishFile = lift finishFile

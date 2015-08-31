@@ -38,6 +38,7 @@ import Control.Monad.Except
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
+import Control.Monad.Trans.Journal
 import Control.Monad.Writer
 import Data.Array
 import Data.ByteString hiding (map)
@@ -67,6 +68,9 @@ instance MonadSourceFiles m => MonadSourceFiles (ContT r m) where
   sourceFile = lift . sourceFile
 
 instance (MonadSourceFiles m) => MonadSourceFiles (ExceptT e m) where
+  sourceFile = lift . sourceFile
+
+instance (MonadSourceFiles m) => MonadSourceFiles (JournalT e m) where
   sourceFile = lift . sourceFile
 
 instance MonadSourceFiles m => MonadSourceFiles (ListT m) where

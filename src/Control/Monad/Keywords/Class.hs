@@ -43,6 +43,7 @@ import Control.Monad.Gensym.Class
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
+import Control.Monad.Trans.Journal
 import Control.Monad.Writer
 import Data.ByteString
 import Data.Symbol
@@ -84,6 +85,9 @@ instance MonadKeywords p t m => MonadKeywords p t (ContT r m) where
   mkKeyword p = lift . mkKeyword p
 
 instance (MonadKeywords p t m) => MonadKeywords p t (ExceptT e m) where
+  mkKeyword p = lift . mkKeyword p
+
+instance (MonadKeywords p t m) => MonadKeywords p t (JournalT e m) where
   mkKeyword p = lift . mkKeyword p
 
 instance MonadKeywords p t m => MonadKeywords p t (ListT m) where

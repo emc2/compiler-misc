@@ -41,6 +41,7 @@ import Control.Monad.Except
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
+import Control.Monad.Trans.Journal
 import Control.Monad.Writer
 import Data.Message
 
@@ -55,6 +56,9 @@ instance MonadMessages msg m => MonadMessages msg (ContT r m) where
   message = lift . message
 
 instance (MonadMessages msg m) => MonadMessages msg (ExceptT e m) where
+  message = lift . message
+
+instance (MonadMessages msg m) => MonadMessages msg (JournalT e m) where
   message = lift . message
 
 instance MonadMessages msg m => MonadMessages msg (ListT m) where

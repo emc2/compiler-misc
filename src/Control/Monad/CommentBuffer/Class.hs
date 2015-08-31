@@ -37,6 +37,7 @@ import Control.Monad.Except
 import Control.Monad.List
 import Control.Monad.Reader
 import Control.Monad.State
+import Control.Monad.Trans.Journal
 import Control.Monad.Writer
 import Data.ByteString.Lazy
 import Data.Position.Point
@@ -66,6 +67,14 @@ instance MonadCommentBuffer m => MonadCommentBuffer (ContT r m) where
   clearComments = lift clearComments
 
 instance (MonadCommentBuffer m) => MonadCommentBuffer (ExceptT e m) where
+  startComment = lift startComment
+  appendComment = lift . appendComment
+  finishComment = lift finishComment
+  addComment = lift . addComment
+  saveCommentsAsPreceeding = lift . saveCommentsAsPreceeding
+  clearComments = lift clearComments
+
+instance (MonadCommentBuffer m) => MonadCommentBuffer (JournalT e m) where
   startComment = lift startComment
   appendComment = lift . appendComment
   finishComment = lift finishComment
