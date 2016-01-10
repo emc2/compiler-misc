@@ -66,17 +66,17 @@ data SimplePosition =
 
 -- | A position suitable for representation in the DWARF debugging
 -- format.  DWARF positions have a nested structure.
-data DWARFPosition funcid tydefid =
-    -- | A position within a function.
-    Func {
-      -- | Identifier for the enclosing function.
-      funcId :: !funcid,
-      -- | Position within the function.
-      funcPos :: SimplePosition
+data DWARFPosition defid tydefid =
+    -- | A position within a definition.
+    Def {
+      -- | Identifier for the enclosing definition.
+      defId :: !defid,
+      -- | Position within the definition.
+      defPos :: SimplePosition
     }
     -- | A position within a type definition.
   | TypeDef {
-      -- | The position of the function in which this position occurs.
+      -- | The position of the type definition in which this position occurs.
       typeDefId :: !tydefid,
       -- | The position within the type definition.
       typeDefPos :: SimplePosition
@@ -84,7 +84,7 @@ data DWARFPosition funcid tydefid =
     -- | A position within a basic block.
   | Block {
       -- | Position of the whole enclosing block.
-      blockCtx :: DWARFPosition funcid tydefid,
+      blockCtx :: DWARFPosition defid tydefid,
       -- | Position within the block.
       blockPos :: SimplePosition
     }
@@ -108,11 +108,11 @@ data DWARFPosition funcid tydefid =
 
 -- | Extract the @BasicPosition@ representing the source point for
 -- this @DWARFPosition@.
-basicPosition :: DWARFPosition funcid tydefid -> BasicPosition
-basicPosition Func { funcPos = Span { spanStart = start, spanEnd = end } } =
+basicPosition :: DWARFPosition defid tydefid -> BasicPosition
+basicPosition Def { defPos = Span { spanStart = start, spanEnd = end } } =
   BasicPosition.Span { BasicPosition.spanStart = start,
                        BasicPosition.spanEnd = end }
-basicPosition Func { funcPos = Point { pointPos = pos } } =
+basicPosition Def { defPos = Point { pointPos = pos } } =
   BasicPosition.Point { BasicPosition.pointPos = pos }
 basicPosition TypeDef { typeDefPos = Span { spanStart = start,
                                             spanEnd = end } } =
@@ -136,12 +136,12 @@ basicPosition Synthetic { synthDesc = desc } =
   BasicPosition.Synthetic { BasicPosition.synthDesc = desc }
 basicPosition CmdLine = BasicPosition.CmdLine
 
-instance Position.PositionInfo (DWARFPosition funcid tydefid) where
-  location Func { funcPos = Span { spanStart = startpos, spanEnd = endpos } } =
+instance Position.PositionInfo (DWARFPosition defid tydefid) where
+  location Def { defPos = Span { spanStart = startpos, spanEnd = endpos } } =
     do
       Position.PointInfo { Position.pointFile = fname } <- pointInfo startpos
       return (Just (fname, Just (startpos, endpos)))
-  location Func { funcPos = Point { pointPos = pos } } =
+  location Def { defPos = Point { pointPos = pos } } =
     do
       Position.PointInfo { Position.pointFile = fname } <- pointInfo pos
       return (Just (fname, Just (pos, pos)))
@@ -206,13 +206,13 @@ instance (MonadPositions m) => FormatM m SimplePosition where
       Position.FileInfo { Position.fileInfoName = fstr } <- fileInfo fname
       return (hcat [bytestring fstr, colon, format line, dot, format col])
 
-instance (MonadPositions m, FormatM m funcid, FormatM m tydefid) =>
-         FormatM m (DWARFPosition funcid tydefid) where
-  formatM Func { funcPos = pos, funcId = ctx } =
+instance (MonadPositions m, FormatM m defid, FormatM m tydefid) =>
+         FormatM m (DWARFPosition defid tydefid) where
+  formatM Def { defPos = pos, defId = ctx } =
     do
       posdoc <- formatM pos
       ctxdoc <- formatM ctx
-      return $! posdoc <$$> nest 2 (string "in function defined at" <+> ctxdoc)
+      return $! posdoc <$$> nest 2 (string "in definition at" <+> ctxdoc)
   formatM Block { blockPos = pos, blockCtx = ctx } =
     do
       posdoc <- formatM pos
@@ -231,8 +231,8 @@ instance (MonadPositions m, FormatM m funcid, FormatM m tydefid) =>
   formatM CmdLine = return (string "command line")
   formatM Synthetic { synthDesc = desc } = return (bytestring desc)
 
-instance Position.Position (DWARFPosition funcid tydefid)
-                           (DWARFPosition funcid tydefid) where
+instance Position.Position (DWARFPosition defid tydefid)
+                           (DWARFPosition defid tydefid) where
   positionInfo pos = [pos]
 
 instance Hashable SimplePosition where
@@ -241,9 +241,9 @@ instance Hashable SimplePosition where
   hashWithSalt s Point { pointPos = pos } =
     s `hashWithSalt` (1 :: Word) `hashWithSalt` pos
 
-instance (Hashable funcid, Hashable tydefid) =>
-         Hashable (DWARFPosition funcid tydefid) where
-  hashWithSalt s Func { funcPos = pos, funcId = ctx } =
+instance (Hashable defid, Hashable tydefid) =>
+         Hashable (DWARFPosition defid tydefid) where
+  hashWithSalt s Def { defPos = pos, defId = ctx } =
     s `hashWithSalt` (0 :: Word) `hashWithSalt` pos `hashWithSalt` ctx
   hashWithSalt s TypeDef { typeDefPos = pos, typeDefId = ctx } =
     s `hashWithSalt` (1 :: Word) `hashWithSalt` pos `hashWithSalt` ctx
@@ -291,19 +291,19 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
     in
       xpAlt picker [spanPickler, pointPickler ]
 
-funcPickler :: (GenericXMLString tag, Show tag,
-                GenericXMLString text, Show text,
-                XmlPickler [NodeG [] tag text] funcid) =>
-               PU [NodeG [] tag text] (DWARFPosition funcid tydefid)
-funcPickler =
+defPickler :: (GenericXMLString tag, Show tag,
+               GenericXMLString text, Show text,
+               XmlPickler [NodeG [] tag text] defid) =>
+              PU [NodeG [] tag text] (DWARFPosition defid tydefid)
+defPickler =
   let
-    fwdfunc (pos, ctx) = Func { funcPos = pos, funcId = ctx }
+    fwdfunc (pos, ctx) = Def { defPos = pos, defId = ctx }
 
-    revfunc Func { funcPos = pos, funcId = ctx } = (pos, ctx)
-    revfunc _ = error $! "Can't convert to Func"
+    revfunc Def { defPos = pos, defId = ctx } = (pos, ctx)
+    revfunc _ = error $! "Can't convert to Def"
   in
     xpWrap (fwdfunc, revfunc)
-           (xpElemNodes (gxFromString "Func")
+           (xpElemNodes (gxFromString "Def")
                         (xpPair (xpElemNodes (gxFromString "pos") xpickle)
                                 (xpElemNodes (gxFromString "id") xpickle)))
 
@@ -388,7 +388,7 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text,
          XmlPickler [NodeG [] tag text] (DWARFPosition funcid tydefid) where
   xpickle =
     let
-      picker Func {} = 0
+      picker Def {} = 0
       picker TypeDef {} = 1
       picker Block {} = 2
       picker Simple {} = 3
@@ -396,5 +396,5 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text,
       picker Synthetic {} = 5
       picker CmdLine {} = 6
     in
-      xpAlt picker [funcPickler, typeDefPickler, blockPickler, simplePickler,
+      xpAlt picker [defPickler, typeDefPickler, blockPickler, simplePickler,
                     filePickler, syntheticPickler, cmdLinePickler]
