@@ -1,4 +1,4 @@
--- Copyright (c) 2014, 2015 Eric McCorkle.  All rights reserved.
+-- Copyright (c) 2014, 2015, 2016 Eric McCorkle.  All rights reserved.
 --
 -- Redistribution and use in source and binary forms, with or without
 -- modification, are permitted provided that the following conditions
@@ -416,6 +416,7 @@ formatMessageContent hlight MessageContent { msgSeverity = sev,
                                              msgBrief = mbrief,
                                              msgDetails = mdetails  } =
   let
+    -- Format the position
     formatPos depth Compound { compoundBase = base, compoundDesc = desc,
                                compoundChildren = children } =
       let
@@ -430,6 +431,7 @@ formatMessageContent hlight MessageContent { msgSeverity = sev,
       let
         ctxdoc = case ctx of
           [] -> empty
+          -- For one line, split out the highlighted part
           [oneline] ->
             let
               lazy = Lazy.fromStrict oneline
@@ -438,14 +440,26 @@ formatMessageContent hlight MessageContent { msgSeverity = sev,
               hcat [string pre,
                     highlight hlight sev (string mid),
                     string post, line ]
+          -- For multiple lines, the formatting is more complex
           _ ->
             let
+              -- Split off the first and last lines
               firstline = Lazy.fromStrict (head ctx)
-              middle = tail (init ctx)
               lastline = Lazy.fromStrict (last ctx)
+              -- Split out the highlighted parts of the first and last lines
               (startpre, startpost) = splitTwo startcol firstline
               (endpre, endpost) = splitTwo (endcol + 1) lastline
-              markeddocs = string startpost : map bytestring middle ++
+              -- Split out the middle
+              middle = tail (init ctx)
+              -- Possibly shorten the middle portion if it is too long
+              middlelen = length middle
+              trimmedmiddle =
+                if middlelen > 10
+                  then take 3 middle ++ [Strict.UTF8.fromString "..."] ++
+                       drop (middlelen - 3) middle
+                  else middle
+              -- Recombine all the highlighted portions
+              markeddocs = string startpost : map bytestring trimmedmiddle ++
                            [string endpre]
             in
               hcat [string startpre,
