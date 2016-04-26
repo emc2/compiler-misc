@@ -56,7 +56,7 @@ import Control.Monad.Trans
 import Data.ByteString(ByteString)
 import Data.Hashable
 import System.IO
-import Text.Format
+import Text.Format hiding (concat)
 import Text.XML.Expat.Pickle
 import Text.XML.Expat.Tree
 
@@ -196,7 +196,7 @@ class Message msg where
 
 class Message msg => MessagePosition pos msg | msg -> pos where
   -- | Get the position to which the message relates.
-  position :: msg -> Maybe pos
+  positions :: msg -> [pos]
 
 -- | Class of types representing a collection of compiler messages.
 class (Monoid msgs, Message msg) => Messages msg msgs | msgs -> msg where
@@ -336,18 +336,14 @@ messageContent msg =
               nodes <- mapM getPosition infos
               return Compound { compoundBase = msgpos, compoundDesc = desc,
                                 compoundChildren = nodes }
-  in case position msg of
-    Just pos ->
-      do
-        posdata <- mapM getPosition (Position.positionInfo pos)
-        return MessageContent { msgSeverity = severity msg,
-                                msgBrief = brief msg,
-                                msgDetails = details msg,
-                                msgPositions = posdata }
-    Nothing -> return MessageContent { msgSeverity = severity msg,
-                                       msgBrief = brief msg,
-                                       msgDetails = details msg,
-                                       msgPositions = [] }
+    poslist = positions msg
+    infolist = concat (map Position.positionInfo poslist)
+  in do
+    posdata <- mapM getPosition infolist
+    return MessageContent { msgSeverity = severity msg,
+                            msgBrief = brief msg,
+                            msgDetails = details msg,
+                            msgPositions = posdata }
 
 -- | Translate a 'Message' into 'MessageContent', without getting
 -- source context.
@@ -397,22 +393,18 @@ messageContentNoContext msg =
               nodes <- mapM getPosition infos
               return Compound { compoundBase = msgpos, compoundDesc = desc,
                                 compoundChildren = nodes }
-  in case position msg of
-    Just pos ->
-      do
-        posdata <- mapM getPosition (Position.positionInfo pos)
-        return MessageContent { msgSeverity = severity msg,
-                                msgBrief = brief msg,
-                                msgDetails = details msg,
-                                msgPositions = posdata }
-    Nothing -> return MessageContent { msgSeverity = severity msg,
-                                       msgBrief = brief msg,
-                                       msgDetails = details msg,
-                                       msgPositions = [] }
+    poslist = positions msg
+    infolist = concat (map Position.positionInfo poslist)
+  in do
+    posdata <- mapM getPosition infolist
+    return MessageContent { msgSeverity = severity msg,
+                            msgBrief = brief msg,
+                            msgDetails = details msg,
+                            msgPositions = posdata }
 
 formatMessageContent :: Highlighting -> MessageContent -> Doc
 formatMessageContent hlight MessageContent { msgSeverity = sev,
-                                             msgPositions = positions,
+                                             msgPositions = poslist,
                                              msgBrief = mbrief,
                                              msgDetails = mdetails  } =
   let
@@ -508,7 +500,7 @@ formatMessageContent hlight MessageContent { msgSeverity = sev,
                   vividWhite (bytestring fname))
     formatPos depth Other { otherDesc = desc } = nest depth (bytestring desc)
 
-    posdocs = map (formatPos 0) positions
+    posdocs = map (formatPos 0) poslist
   in case posdocs of
     [] -> case mdetails of
       Nothing -> nest 2 (format sev <> colon </> mbrief) <> line
@@ -551,7 +543,7 @@ putMessages :: (MonadPositions m, MonadSourceFiles m, MonadIO m,
 putMessages handle msgs =
   do
     docs <- mapM formatMessage (messages msgs)
-    liftIO (putGreedy handle 80 True (vcat docs))
+    liftIO (putGreedy handle 4 80 True (vcat docs))
 
 -- | Output a collection of messages to a given 'Handle' as text.
 putMessagesNoContext :: (MonadPositions m, MonadIO m, Messages msg msgs,
@@ -561,7 +553,7 @@ putMessagesNoContext :: (MonadPositions m, MonadIO m, Messages msg msgs,
 putMessagesNoContext handle msgs =
   do
     docs <- mapM formatMessageNoContext (messages msgs)
-    liftIO (putGreedy handle 80 True (vcat docs))
+    liftIO (putGreedy handle 4 80 True (vcat docs))
 
 putMessageContentsXML :: MonadIO m => Handle -> [MessageContent] -> m ()
 putMessageContentsXML handle contents =
@@ -814,7 +806,7 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
       briefName = gxFromString "brief"
       detailsName = gxFromString "details"
 
-      packDoc = gxFromByteString . Lazy.toStrict . renderGreedy 80 False
+      packDoc = gxFromByteString . Lazy.toStrict . renderGreedy 4 80 False
 
       packMaybeDoc (Just doc) = Just (packDoc doc)
       packMaybeDoc Nothing = Nothing
@@ -823,16 +815,16 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
       unpackMaybeDoc Nothing = Nothing
 
       packMsgContent MessageContent { msgSeverity = msev,
-                                      msgPositions = positions,
+                                      msgPositions = poslist,
                                       msgBrief = mbrief,
                                       msgDetails = mdetails } =
-        (msev, (positions, packDoc mbrief, packMaybeDoc mdetails))
+        (msev, (poslist, packDoc mbrief, packMaybeDoc mdetails))
 
-      unpackMsgContent (msev, (positions, mbrief, mdetails)) =
+      unpackMsgContent (msev, (poslist, mbrief, mdetails)) =
         MessageContent { msgSeverity = msev,
                          msgDetails = unpackMaybeDoc mdetails,
                          msgBrief = bytestring (gxToByteString mbrief),
-                         msgPositions = positions }
+                         msgPositions = poslist }
     in
       xpWrap (unpackMsgContent, packMsgContent)
              (xpElem (gxFromString "message")
