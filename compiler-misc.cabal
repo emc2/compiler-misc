@@ -91,6 +91,7 @@ Library
                         Data.Position.Class
                         Data.Position.Filename
                         Data.Position.Point
+                        Data.PositionElement
                         Data.Symbol
                         Prelude.Extras.ExtraInstances
                         Text.AlexWrapper
