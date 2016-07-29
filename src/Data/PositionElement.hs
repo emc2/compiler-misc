@@ -42,7 +42,7 @@ import qualified Data.Position.BasicPosition as Basic
 import qualified Data.Position.DWARFPosition as DWARF
 
 -- | Typeclass of data with a notion of position.
-class PositionElement defid tydefid ty | ty -> defid, ty -> tydefid where
+class PositionElement ty where
   -- | Get basic position data.
   position :: ty -> BasicPosition
   position e =
