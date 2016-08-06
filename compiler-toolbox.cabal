@@ -1,4 +1,4 @@
-Name:                   compiler-misc
+Name:                   compiler-toolbox
 Category:               Compiler, Data
 Version:                0.0.0
 License:                BSD3
@@ -7,9 +7,9 @@ Author:                 Eric McCorkle
 Maintainer:             Eric McCorkle <emc2@metricspace.net>
 Stability:              Pre-alpha
 Synopsis:               A Haskell library containing miscellaneous components useful for building compilers and language frontends.
-Homepage:               https://github.com/emc2/compiler-misc
-Bug-Reports:            https://github.com/emc2/compiler-misc/issues
-Copyright:              Copyright (c) 2014 Eric McCorkle.  All rights reserved.
+Homepage:               https://github.com/saltlang/compiler-toolbox
+Bug-Reports:            https://github.com/saltlang/compiler-toolbox/issues
+Copyright:              Copyright (c) 2016 Eric McCorkle.  All rights reserved.
 Description:
   This library provides a collection of miscellaneous bits of
   functionality that come in handy when implementing a compiler.
@@ -18,7 +18,7 @@ Cabal-version:          >= 1.16
 
 Source-Repository head
   Type: git
-  Location: git@github.com:emc2/compiler-misc.git
+  Location: git@github.com:saltlang/compiler-toolbox.git
 
 Test-Suite UnitTest
   default-language:     Haskell2010
