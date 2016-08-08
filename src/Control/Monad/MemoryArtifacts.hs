@@ -1,4 +1,4 @@
--- Copyright (c) 2015 Eric McCorkle.  All rights reserved.
+-- Copyright (c) 2016 Eric McCorkle.  All rights reserved.
 --
 -- Redistribution and use in source and binary forms, with or without
 -- modification, are permitted provided that the following conditions
@@ -50,6 +50,7 @@ import Control.Monad.Cont
 import Control.Monad.Except
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
+import Control.Monad.GraphBuilder.Class
 import Control.Monad.Journal
 import Control.Monad.Keywords.Class
 import Control.Monad.Loader.Class
@@ -175,6 +176,10 @@ instance (MonadError e m) => MonadError e (MemoryArtifactsT path m) where
     MemoryArtifactsT (unpackMemoryArtifactsT m `catchError`
                       (unpackMemoryArtifactsT . h))
 
+instance MonadEdgeBuilder nodety m =>
+         MonadEdgeBuilder nodety (MemoryArtifactsT path m) where
+  addEdge src dst = lift . addEdge src dst
+
 instance MonadGenpos m => MonadGenpos (MemoryArtifactsT path m) where
   point = lift . point
   filename = lift . filename
@@ -200,6 +205,10 @@ instance MonadLoader path info m =>
 instance MonadMessages msg m =>
          MonadMessages msg (MemoryArtifactsT path m) where
   message = lift . message
+
+instance MonadNodeBuilder nodety m =>
+         MonadNodeBuilder nodety (MemoryArtifactsT path m) where
+  addNode = lift . addNode
 
 instance MonadPositions m => MonadPositions (MemoryArtifactsT path m) where
   pointInfo = lift . pointInfo

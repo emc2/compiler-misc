@@ -1,4 +1,4 @@
--- Copyright (c) 2015 Eric McCorkle.  All rights reserved.
+-- Copyright (c) 2016 Eric McCorkle.  All rights reserved.
 --
 -- Redistribution and use in source and binary forms, with or without
 -- modification, are permitted provided that the following conditions
@@ -47,6 +47,7 @@ import Control.Monad.Cont
 import Control.Monad.Except
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
+import Control.Monad.GraphBuilder.Class
 import Control.Monad.Journal
 import Control.Monad.Keywords.Class
 import Control.Monad.Loader.Class
@@ -112,13 +113,13 @@ load' path =
         case res of
           -- If we get a doesNotExistError, then continue.
           Left err | isDoesNotExistError err -> loadPrefixes rest
-                   | otherwise -> return $! Left err
+                   | otherwise -> return (Left err)
           -- Otherwise, return what we got.
           Right contents ->
             do
               fname <- filename FileInfo { fileInfoName = path,
                                            fileInfoDir = first }
-              return $! Right (fname, contents)
+              return (Right (fname, contents))
     -- If we get to the end of the prefixes, and we have an error, throw it
     loadPrefixes [] = return $! Left $! mkIOError doesNotExistErrorType ""
                                                   Nothing (Just fpath)
@@ -179,6 +180,10 @@ instance (MonadError e m) => MonadError e (FileLoaderT m) where
   m `catchError` h =
     FileLoaderT (unpackFileLoaderT m `catchError` (unpackFileLoaderT . h))
 
+instance MonadEdgeBuilder nodety m =>
+         MonadEdgeBuilder nodety (FileLoaderT m) where
+  addEdge src dst = lift . addEdge src dst
+
 instance MonadGenpos m => MonadGenpos (FileLoaderT m) where
   point = lift . point
   filename = lift . filename
@@ -197,6 +202,10 @@ instance MonadKeywords p t m => MonadKeywords p t (FileLoaderT m) where
 
 instance MonadMessages msg m => MonadMessages msg (FileLoaderT m) where
   message = lift . message
+
+instance MonadNodeBuilder nodety m =>
+         MonadNodeBuilder nodety (FileLoaderT m) where
+  addNode = lift . addNode
 
 instance MonadPositions m => MonadPositions (FileLoaderT m) where
   pointInfo = lift . pointInfo

@@ -49,6 +49,7 @@ import Control.Monad.Cont
 import Control.Monad.Except
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
+import Control.Monad.GraphBuilder.Class
 import Control.Monad.Journal
 import Control.Monad.Keywords.Class
 import Control.Monad.Loader.Class
@@ -110,7 +111,7 @@ load' path =
         do
           fname <- filename FileInfo { fileInfoName = path,
                                        fileInfoDir = Strict.empty }
-          return $! Right (fname,  out)
+          return (Right (fname,  out))
       Nothing -> return $! Left $! mkIOError doesNotExistErrorType
                                              "No such entry"
                                              Nothing (Just fpath)
@@ -169,6 +170,10 @@ instance (MonadError e m) => MonadError e (MemoryLoaderT info m) where
   m `catchError` h =
     MemoryLoaderT (unpackMemoryLoaderT m `catchError` (unpackMemoryLoaderT . h))
 
+instance MonadEdgeBuilder nodety m =>
+         MonadEdgeBuilder nodety (MemoryLoaderT info m) where
+  addEdge src dst = lift . addEdge src dst
+
 instance MonadGenpos m => MonadGenpos (MemoryLoaderT info m) where
   point = lift . point
   filename = lift . filename
@@ -192,6 +197,10 @@ instance MonadMessages msg m => MonadMessages msg (MemoryLoaderT info m) where
 instance MonadPositions m => MonadPositions (MemoryLoaderT info m) where
   pointInfo = lift . pointInfo
   fileInfo = lift . fileInfo
+
+instance MonadNodeBuilder nodety m =>
+         MonadNodeBuilder nodety (MemoryLoaderT info m) where
+  addNode = lift . addNode
 
 instance MonadSourceFiles m =>
          MonadSourceFiles (MemoryLoaderT info m) where

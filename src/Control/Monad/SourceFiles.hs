@@ -1,4 +1,4 @@
--- Copyright (c) 2014 Eric McCorkle.  All rights reserved.
+-- Copyright (c) 2016 Eric McCorkle.  All rights reserved.
 --
 -- Redistribution and use in source and binary forms, with or without
 -- modification, are permitted provided that the following conditions
@@ -43,6 +43,7 @@ import Control.Monad.Cont
 import Control.Monad.Except
 import Control.Monad.Genpos.Class
 import Control.Monad.Gensym.Class
+import Control.Monad.GraphBuilder.Class
 import Control.Monad.Journal
 import Control.Monad.Keywords.Class
 import Control.Monad.Loader.Class
@@ -136,6 +137,10 @@ instance (MonadError e m) => MonadError e (SourceFilesT m) where
   m `catchError` h =
     SourceFilesT (unpackSourceFilesT m `catchError` (unpackSourceFilesT . h))
 
+instance MonadEdgeBuilder nodety m =>
+         MonadEdgeBuilder nodety (SourceFilesT m) where
+  addEdge src dst = lift . addEdge src dst
+
 instance MonadGenpos m => MonadGenpos (SourceFilesT m) where
   point = lift . point
   filename = lift . filename
@@ -157,6 +162,10 @@ instance MonadLoader path info m => MonadLoader path info (SourceFilesT m) where
 
 instance MonadMessages msg m => MonadMessages msg (SourceFilesT m) where
   message = lift . message
+
+instance MonadNodeBuilder nodety m =>
+         MonadNodeBuilder nodety (SourceFilesT m) where
+  addNode = lift . addNode
 
 instance MonadPositions m => MonadPositions (SourceFilesT m) where
   pointInfo = lift . pointInfo
