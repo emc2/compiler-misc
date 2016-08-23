@@ -56,6 +56,7 @@ import Control.Monad.Loader.Class
 import Control.Monad.Messages.Class
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
+import Control.Monad.ScopeBuilder.Class
 import Control.Monad.SourceFiles.Class
 import Control.Monad.SourceBuffer.Class
 import Control.Monad.State
@@ -201,6 +202,14 @@ instance MonadPositions m => MonadPositions (MemoryLoaderT info m) where
 instance MonadNodeBuilder nodety m =>
          MonadNodeBuilder nodety (MemoryLoaderT info m) where
   addNode = lift . addNode
+
+instance MonadScopeStack m => MonadScopeStack (MemoryLoaderT info m) where
+  enterScope = lift enterScope
+  finishScope = lift finishScope
+
+instance MonadScopeBuilder tmpscope m =>
+         MonadScopeBuilder tmpscope (MemoryLoaderT info m) where
+  alterScope = lift . alterScope
 
 instance MonadSourceFiles m =>
          MonadSourceFiles (MemoryLoaderT info m) where

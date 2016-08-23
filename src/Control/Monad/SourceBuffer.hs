@@ -55,6 +55,7 @@ import Control.Monad.Positions.Class
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Symbols.Class
+import Control.Monad.ScopeBuilder.Class
 import Control.Monad.SourceFiles.Class
 import Control.Monad.SourceBuffer.Class
 import Data.Array
@@ -236,6 +237,14 @@ instance MonadMessages msg m => MonadMessages msg (SourceBufferT m) where
 instance MonadPositions m => MonadPositions (SourceBufferT m) where
   pointInfo = lift . pointInfo
   fileInfo = lift . fileInfo
+
+instance MonadScopeStack m => MonadScopeStack (SourceBufferT m) where
+  enterScope = lift enterScope
+  finishScope = lift finishScope
+
+instance MonadScopeBuilder tmpscope m =>
+         MonadScopeBuilder tmpscope (SourceBufferT m) where
+  alterScope = lift . alterScope
 
 instance MonadState s m => MonadState s (SourceBufferT m) where
   get = lift get

@@ -58,6 +58,7 @@ import Control.Monad.Loader.Class
 import Control.Monad.Messages.Class
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
+import Control.Monad.ScopeBuilder.Class
 import Control.Monad.SourceFiles.Class
 import Control.Monad.SourceBuffer.Class
 import Control.Monad.State
@@ -280,6 +281,15 @@ instance (Monoid msgs, MonadPositions m) =>
          MonadPositions (MessagesT msgs msg m) where
   pointInfo = lift . pointInfo
   fileInfo = lift . fileInfo
+
+instance (Monoid msgs, MonadScopeStack m) =>
+         MonadScopeStack (MessagesT msgs msg m) where
+  enterScope = lift enterScope
+  finishScope = lift finishScope
+
+instance (Monoid msgs, MonadScopeBuilder tmpscope m) =>
+         MonadScopeBuilder tmpscope (MessagesT msgs msg m) where
+  alterScope = lift . alterScope
 
 instance (Monoid msgs, MonadSourceFiles m) =>
          MonadSourceFiles (MessagesT msgs msg m) where

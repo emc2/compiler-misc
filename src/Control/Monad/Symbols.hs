@@ -51,6 +51,7 @@ import Control.Monad.Loader.Class
 import Control.Monad.Messages.Class
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
+import Control.Monad.ScopeBuilder.Class
 import Control.Monad.SourceFiles.Class
 import Control.Monad.SourceBuffer.Class
 import Control.Monad.State
@@ -89,7 +90,8 @@ runSymbolsT :: Monad m =>
             -> m a
 runSymbolsT s bound = runReaderT (unpackSymbolsT s) . array bound
 
-mapSymbolsT :: (Monad m, Monad n) => (m a -> n b) -> SymbolsT m a -> SymbolsT n b
+mapSymbolsT :: (Monad m, Monad n) =>
+               (m a -> n b) -> SymbolsT m a -> SymbolsT n b
 mapSymbolsT f = SymbolsT . mapReaderT f . unpackSymbolsT
 
 nullSym' :: Monad m => (ReaderT (Array Symbol ByteString) m) Symbol
@@ -185,6 +187,14 @@ instance MonadNodeBuilder nodety m =>
 instance MonadPositions m => MonadPositions (SymbolsT m) where
   pointInfo = lift . pointInfo
   fileInfo = lift . fileInfo
+
+instance MonadScopeStack m => MonadScopeStack (SymbolsT m) where
+  enterScope = lift enterScope
+  finishScope = lift finishScope
+
+instance MonadScopeBuilder tmpscope m =>
+         MonadScopeBuilder tmpscope (SymbolsT m) where
+  alterScope = lift . alterScope
 
 instance MonadSourceFiles m => MonadSourceFiles (SymbolsT m) where
   sourceFile = lift . sourceFile

@@ -51,6 +51,7 @@ import Control.Monad.Keywords.Class
 import Control.Monad.Loader.Class
 import Control.Monad.Messages.Class
 import Control.Monad.Positions.Class
+import Control.Monad.ScopeBuilder.Class
 import Control.Monad.SourceFiles.Class
 import Control.Monad.SourceBuffer.Class
 import Control.Monad.State
@@ -147,6 +148,14 @@ instance MonadPositions m => MonadPositions (SkipCommentsT m) where
 
 instance MonadMessages msg m => MonadMessages msg (SkipCommentsT m) where
   message = lift . message
+
+instance MonadScopeStack m => MonadScopeStack (SkipCommentsT m) where
+  enterScope = lift enterScope
+  finishScope = lift finishScope
+
+instance MonadScopeBuilder tmpscope m =>
+         MonadScopeBuilder tmpscope (SkipCommentsT m) where
+  alterScope = lift . alterScope
 
 instance MonadSourceFiles m => MonadSourceFiles (SkipCommentsT m) where
   sourceFile = lift . sourceFile

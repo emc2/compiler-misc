@@ -54,6 +54,7 @@ import Control.Monad.Loader.Class
 import Control.Monad.Messages.Class
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
+import Control.Monad.ScopeBuilder.Class
 import Control.Monad.SourceFiles.Class
 import Control.Monad.SourceBuffer.Class
 import Control.Monad.State
@@ -296,6 +297,14 @@ instance MonadNodeBuilder nodety m =>
 instance MonadPositions m => MonadPositions (GensymT m) where
   pointInfo = lift . pointInfo
   fileInfo = lift . fileInfo
+
+instance MonadScopeStack m => MonadScopeStack (GensymT m) where
+  enterScope = lift enterScope
+  finishScope = lift finishScope
+
+instance MonadScopeBuilder tmpscope m =>
+         MonadScopeBuilder tmpscope (GensymT m) where
+  alterScope = lift . alterScope
 
 instance MonadSourceFiles m => MonadSourceFiles (GensymT m) where
   sourceFile = lift . sourceFile

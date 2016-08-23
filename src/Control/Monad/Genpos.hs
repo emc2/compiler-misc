@@ -53,6 +53,7 @@ import Control.Monad.Loader.Class
 import Control.Monad.Messages.Class
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
+import Control.Monad.ScopeBuilder.Class
 import Control.Monad.SourceFiles.Class
 import Control.Monad.SourceBuffer.Class
 import Control.Monad.State
@@ -270,6 +271,14 @@ instance MonadMessages msg m => MonadMessages msg (GenposT m) where
 instance MonadNodeBuilder nodety m =>
          MonadNodeBuilder nodety (GenposT m) where
   addNode = lift . addNode
+
+instance MonadScopeStack m => MonadScopeStack (GenposT m) where
+  enterScope = lift enterScope
+  finishScope = lift finishScope
+
+instance MonadScopeBuilder tmpscope m =>
+         MonadScopeBuilder tmpscope (GenposT m) where
+  alterScope = lift . alterScope
 
 instance MonadSourceFiles m => MonadSourceFiles (GenposT m) where
   sourceFile = lift . sourceFile

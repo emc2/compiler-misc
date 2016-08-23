@@ -50,6 +50,7 @@ import Control.Monad.Keywords.Class
 import Control.Monad.Loader.Class
 import Control.Monad.Messages.Class
 import Control.Monad.Positions.Class
+import Control.Monad.ScopeBuilder.Class
 import Control.Monad.SourceFiles.Class
 import Control.Monad.SourceBuffer.Class
 import Control.Monad.State
@@ -187,6 +188,15 @@ instance MonadPositions m =>
          MonadPositions (GraphBuilderT nodety edgety m) where
   pointInfo = lift . pointInfo
   fileInfo = lift . fileInfo
+
+instance MonadScopeStack m =>
+         MonadScopeStack (GraphBuilderT nodety edgety m) where
+  enterScope = lift enterScope
+  finishScope = lift finishScope
+
+instance MonadScopeBuilder tmpscope m =>
+         MonadScopeBuilder tmpscope (GraphBuilderT nodety edgety m) where
+  alterScope = lift . alterScope
 
 instance MonadSourceFiles m =>
          MonadSourceFiles (GraphBuilderT nodety edgety m) where

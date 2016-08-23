@@ -50,6 +50,7 @@ import Control.Monad.Loader.Class
 import Control.Monad.Messages.Class
 import Control.Monad.Positions.Class
 import Control.Monad.Reader
+import Control.Monad.ScopeBuilder.Class
 import Control.Monad.SourceFiles.Class
 import Control.Monad.State
 import Control.Monad.Symbols.Class
@@ -170,6 +171,14 @@ instance MonadNodeBuilder nodety m =>
 instance MonadPositions m => MonadPositions (SourceFilesT m) where
   pointInfo = lift . pointInfo
   fileInfo = lift . fileInfo
+
+instance MonadScopeStack m => MonadScopeStack (SourceFilesT m) where
+  enterScope = lift enterScope
+  finishScope = lift finishScope
+
+instance MonadScopeBuilder tmpscope m =>
+         MonadScopeBuilder tmpscope (SourceFilesT m) where
+  alterScope = lift . alterScope
 
 instance MonadState s m => MonadState s (SourceFilesT m) where
   get = lift get

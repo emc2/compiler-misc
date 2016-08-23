@@ -76,6 +76,8 @@ Library
                         Control.Monad.Messages.Class
                         Control.Monad.Positions
                         Control.Monad.Positions.Class
+                        Control.Monad.ScopeBuilder
+                        Control.Monad.ScopeBuilder.Class
                         Control.Monad.SkipComments
                         Control.Monad.SourceBuffer
                         Control.Monad.SourceBuffer.Class
@@ -94,6 +96,7 @@ Library
                         Data.Position.Filename
                         Data.Position.Point
                         Data.PositionElement
+                        Data.ScopeID
                         Data.Symbol
                         Prelude.Extras.ExtraInstances
                         Text.AlexWrapper
