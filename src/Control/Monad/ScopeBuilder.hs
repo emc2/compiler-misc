@@ -106,7 +106,7 @@ enterScope' :: (Monad m, TempScope tmpscope scope m) =>
 enterScope' pos =
   do
     currstate @ ScopeBuilderState { builderScopes = scopes } <- get
-    newscope <- createSubscope pos scopes
+    newscope <- lift $! createSubscope pos scopes
     put currstate { builderScopes = newscope : scopes }
 
 finishScope' :: (Monad m, TempScope tmpscope scope m) =>
@@ -120,7 +120,7 @@ finishScope' =
       [] -> error "Scope stack underflow!"
       first : rest ->
         do
-          finscope <- finalizeScope first
+          finscope <- lift $! finalizeScope first
           put currstate { builderFinishedScopes = (scopeid, finscope) :
                                                   finscopes,
                          builderNextScope = succ scopeid,

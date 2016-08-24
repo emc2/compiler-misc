@@ -83,41 +83,6 @@ class MonadScopeStack m => MonadScopeBuilder tmpscope m where
   -- to previous scopes.
   alterScope :: (tmpscope -> tmpscope) -> m ()
 
-instance TempScope tmpscope scope m =>
-         TempScope tmpscope scope (ContT r m) where
-  finalizeScope = lift . finalizeScope
-  createSubscope pos = lift . createSubscope pos
-
-instance TempScope tmpscope scope m =>
-         TempScope tmpscope scope (ExceptT e m) where
-  finalizeScope = lift . finalizeScope
-  createSubscope pos = lift . createSubscope pos
-
-instance TempScope tmpscope scope m =>
-         TempScope tmpscope scope (JournalT e m) where
-  finalizeScope = lift . finalizeScope
-  createSubscope pos = lift . createSubscope pos
-
-instance TempScope tmpscope scope m =>
-         TempScope tmpscope scope (ListT m) where
-  finalizeScope = lift . finalizeScope
-  createSubscope pos = lift . createSubscope pos
-
-instance TempScope tmpscope scope m =>
-         TempScope tmpscope scope (ReaderT r m) where
-  finalizeScope = lift . finalizeScope
-  createSubscope pos = lift . createSubscope pos
-
-instance TempScope tmpscope scope m =>
-         TempScope tmpscope scope (StateT s m) where
-  finalizeScope = lift . finalizeScope
-  createSubscope pos = lift . createSubscope pos
-
-instance (TempScope tmpscope scope m, Monoid w) =>
-         TempScope tmpscope scope (WriterT w m) where
-  finalizeScope = lift . finalizeScope
-  createSubscope pos = lift . createSubscope pos
-
 instance MonadScopeStack m => MonadScopeStack (ContT r m) where
   enterScope = lift . enterScope
   finishScope = lift finishScope
