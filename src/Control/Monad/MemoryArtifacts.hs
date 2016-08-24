@@ -216,7 +216,7 @@ instance MonadPositions m => MonadPositions (MemoryArtifactsT path m) where
   fileInfo = lift . fileInfo
 
 instance MonadScopeStack m => MonadScopeStack (MemoryArtifactsT path m) where
-  enterScope = lift enterScope
+  enterScope = lift . enterScope
   finishScope = lift finishScope
 
 instance MonadScopeBuilder tmpscope m =>

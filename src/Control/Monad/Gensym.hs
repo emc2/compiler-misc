@@ -299,7 +299,7 @@ instance MonadPositions m => MonadPositions (GensymT m) where
   fileInfo = lift . fileInfo
 
 instance MonadScopeStack m => MonadScopeStack (GensymT m) where
-  enterScope = lift enterScope
+  enterScope = lift . enterScope
   finishScope = lift finishScope
 
 instance MonadScopeBuilder tmpscope m =>

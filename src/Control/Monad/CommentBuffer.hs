@@ -206,7 +206,7 @@ instance MonadPositions m => MonadPositions (CommentBufferT m) where
   fileInfo = lift . fileInfo
 
 instance MonadScopeStack m => MonadScopeStack (CommentBufferT m) where
-  enterScope = lift enterScope
+  enterScope = lift . enterScope
   finishScope = lift finishScope
 
 instance MonadScopeBuilder tmpscope m =>

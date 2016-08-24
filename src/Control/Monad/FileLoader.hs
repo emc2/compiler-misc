@@ -213,7 +213,7 @@ instance MonadPositions m => MonadPositions (FileLoaderT m) where
   fileInfo = lift . fileInfo
 
 instance MonadScopeStack m => MonadScopeStack (FileLoaderT m) where
-  enterScope = lift enterScope
+  enterScope = lift . enterScope
   finishScope = lift finishScope
 
 instance MonadScopeBuilder tmpscope m =>

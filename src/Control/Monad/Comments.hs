@@ -181,7 +181,7 @@ instance MonadPositions m => MonadPositions (CommentsT m) where
   fileInfo = lift . fileInfo
 
 instance MonadScopeStack m => MonadScopeStack (CommentsT m) where
-  enterScope = lift enterScope
+  enterScope = lift . enterScope
   finishScope = lift finishScope
 
 instance MonadScopeBuilder tmpscope m =>

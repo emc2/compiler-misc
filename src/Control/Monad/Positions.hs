@@ -194,7 +194,7 @@ instance MonadNodeBuilder nodety m =>
   addNode = lift . addNode
 
 instance MonadScopeStack m => MonadScopeStack (PositionsT m) where
-  enterScope = lift enterScope
+  enterScope = lift . enterScope
   finishScope = lift finishScope
 
 instance MonadScopeBuilder tmpscope m =>

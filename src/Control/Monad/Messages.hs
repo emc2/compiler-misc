@@ -284,7 +284,7 @@ instance (Monoid msgs, MonadPositions m) =>
 
 instance (Monoid msgs, MonadScopeStack m) =>
          MonadScopeStack (MessagesT msgs msg m) where
-  enterScope = lift enterScope
+  enterScope = lift . enterScope
   finishScope = lift finishScope
 
 instance (Monoid msgs, MonadScopeBuilder tmpscope m) =>

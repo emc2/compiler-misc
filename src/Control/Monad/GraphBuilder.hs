@@ -191,7 +191,7 @@ instance MonadPositions m =>
 
 instance MonadScopeStack m =>
          MonadScopeStack (GraphBuilderT nodety edgety m) where
-  enterScope = lift enterScope
+  enterScope = lift . enterScope
   finishScope = lift finishScope
 
 instance MonadScopeBuilder tmpscope m =>

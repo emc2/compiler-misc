@@ -44,6 +44,7 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Trans.Journal
 import Control.Monad.Writer
+import Data.Position.BasicPosition
 import Data.ScopeID
 
 -- | Typeclass for conversion from temporary to finalized scopes.  The
@@ -56,22 +57,22 @@ class Monad m => TempScope tmpscope scope m | tmpscope -> scope where
                 -> m scope
                 -- ^ The finalized form.
   -- | Create a subscope from its parent scopes
-  createSubscope :: [tmpscope] -> m tmpscope
+  createSubscope ::  BasicPosition -> [tmpscope] -> m tmpscope
 
 -- | Monad class defining a scope stack.
 class Monad m => MonadScopeStack m where
   -- | Begin a new scope.  This will save the contents of the current
   -- scope and reset it to an empty state.
-  enterScope :: m ()
+  enterScope :: BasicPosition -> m ()
   -- | Complete the current scope and return its scope ID.  Set the
   -- current state to the next lowest saved state.  If there are no
   -- remaining saved states, this will cause an error.
   finishScope :: m ScopeID
 
-  makeScope :: m a -> m (a, ScopeID)
-  makeScope action =
+  makeScope :: BasicPosition -> m a -> m (a, ScopeID)
+  makeScope pos action =
     do
-      enterScope
+      enterScope pos
       res <- action
       scopeid <- finishScope
       return (res, scopeid)
@@ -85,64 +86,64 @@ class MonadScopeStack m => MonadScopeBuilder tmpscope m where
 instance TempScope tmpscope scope m =>
          TempScope tmpscope scope (ContT r m) where
   finalizeScope = lift . finalizeScope
-  createSubscope = lift . createSubscope
+  createSubscope pos = lift . createSubscope pos
 
 instance TempScope tmpscope scope m =>
          TempScope tmpscope scope (ExceptT e m) where
   finalizeScope = lift . finalizeScope
-  createSubscope = lift . createSubscope
+  createSubscope pos = lift . createSubscope pos
 
 instance TempScope tmpscope scope m =>
          TempScope tmpscope scope (JournalT e m) where
   finalizeScope = lift . finalizeScope
-  createSubscope = lift . createSubscope
+  createSubscope pos = lift . createSubscope pos
 
 instance TempScope tmpscope scope m =>
          TempScope tmpscope scope (ListT m) where
   finalizeScope = lift . finalizeScope
-  createSubscope = lift . createSubscope
+  createSubscope pos = lift . createSubscope pos
 
 instance TempScope tmpscope scope m =>
          TempScope tmpscope scope (ReaderT r m) where
   finalizeScope = lift . finalizeScope
-  createSubscope = lift . createSubscope
+  createSubscope pos = lift . createSubscope pos
 
 instance TempScope tmpscope scope m =>
          TempScope tmpscope scope (StateT s m) where
   finalizeScope = lift . finalizeScope
-  createSubscope = lift . createSubscope
+  createSubscope pos = lift . createSubscope pos
 
 instance (TempScope tmpscope scope m, Monoid w) =>
          TempScope tmpscope scope (WriterT w m) where
   finalizeScope = lift . finalizeScope
-  createSubscope = lift . createSubscope
+  createSubscope pos = lift . createSubscope pos
 
 instance MonadScopeStack m => MonadScopeStack (ContT r m) where
-  enterScope = lift enterScope
+  enterScope = lift . enterScope
   finishScope = lift finishScope
 
 instance (MonadScopeStack m) => MonadScopeStack (ExceptT e m) where
-  enterScope = lift enterScope
+  enterScope = lift . enterScope
   finishScope = lift finishScope
 
 instance (MonadScopeStack m) => MonadScopeStack (JournalT e m) where
-  enterScope = lift enterScope
+  enterScope = lift . enterScope
   finishScope = lift finishScope
 
 instance MonadScopeStack m => MonadScopeStack (ListT m) where
-  enterScope = lift enterScope
+  enterScope = lift . enterScope
   finishScope = lift finishScope
 
 instance MonadScopeStack m => MonadScopeStack (ReaderT r m) where
-  enterScope = lift enterScope
+  enterScope = lift . enterScope
   finishScope = lift finishScope
 
 instance MonadScopeStack m => MonadScopeStack (StateT s m) where
-  enterScope = lift enterScope
+  enterScope = lift . enterScope
   finishScope = lift finishScope
 
 instance (MonadScopeStack m, Monoid w) => MonadScopeStack (WriterT w m) where
-  enterScope = lift enterScope
+  enterScope = lift . enterScope
   finishScope = lift finishScope
 
 instance MonadScopeBuilder tmpscope m =>

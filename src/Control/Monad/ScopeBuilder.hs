@@ -28,7 +28,7 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, UndecidableInstances #-}
 
 module Control.Monad.ScopeBuilder(
-       MonadScopeBuilder(..),
+       module Control.Monad.ScopeBuilder.Class,
        ScopeBuilderT,
        ScopeBuilder,
        runScopeBuilderT,
@@ -55,6 +55,7 @@ import Control.Monad.ScopeBuilder.Class
 import Control.Monad.State
 import Control.Monad.Symbols.Class
 import Data.Array
+import Data.Position.BasicPosition
 import Data.ScopeID
 
 -- | State of the scope builder.
@@ -101,11 +102,11 @@ runScopeBuilder :: ScopeBuilder tmpscope scope a
 runScopeBuilder = runScopeBuilderT
 
 enterScope' :: (Monad m, TempScope tmpscope scope m) =>
-               StateT (ScopeBuilderState tmpscope scope) m ()
-enterScope' =
+               BasicPosition -> StateT (ScopeBuilderState tmpscope scope) m ()
+enterScope' pos =
   do
     currstate @ ScopeBuilderState { builderScopes = scopes } <- get
-    newscope <- createSubscope scopes
+    newscope <- createSubscope pos scopes
     put currstate { builderScopes = newscope : scopes }
 
 finishScope' :: (Monad m, TempScope tmpscope scope m) =>
@@ -227,7 +228,7 @@ instance MonadPositions m =>
 
 instance (Monad m, TempScope tmpscope scope m) =>
          MonadScopeStack (ScopeBuilderT tmpscope scope m) where
-  enterScope = ScopeBuilderT enterScope'
+  enterScope = ScopeBuilderT . enterScope'
   finishScope = ScopeBuilderT finishScope'
 
 instance (Monad m, TempScope tmpscope scope m) =>

@@ -188,7 +188,7 @@ instance MonadPositions m => MonadPositions (KeywordsT p t m) where
   fileInfo = lift . fileInfo
 
 instance MonadScopeStack m => MonadScopeStack (KeywordsT p t m) where
-  enterScope = lift enterScope
+  enterScope = lift . enterScope
   finishScope = lift finishScope
 
 instance MonadScopeBuilder tmpscope m =>

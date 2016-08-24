@@ -150,7 +150,7 @@ instance MonadMessages msg m => MonadMessages msg (SkipCommentsT m) where
   message = lift . message
 
 instance MonadScopeStack m => MonadScopeStack (SkipCommentsT m) where
-  enterScope = lift enterScope
+  enterScope = lift . enterScope
   finishScope = lift finishScope
 
 instance MonadScopeBuilder tmpscope m =>

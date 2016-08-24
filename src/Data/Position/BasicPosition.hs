@@ -36,7 +36,7 @@ module Data.Position.BasicPosition(
        span,
        ) where
 
-import Control.Monad.Positions
+import Control.Monad.Positions.Class
 import Data.Hashable
 import Data.Semigroup
 import Prelude hiding (span)
