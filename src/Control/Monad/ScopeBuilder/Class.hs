@@ -79,9 +79,50 @@ class Monad m => MonadScopeStack m where
 
 -- | Monad class for building up nested scopes.
 class MonadScopeStack m => MonadScopeBuilder tmpscope m where
-  -- | Alter the state of the current scope.  Changes will not apply
-  -- to previous scopes.
-  alterScope :: (tmpscope -> tmpscope) -> m ()
+  -- | Get the current scope.
+  getScope :: m tmpscope
+  -- | Set the current scope.
+  setScope :: tmpscope -> m ()
+
+  -- | Alter the state of the current scope.
+  updateScope :: (tmpscope -> tmpscope)
+              -- ^ Action with which to update the scope.
+              -> m ()
+  updateScope func =
+    do
+      curr <- getScope
+      setScope (func curr)
+
+  -- | Alter the state of the current scope.
+  updateScopeM :: (tmpscope -> m tmpscope)
+              -- ^ Action with which to update the scope.
+              -> m ()
+  updateScopeM func =
+    do
+      curr <- getScope
+      newscope <- func curr
+      setScope newscope
+
+  -- | Alter the state of the current scope and return a result.
+  alterScope :: (tmpscope -> (a, tmpscope))
+             -- ^ Action with which to update the scope.
+             -> m a
+  alterScope func =
+    do
+      curr <- getScope
+      (out, newscope) <- return $! func curr
+      setScope newscope
+      return out
+
+  -- | Alter the state of the current scope with a monadic action and
+  -- return a result.
+  alterScopeM :: (tmpscope -> m (a, tmpscope)) -> m a
+  alterScopeM func =
+    do
+      curr <- getScope
+      (out, newscope) <- func curr
+      setScope newscope
+      return out
 
 instance MonadScopeStack m => MonadScopeStack (ContT r m) where
   enterScope = lift . enterScope
@@ -113,28 +154,35 @@ instance (MonadScopeStack m, Monoid w) => MonadScopeStack (WriterT w m) where
 
 instance MonadScopeBuilder tmpscope m =>
          MonadScopeBuilder tmpscope (ContT r m) where
-  alterScope = lift . alterScope
+  getScope = lift getScope
+  setScope = lift . setScope
 
 instance (MonadScopeBuilder tmpscope m) =>
          MonadScopeBuilder tmpscope (ExceptT e m) where
-  alterScope = lift . alterScope
+  getScope = lift getScope
+  setScope = lift . setScope
 
 instance (MonadScopeBuilder tmpscope m) =>
          MonadScopeBuilder tmpscope (JournalT e m) where
-  alterScope = lift . alterScope
+  getScope = lift getScope
+  setScope = lift . setScope
 
 instance MonadScopeBuilder tmpscope m =>
          MonadScopeBuilder tmpscope (ListT m) where
-  alterScope = lift . alterScope
+  getScope = lift getScope
+  setScope = lift . setScope
 
 instance MonadScopeBuilder tmpscope m =>
          MonadScopeBuilder tmpscope (ReaderT r m) where
-  alterScope = lift . alterScope
+  getScope = lift getScope
+  setScope = lift . setScope
 
 instance MonadScopeBuilder tmpscope m =>
          MonadScopeBuilder tmpscope (StateT s m) where
-  alterScope = lift . alterScope
+  getScope = lift getScope
+  setScope = lift . setScope
 
 instance (MonadScopeBuilder tmpscope m, Monoid w) =>
          MonadScopeBuilder tmpscope (WriterT w m) where
-  alterScope = lift . alterScope
+  getScope = lift getScope
+  setScope = lift . setScope

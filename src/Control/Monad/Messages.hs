@@ -289,7 +289,8 @@ instance (Monoid msgs, MonadScopeStack m) =>
 
 instance (Monoid msgs, MonadScopeBuilder tmpscope m) =>
          MonadScopeBuilder tmpscope (MessagesT msgs msg m) where
-  alterScope = lift . alterScope
+  getScope = lift getScope
+  setScope = lift . setScope
 
 instance (Monoid msgs, MonadSourceFiles m) =>
          MonadSourceFiles (MessagesT msgs msg m) where

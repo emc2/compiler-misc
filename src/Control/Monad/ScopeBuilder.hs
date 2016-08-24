@@ -127,15 +127,23 @@ finishScope' =
                          builderScopes = rest }
           return scopeid
 
-alterScope' :: (Monad m, TempScope tmpscope scope m) =>
-               (tmpscope -> tmpscope)
-            -> StateT (ScopeBuilderState tmpscope scope) m ()
-alterScope' func =
+getScope' :: (Monad m, TempScope tmpscope scope m) =>
+             StateT (ScopeBuilderState tmpscope scope) m tmpscope
+getScope' =
+  do
+    ScopeBuilderState { builderScopes = scopes } <- get
+    case scopes of
+      [] -> error "Scope stack underflow!"
+      first : _ -> return first
+
+setScope' :: (Monad m, TempScope tmpscope scope m) =>
+             tmpscope -> StateT (ScopeBuilderState tmpscope scope) m ()
+setScope' newscope =
   do
     currstate @ ScopeBuilderState { builderScopes = scopes } <- get
     case scopes of
       [] -> error "Scope stack underflow!"
-      first : rest -> put currstate { builderScopes = func first : rest }
+      _ : rest -> put currstate { builderScopes = newscope : rest }
 
 instance Monad m => Monad (ScopeBuilderT tmpscope scope m) where
   return = ScopeBuilderT . return
@@ -233,7 +241,8 @@ instance (Monad m, TempScope tmpscope scope m) =>
 
 instance (Monad m, TempScope tmpscope scope m) =>
          MonadScopeBuilder tmpscope (ScopeBuilderT tmpscope scope m) where
-  alterScope = ScopeBuilderT . alterScope'
+  getScope = ScopeBuilderT getScope'
+  setScope = ScopeBuilderT . setScope'
 
 instance MonadSourceFiles m =>
          MonadSourceFiles (ScopeBuilderT tmpscope scope m) where

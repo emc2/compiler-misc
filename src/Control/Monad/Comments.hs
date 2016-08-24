@@ -186,7 +186,8 @@ instance MonadScopeStack m => MonadScopeStack (CommentsT m) where
 
 instance MonadScopeBuilder tmpscope m =>
          MonadScopeBuilder tmpscope (CommentsT m) where
-  alterScope = lift . alterScope
+  getScope = lift getScope
+  setScope = lift . setScope
 
 instance MonadSourceFiles m => MonadSourceFiles (CommentsT m) where
   sourceFile = lift . sourceFile

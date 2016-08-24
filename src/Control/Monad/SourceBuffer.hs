@@ -244,7 +244,8 @@ instance MonadScopeStack m => MonadScopeStack (SourceBufferT m) where
 
 instance MonadScopeBuilder tmpscope m =>
          MonadScopeBuilder tmpscope (SourceBufferT m) where
-  alterScope = lift . alterScope
+  getScope = lift getScope
+  setScope = lift . setScope
 
 instance MonadState s m => MonadState s (SourceBufferT m) where
   get = lift get

@@ -194,7 +194,8 @@ instance MonadScopeStack m => MonadScopeStack (SymbolsT m) where
 
 instance MonadScopeBuilder tmpscope m =>
          MonadScopeBuilder tmpscope (SymbolsT m) where
-  alterScope = lift . alterScope
+  getScope = lift getScope
+  setScope = lift . setScope
 
 instance MonadSourceFiles m => MonadSourceFiles (SymbolsT m) where
   sourceFile = lift . sourceFile

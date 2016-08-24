@@ -199,7 +199,8 @@ instance MonadScopeStack m => MonadScopeStack (PositionsT m) where
 
 instance MonadScopeBuilder tmpscope m =>
          MonadScopeBuilder tmpscope (PositionsT m) where
-  alterScope = lift . alterScope
+  getScope = lift getScope
+  setScope = lift . setScope
 
 instance MonadSourceFiles m => MonadSourceFiles (PositionsT m) where
   sourceFile = lift . sourceFile

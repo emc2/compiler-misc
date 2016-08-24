@@ -193,7 +193,8 @@ instance MonadScopeStack m => MonadScopeStack (KeywordsT p t m) where
 
 instance MonadScopeBuilder tmpscope m =>
          MonadScopeBuilder tmpscope (KeywordsT p t m) where
-  alterScope = lift . alterScope
+  getScope = lift getScope
+  setScope = lift . setScope
 
 instance MonadSourceFiles m => MonadSourceFiles (KeywordsT p t m) where
   sourceFile = lift . sourceFile

@@ -221,7 +221,8 @@ instance MonadScopeStack m => MonadScopeStack (MemoryArtifactsT path m) where
 
 instance MonadScopeBuilder tmpscope m =>
          MonadScopeBuilder tmpscope (MemoryArtifactsT path m) where
-  alterScope = lift . alterScope
+  getScope = lift getScope
+  setScope = lift . setScope
 
 instance MonadSourceFiles m =>
          MonadSourceFiles (MemoryArtifactsT path m) where

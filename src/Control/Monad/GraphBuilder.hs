@@ -196,7 +196,8 @@ instance MonadScopeStack m =>
 
 instance MonadScopeBuilder tmpscope m =>
          MonadScopeBuilder tmpscope (GraphBuilderT nodety edgety m) where
-  alterScope = lift . alterScope
+  getScope = lift getScope
+  setScope = lift . setScope
 
 instance MonadSourceFiles m =>
          MonadSourceFiles (GraphBuilderT nodety edgety m) where

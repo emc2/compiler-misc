@@ -209,7 +209,8 @@ instance MonadScopeStack m => MonadScopeStack (MemoryLoaderT info m) where
 
 instance MonadScopeBuilder tmpscope m =>
          MonadScopeBuilder tmpscope (MemoryLoaderT info m) where
-  alterScope = lift . alterScope
+  getScope = lift getScope
+  setScope = lift . setScope
 
 instance MonadSourceFiles m =>
          MonadSourceFiles (MemoryLoaderT info m) where

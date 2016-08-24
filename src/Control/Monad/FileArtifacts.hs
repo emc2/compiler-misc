@@ -226,7 +226,8 @@ instance MonadScopeStack m => MonadScopeStack (FileArtifactsT m) where
 
 instance MonadScopeBuilder tmpscope m =>
          MonadScopeBuilder tmpscope (FileArtifactsT m) where
-  alterScope = lift . alterScope
+  getScope = lift getScope
+  setScope = lift . setScope
 
 instance MonadSourceFiles m =>
          MonadSourceFiles (FileArtifactsT m) where

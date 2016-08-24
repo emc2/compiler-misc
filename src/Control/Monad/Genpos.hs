@@ -278,7 +278,8 @@ instance MonadScopeStack m => MonadScopeStack (GenposT m) where
 
 instance MonadScopeBuilder tmpscope m =>
          MonadScopeBuilder tmpscope (GenposT m) where
-  alterScope = lift . alterScope
+  getScope = lift getScope
+  setScope = lift . setScope
 
 instance MonadSourceFiles m => MonadSourceFiles (GenposT m) where
   sourceFile = lift . sourceFile
