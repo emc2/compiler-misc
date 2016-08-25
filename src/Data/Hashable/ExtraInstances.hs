@@ -34,11 +34,13 @@
 -- found in the data-hash library, but are useful.
 module Data.Hashable.ExtraInstances where
 
+import Data.Array(Array)
 import Data.Hashable
 import Data.Hashable.Extras
 import Data.List
 import Data.Map(Map)
 
+import qualified Data.Array as Array
 import qualified Data.Map as Map
 import qualified Data.HashMap.Strict as Strict
 
@@ -52,3 +54,8 @@ instance (Hashable k, Hashable v) => Hashable (Map k v) where
 instance (Ord k, Hashable k, Ord v, Hashable v) =>
          Hashable (Strict.HashMap k v) where
   hashWithSalt s = hashWithSalt s . sort . Strict.toList
+
+instance (Hashable i, Hashable e, Array.Ix i) => Hashable (Array i e) where
+  hashWithSalt s = hashWithSalt s . Array.assocs
+
+instance (Hashable i, Array.Ix i) => Hashable1 (Array i)

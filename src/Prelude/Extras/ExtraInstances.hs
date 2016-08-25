@@ -33,21 +33,25 @@
 -- | This module contains extra instances for prelude-extras
 module Prelude.Extras.ExtraInstances where
 
+import Data.Array(Array)
 import Data.List
 import Data.Map(Map)
 import Prelude.Extras
 
+import qualified Data.Array as Array
 import qualified Data.HashMap.Strict as Strict
 
 instance Eq2 Map
 instance Eq k => Eq1 (Map k)
 instance Eq2 Strict.HashMap
 instance Eq k => Eq1 (Strict.HashMap k)
+instance (Eq i, Array.Ix i) => Eq1 (Array i)
 
 instance Ord2 Map
 instance Ord k => Ord1 (Map k)
 instance Ord2 Strict.HashMap
 instance Ord k => Ord1 (Strict.HashMap k)
+instance (Ord i, Array.Ix i) => Ord1 (Array i)
 
 instance (Ord k, Ord v) => Ord (Strict.HashMap k v) where
   compare m1 m2 =
