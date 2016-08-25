@@ -30,17 +30,29 @@
 {-# OPTIONS_GHC -Wall -Werror -fno-warn-orphans #-}
 {-# LANGUAGE FlexibleInstances, FlexibleContexts, UndecidableInstances #-}
 
--- | This module contains extra instances of Hashable, which are not
--- found in the data-hash library, but are useful.
+-- | This module contains extra instances for prelude-extras
 module Prelude.Extras.ExtraInstances where
 
+import Data.List
 import Data.Map(Map)
 import Prelude.Extras
 
-import qualified Data.Map as Map
+import qualified Data.HashMap.Strict as Strict
 
-instance Eq k => Eq1 (Map k) where
-  m1 ==# m2 = Map.toAscList m1 ==# Map.toAscList m2
+instance Eq2 Map
+instance Eq k => Eq1 (Map k)
+instance Eq2 Strict.HashMap
+instance Eq k => Eq1 (Strict.HashMap k)
 
-instance Ord k => Ord1 (Map k) where
-  compare1 m1 m2 = compare1 (Map.toAscList m1) (Map.toAscList m2)
+instance Ord2 Map
+instance Ord k => Ord1 (Map k)
+instance Ord2 Strict.HashMap
+instance Ord k => Ord1 (Strict.HashMap k)
+
+instance (Ord k, Ord v) => Ord (Strict.HashMap k v) where
+  compare m1 m2 =
+    let
+      list1 = sort (Strict.toList m1)
+      list2 = sort (Strict.toList m2)
+    in
+      compare1 list1 list2
