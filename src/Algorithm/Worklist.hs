@@ -28,6 +28,26 @@
 {-# LANGUAGE ScopedTypeVariables, MultiParamTypeClasses, FlexibleInstances,
              FlexibleContexts #-}
 
+-- | This module provides a generalized implementation of a worklist
+-- algorithm: a very useful algorithm commonly used in compiler
+-- implementation.
+--
+-- The worklist algorith scheme consists of three components:, a state
+-- consisting of various independent components indexed by some index
+-- type, the ability to determine which components depend on which
+-- other components (i.e. the antidependendencies for a given index),
+-- and a work function that recalculates the component for a given
+-- index.  We start at a given set of indexes and recalculate each
+-- one.  if the recalculation changes the state at that index, then we
+-- recalculate its antidependencies as well.  The algorithm proceeds
+-- until recalculation of any index would not change the state.
+--
+-- This is implemented by keeping a list of indexes to recalculate
+-- (hence the name of the algorithm).  At each step, we remove an
+-- index from the worklist and recalculate it.  If the recalculation
+-- of an index produces a change, then its antidependencies are added
+-- to the worklist.  The procedure is repeated until the worklist is
+-- empty.
 module Algorithm.Worklist(
        WorklistState(..),
        WorklistStateM(..),
@@ -43,27 +63,28 @@ import qualified Data.Array.BitArray.IO as BitArray.IO
 
 -- | A typeclass defining methods needed for the worklist state and
 -- elements.
-class WorklistState elemty statety where
-  -- | Get all elements that depend on a given element
+class WorklistState idxty statety where
+  -- | Get all elements that depend on a given element.
   antideps :: statety
            -- ^ The complete state.
-           -> elemty
+           -> idxty
            -- ^ The element whose antidependencies to get.
-           -> [elemty]
+           -> [idxty]
            -- ^ All elements that depend on the specified parameter.
 
 -- | A typeclass defining methods needed for the worklist state and
 -- elements, when those methods operate inside a monad.
-class Monad m => WorklistStateM elemty statety m where
+class Monad m => WorklistStateM idxty statety m where
+  -- | Get all elements that depend on a given element.
   antidepsM :: statety
             -- ^ The complete state.
-            -> elemty
+            -> idxty
             -- ^ The element whose antidependencies to get.
-            -> m [elemty]
+            -> m [idxty]
             -- ^ All elements that depend on the specified parameter.
 
-instance (Monad m, WorklistState elemty statety) =>
-         WorklistStateM elemty statety m where
+instance (Monad m, WorklistState idxty statety) =>
+         WorklistStateM idxty statety m where
   antidepsM state = return . antideps state
 
 -- | Run a worklist algorithm.  Given a work function that transforms
@@ -72,21 +93,21 @@ instance (Monad m, WorklistState elemty statety) =>
 -- makes changes, then all antidependencies (elements that depend on
 -- the given element) will be added to the worklist.  The algorithm
 -- proceeds until the worklist is exhausted.
-worklist :: forall elemty statety.
-            WorklistState elemty statety =>
-            (statety -> elemty -> Maybe statety)
+worklist :: forall idxty statety.
+            WorklistState idxty statety =>
+            (statety -> idxty -> Maybe statety)
          -- ^ The work function.  Run on an element of the state,
          -- return @Just@ new state if something changed, or
          -- @Nothing@ if the state is unchanged.
          -> statety
          -- ^ The initial state.
-         -> [elemty]
+         -> [idxty]
          -- ^ The initial worklist.
          -> statety
          -- ^ The state after running the worklist algorithm.
 worklist workfunc =
   let
-    step :: statety -> [elemty] -> statety
+    step :: statety -> [idxty] -> statety
     step state [] = state
     step state (first : rest) =
       case workfunc state first of
@@ -98,21 +119,21 @@ worklist workfunc =
 -- | A monadic variant of the worklist algorithm.  This is similar in
 -- function to 'runWorklist', but allows the work function to be
 -- monadic.
-worklistM :: forall elemty statety m.
-             WorklistStateM elemty statety m =>
-             (statety -> elemty -> m (Maybe statety))
+worklistM :: forall idxty statety m.
+             WorklistStateM idxty statety m =>
+             (statety -> idxty -> m (Maybe statety))
           -- ^ The work function.  Run on an element of the state,
           -- return @Just@ new state if something changed, or
           -- @Nothing@ if the state is unchanged.
           -> statety
           -- ^ The initial state.
-          -> [elemty]
+          -> [idxty]
           -- ^ The initial worklist.
           -> m statety
           -- ^ The state after running the worklist algorithm.
 worklistM workfunc =
   let
-    step :: statety -> [elemty] -> m statety
+    step :: statety -> [idxty] -> m statety
     step state [] = return state
     step state (first : rest) =
       do
