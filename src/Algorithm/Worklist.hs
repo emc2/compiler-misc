@@ -58,6 +58,7 @@ module Algorithm.Worklist(
 
 import Control.Monad.Trans
 import Data.Array.BitArray.IO(IOBitArray)
+import Data.Graph.Inductive.Graph
 
 import qualified Data.Array.BitArray.IO as BitArray.IO
 
@@ -86,6 +87,9 @@ class Monad m => WorklistStateM idxty statety m where
 instance (Monad m, WorklistState idxty statety) =>
          WorklistStateM idxty statety m where
   antidepsM state = return . antideps state
+
+instance Graph gr => WorklistState Int (gr nodety edgety) where
+  antideps = pre
 
 -- | Run a worklist algorithm.  Given a work function that transforms
 -- an element of the state and an initial worklist, apply the work
@@ -157,13 +161,13 @@ worklistFastIO :: forall statety m.
                -- @Nothing@ if the state is unchanged.
                -> statety
                -- ^ The initial state.
-               -> Int
-               -- ^ The upper bounds on element indexes
+               -> (Int, Int)
+               -- ^ The bounds on element indexes
                -> [Int]
                -- ^ The initial worklist.
                -> m statety
                -- ^ The state after running the worklist algorithm.
-worklistFastIO workfunc initstate bound initelems =
+worklistFastIO workfunc initstate bounds initelems =
   let
     setbits :: IOBitArray Int -> [Int] -> IO ()
     setbits bitarr = mapM_ (\idx -> BitArray.IO.writeArray bitarr idx True)
@@ -187,6 +191,6 @@ worklistFastIO workfunc initstate bound initelems =
 
           Nothing -> return state
   in do
-    arr <- liftIO $! BitArray.IO.newArray (0, bound) False
+    arr <- liftIO $! BitArray.IO.newArray bounds False
     liftIO $! setbits arr initelems
     step arr initstate
