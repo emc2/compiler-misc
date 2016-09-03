@@ -54,10 +54,16 @@ class Monad m => TempScope tmpscope scope m | tmpscope -> scope where
   -- | Convert a temporary scope into its finalized form.
   finalizeScope :: tmpscope
                 -- ^ The temporary scope.
-                -> m scope
+                -> m (ScopeID, scope)
                 -- ^ The finalized form.
   -- | Create a subscope from its parent scopes
-  createSubscope ::  BasicPosition -> [tmpscope] -> m tmpscope
+  createSubscope :: BasicPosition
+                 -- ^ The source position of the scope.
+                 -> ScopeID
+                 -- ^ The ID of this scope.
+                 -> [tmpscope]
+                 -- ^ The stack of all enclosing scopes, innermost first.
+                 -> m tmpscope
 
 -- | Monad class defining a scope stack.
 class Monad m => MonadScopeStack m where
