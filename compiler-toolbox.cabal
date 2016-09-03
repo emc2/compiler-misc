@@ -88,6 +88,7 @@ Library
                         Control.Monad.SourceFiles.Class
                         Control.Monad.Symbols
                         Control.Monad.Symbols.Class
+                        Data.Graph.Inductive.Graph.Flow
                         Data.Hashable.ExtraInstances
                         Data.Interval
                         Data.Intervals
