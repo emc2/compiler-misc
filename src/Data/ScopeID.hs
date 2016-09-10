@@ -30,6 +30,8 @@
 {-# OPTIONS_GHC -funbox-strict-fields -Wall -Werror #-}
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 
+-- | A simple @newtype@ for representing scope IDs.  This is so
+-- ubiquitous in compilers, it is provided here as a utility.
 module Data.ScopeID(
        ScopeID,
        firstScopeID
@@ -41,9 +43,12 @@ import Text.Format
 import Text.XML.Expat.Pickle
 import Text.XML.Expat.Tree(NodeG)
 
+-- | A type for representing unique scope identifiers.
 newtype ScopeID = ScopeID { scopeID :: Word }
   deriving (Eq, Ord, Ix)
 
+-- | The first 'ScopeID'.  Subsequent 'ScopeID's can be obtained with
+-- 'succ'.
 firstScopeID :: ScopeID
 firstScopeID = ScopeID { scopeID = 0 }
 
