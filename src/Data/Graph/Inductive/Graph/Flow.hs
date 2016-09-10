@@ -30,8 +30,24 @@
 {-# OPTIONS_GHC -funbox-strict-fields -Wall -Werror #-}
 {-# LANGUAGE MultiParamTypeClasses, ScopedTypeVariables #-}
 
+-- | A generalized implementation of flow analysis.  This algorithm
+-- operates on a graph, propagating information from each node to its
+-- outgoing neighbors until the graph reaches a stable fixed point.
+-- This algorithm is extremely common in compilers and program
+-- analysis, and many problems can be characterized and solved using
+-- it.
+--
+-- In order to use this implementation, the node data needs to have a
+-- 'Monoid' instance, and a 'FlowData' instance needs to be
+-- provided for the node and edge data.  The 'Monoid' instance should
+-- provide a way to merge information about nodes, producing a new
+-- node with the combined information of the two arguments.  The
+-- 'propagate' function in the 'FlowData' instance should
+-- propagate information from a node along a given edge, producing a
+-- new node type containing the information that was propagated.  This
+-- will then be merged with the neighbor using the 'mappend' function.
 module Data.Graph.Inductive.Graph.Flow(
-       FlowGraphData(..),
+       FlowData(..),
        flow,
        ) where
 
@@ -49,7 +65,12 @@ import Data.Maybe
 -- the merge.  The 'propagate' operation then propagates each node's
 -- incoming edges, then merges the results with the existing node
 -- data.
-class Monoid nodety => FlowGraphData nodety edgety where
+--
+-- For the flow analysis to terminate, it must be the case that all
+-- functions formed out of 'mappend' and 'propagate' converge to a
+-- fixed point with repeated application.  If this property fails,
+-- then the flow alorithm may not terminate.
+class Monoid nodety => FlowData nodety edgety where
   -- | Compute the effects of propagating node data over a given edge.
   -- This should produce a node data element that will be combined
   -- with all the others using the monoid instance.
@@ -65,9 +86,13 @@ class Monoid nodety => FlowGraphData nodety edgety where
   -- | Put the edges in the correct order.
   order :: [edgety] -> [edgety]
 
--- | Perform flow analysis on the graph
+-- | Perform flow analysis on the graph.  This will propagate each
+-- node along its outgoing edges as per the 'propagate' function,
+-- merging with each node by the 'mappend' function from the 'Monoid'
+-- instance.  The process will continue until the graph reaches a
+-- stable fixed point.
 flow :: forall nodety edgety gr m.
-        (FlowGraphData nodety edgety, DynGraph gr, MonadIO m,
+        (FlowData nodety edgety, DynGraph gr, MonadIO m,
          Monoid nodety, Eq nodety) =>
         gr nodety edgety
      -- ^ The initial graph state.
