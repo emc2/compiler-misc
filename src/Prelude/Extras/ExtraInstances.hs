@@ -30,7 +30,7 @@
 {-# OPTIONS_GHC -Wall -Werror -fno-warn-orphans #-}
 {-# LANGUAGE FlexibleInstances, FlexibleContexts, UndecidableInstances #-}
 
--- | This module contains extra instances for prelude-extras
+-- | This module contains extra instances for prelude-extras.
 module Prelude.Extras.ExtraInstances where
 
 import Data.Array(Array)

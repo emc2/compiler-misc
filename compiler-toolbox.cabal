@@ -52,7 +52,8 @@ Library
                         utf8-string, hexpat, hexpat-pickle, blaze-builder, semigroups,
                         ansi-terminal, directory, dynamic-pprint, monad-journal, fgl,
                         bitwise
-  exposed-modules:      Algorithm.Worklist
+  exposed-modules:      Algorithm.Graph.Flow
+                        Algorithm.Worklist
                         Bound.Scope.ExtraInstances
                         Bound.Var.ExtraInstances
                         Control.Monad.Artifacts.Class
@@ -88,7 +89,6 @@ Library
                         Control.Monad.SourceFiles.Class
                         Control.Monad.Symbols
                         Control.Monad.Symbols.Class
-                        Data.Graph.Inductive.Graph.Flow
                         Data.Hashable.ExtraInstances
                         Data.Interval
                         Data.Intervals

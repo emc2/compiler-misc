@@ -46,7 +46,7 @@
 -- propagate information from a node along a given edge, producing a
 -- new node type containing the information that was propagated.  This
 -- will then be merged with the neighbor using the 'mappend' function.
-module Data.Graph.Inductive.Graph.Flow(
+module Algorithm.Graph.Flow(
        FlowData(..),
        flow,
        ) where
