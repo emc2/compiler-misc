@@ -48,6 +48,24 @@
 -- of an index produces a change, then its antidependencies are added
 -- to the worklist.  The procedure is repeated until the worklist is
 -- empty.
+--
+-- To use this module, you'll need to provide an instance of
+-- 'WorklistState' or 'WorklistStateM' for the overall state.  The
+-- state is expected to be indexed, and each index refers to an
+-- independent section of state.  A 'WorklistState' (or
+-- 'WorklistStateM' instance) provides a way to get all indexes which
+-- depend on a given index.  A graph, with indexes referring to nodes
+-- is an appropriate model for this, and an instance is indeed
+-- provided for any datatypes implementing the 'Graph' typeclass.
+--
+-- Three worklist implementations are provided.  A purely-functional
+-- list-based implementation is provided in 'worklist', and requires a
+-- 'WorklistState' instance.  A monadic implementation is provided by
+-- 'worklistM', which requires a 'WorklistStateM' instance.  The
+-- 'worklistFastIO' implementation uses bitsets in lieu of a list, and
+-- therefore avoids a significant amount of allocation.  This requires
+-- a 'WorklistStateM' instance, and requires that the index type be
+-- 'Int'.  It is recommended to use 'worklistFastIO' wherever possible.
 module Algorithm.Worklist(
        WorklistState(..),
        WorklistStateM(..),
@@ -63,7 +81,8 @@ import Data.Graph.Inductive.Graph
 import qualified Data.Array.BitArray.IO as BitArray.IO
 
 -- | A typeclass defining methods needed for the worklist state and
--- elements.
+-- elements.  The whole state is represented by 'statety', and an
+-- index into the state is represented by 'idxty'.
 class WorklistState idxty statety where
   -- | Get all elements that depend on a given element.
   antideps :: statety
@@ -74,7 +93,8 @@ class WorklistState idxty statety where
            -- ^ All elements that depend on the specified parameter.
 
 -- | A typeclass defining methods needed for the worklist state and
--- elements, when those methods operate inside a monad.
+-- elements, when those methods operate inside a monad.  Otherwise,
+-- this is identical to 'WorklistState'.
 class Monad m => WorklistStateM idxty statety m where
   -- | Get all elements that depend on a given element.
   antidepsM :: statety
