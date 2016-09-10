@@ -30,6 +30,8 @@
 {-# OPTIONS_GHC -Wall -Werror -fno-warn-orphans #-}
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, FlexibleContexts #-}
 
+-- | Useful instances for 'Var's in the bound library.  This provides
+-- 'Format', 'FormatM' and 'XmlPickler' instances.
 module Bound.Var.ExtraInstances where
 
 import Bound.Var
