@@ -31,6 +31,9 @@
 {-# LANGUAGE FlexibleInstances, FlexibleContexts,
              UndecidableInstances, MultiParamTypeClasses #-}
 
+-- | Some useful instances for 'Scope's in the bound library.  This
+-- provides 'Format', 'FormatM', and 'XmlPickler' instances for any
+-- 'Scope'.
 module Bound.Scope.ExtraInstances where
 
 import Bound.Scope
