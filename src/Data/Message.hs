@@ -543,7 +543,7 @@ putMessages :: (MonadPositions m, MonadSourceFiles m, MonadIO m,
 putMessages handle msgs =
   do
     docs <- mapM formatMessage (messages msgs)
-    liftIO (putGreedy handle 80 True (vcat docs))
+    liftIO (putGreedy handle 4 80 True (vcat docs))
 
 -- | Output a collection of messages to a given 'Handle' as text.
 putMessagesNoContext :: (MonadPositions m, MonadIO m, Messages msg msgs,
@@ -553,7 +553,7 @@ putMessagesNoContext :: (MonadPositions m, MonadIO m, Messages msg msgs,
 putMessagesNoContext handle msgs =
   do
     docs <- mapM formatMessageNoContext (messages msgs)
-    liftIO (putGreedy handle 80 True (vcat docs))
+    liftIO (putGreedy handle 4 80 True (vcat docs))
 
 putMessageContentsXML :: MonadIO m => Handle -> [MessageContent] -> m ()
 putMessageContentsXML handle contents =
@@ -806,7 +806,7 @@ instance (GenericXMLString tag, Show tag, GenericXMLString text, Show text) =>
       briefName = gxFromString "brief"
       detailsName = gxFromString "details"
 
-      packDoc = gxFromByteString . Lazy.toStrict . renderGreedy 80 False
+      packDoc = gxFromByteString . Lazy.toStrict . renderGreedy 4 80 False
 
       packMaybeDoc (Just doc) = Just (packDoc doc)
       packMaybeDoc Nothing = Nothing
