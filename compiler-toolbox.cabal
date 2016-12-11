@@ -89,6 +89,9 @@ Library
                         Control.Monad.SourceFiles.Class
                         Control.Monad.Symbols
                         Control.Monad.Symbols.Class
+                        Data.Equivs
+                        Data.Equivs.Hashable
+                        Data.Equivs.Monad
                         Data.Hashable.ExtraInstances
                         Data.Interval
                         Data.Intervals
