@@ -40,7 +40,6 @@ module Data.Equivs(
        toEquivs,
        ) where
 
-import Data.Hashable
 import Data.Map.Strict(Map)
 import Data.Set(Set)
 import Data.Monoid
@@ -49,76 +48,86 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 
 -- | A set of equivalence relations.
-newtype Equivs ty = Equivs { equivMap :: Map ty (Set ty) }
+newtype Equivs idty infoty = Equivs { equivMap :: Map idty (Set idty, infoty) }
 
 -- | Add an equivalence relationship to an 'Equivs'.
-addEquiv :: (Eq ty, Ord ty) =>
-            ty
+addEquiv :: (Ord idty, Monoid infoty) =>
+            idty
          -- ^ The first equivalent item.
-         -> ty
+         -> idty
          -- ^ The second equivalent item.
-         -> Equivs ty
+         -> infoty
+         -- ^ The extra information.
+         -> Equivs idty infoty
          -- ^ The equivalence structure to which to add the equivalence.
-         -> Equivs ty
+         -> Equivs idty infoty
          -- ^ The equivalence structure with the new equivalence added.
-addEquiv a b Equivs { equivMap = equivs } =
+addEquiv a b info Equivs { equivMap = equivs } =
   let
     -- Make a new set with the two elements' equivalence classes unioned
-    newset =  case (Map.lookup a equivs, Map.lookup b equivs) of
-      (Nothing, Nothing) -> Set.fromList [a, b]
-      (Nothing, Just set) -> Set.insert a set
-      (Just set, Nothing) -> Set.insert b set
-      (Just aset, Just bset) -> aset <> bset
+    newent @ (set, _) = case (Map.lookup a equivs, Map.lookup b equivs) of
+      (Nothing, Nothing) -> (Set.fromList [a, b], info)
+      (Nothing, Just (oldset, oldinfo)) ->
+        (Set.insert a oldset, info <> oldinfo)
+      (Just (oldset, oldinfo), Nothing) ->
+        (Set.insert b oldset, info <> oldinfo)
+      (Just (aset, ainfo), Just (bset, binfo)) ->
+        (aset <> bset, info <> ainfo <> binfo)
 
-    foldfun e = Map.insert e newset
+    foldfun e = Map.insert e newent
 
     -- Update the equivalence class mapping with the new equivalence class
-    newmap = Set.foldr foldfun equivs newset
+    newmap = Set.foldr foldfun equivs set
   in
     Equivs { equivMap = newmap }
 
 -- | Add a set of equivalences to an 'Equivs'.
-addEquivs :: (Eq ty, Ord ty) =>
-             [ty]
+addEquivs :: (Ord idty, Monoid infoty) =>
+             [idty]
           -- ^ The equivalences to add.
-          -> Equivs ty
+          -> infoty
+          -- ^ The extra information.
+          -> Equivs idty infoty
           -- ^ The equivalence structure to which to add the equivalences.
-          -> Equivs ty
+          -> Equivs idty infoty
           --  ^ The equivalence structure with the equivalences added.
-addEquivs l Equivs { equivMap = equivs } =
+addEquivs l info Equivs { equivMap = equivs } =
   let
-    getset a = Map.findWithDefault mempty a equivs
+    getset a = Map.findWithDefault (mempty, mempty) a equivs
 
     -- Lookup and union all the equivalence sets
-    newset = mconcat (map getset l)
+    (set, newinfo) = mconcat (map getset l)
 
-    foldfun a = Map.insert a newset
+    newent = (set, info <> newinfo)
+
+    foldfun a = Map.insert a newent
 
     -- Update the equivalence class mapping with the new equivalence class
-    newmap = Set.foldr foldfun equivs newset
+    newmap = Set.foldr foldfun equivs set
   in
     Equivs { equivMap = newmap }
 
 -- | Turn an 'Equivs' into a list of equivalence classes.
-toEquivs :: (Ord ty) =>
-            Equivs ty
+toEquivs :: (Ord idty) =>
+            Equivs idty infoty
          -- ^ The 'Equivs' to decompose.
-         -> [[ty]]
+         -> [([idty], infoty)]
          -- ^ A list of all equivalence classes.
 toEquivs Equivs { equivMap = equivs } =
   let
     pairs = Map.toList equivs
 
-    foldfun (key, set) accum @ (skipset, equivsets)
+    foldfun (key, (set, info)) accum @ (skipset, equivsets)
       | Set.member key skipset = accum
-      | otherwise = (skipset <> set, Set.toList set : equivsets)
+      | otherwise = (skipset <> set, (Set.toList set, info) : equivsets)
 
     (_, out) = foldr foldfun (mempty, []) pairs
   in
     out
 
-instance (Ord ty, Hashable ty) => Monoid (Equivs ty) where
+instance (Ord idty, Monoid infoty) =>
+         Monoid (Equivs idty infoty) where
   mempty = Equivs { equivMap = Map.empty }
 
   mappend Equivs { equivMap = map1 } Equivs { equivMap = map2 } =
-    Equivs { equivMap = Map.unionWith Set.union map1 map2 }
+    Equivs { equivMap = Map.unionWith mappend map1 map2 }

@@ -53,81 +53,90 @@ import Data.Monoid
 import qualified Data.HashTable.IO as HashTable
 import qualified Data.HashSet as HashSet
 
-newtype Equivs ty = Equivs { equivMap :: BasicHashTable ty (HashSet ty) }
+newtype Equivs idty infoty =
+  Equivs { equivMap :: BasicHashTable idty (HashSet idty, infoty) }
 
 -- | Create an empty 'Equivs'.
 new :: MonadIO m =>
-       m (Equivs ty)
+       m (Equivs idty infoty)
 new =
   do
     tab <- liftIO HashTable.new
     return Equivs { equivMap = tab }
 
 -- | Add an equivalence relationship to an 'Equivs'.
-addEquiv :: (Eq ty, Hashable ty, MonadIO m) =>
-            Equivs ty
+addEquiv :: (Eq idty, Hashable idty, Monoid infoty, MonadIO m) =>
+            Equivs idty infoty
          -- ^ The equivalence structure to which to add the equivalence.
-         -> ty
+         -> idty
          -- ^ The first equivalent item.
-         -> ty
+         -> idty
          -- ^ The second equivalent item.
+         -> infoty
+         -- ^ The extra information.
          -> m ()
-addEquiv Equivs { equivMap = equivs } a b =
+addEquiv Equivs { equivMap = equivs } a b info =
   let
     -- Make a new set with the two elements' equivalence classes unioned
-    newset =
+    newent =
       do
         aent <- HashTable.lookup equivs a
         bent <- HashTable.lookup equivs b
         case (aent, bent) of
-          (Nothing, Nothing) -> return (HashSet.fromList [a, b])
-          (Nothing, Just set) -> return (HashSet.insert a set)
-          (Just set, Nothing) -> return (HashSet.insert b set)
-          (Just aset, Just bset) -> return (aset <> bset)
+          (Nothing, Nothing) -> return (HashSet.fromList [a, b], info)
+          (Nothing, Just (set, oldinfo)) ->
+            return (HashSet.insert a set, info <> oldinfo)
+          (Just (set, oldinfo), Nothing) ->
+            return (HashSet.insert b set, info <> oldinfo)
+          (Just (aset, ainfo), Just (bset, binfo)) ->
+            return (aset <> bset, info <> ainfo <> binfo)
 
-    mapfun set e = liftIO (HashTable.insert equivs e set)
+    mapfun ent e = liftIO (HashTable.insert equivs e ent)
   in do
-    set <- liftIO newset
+    ent @ (set, _) <- liftIO newent
     -- Update the equivalence class mapping with the new equivalence class
-    mapM_ (mapfun set) (HashSet.toList set)
+    mapM_ (mapfun ent) (HashSet.toList set)
 
-addEquivs :: (Eq ty, Hashable ty, MonadIO m) =>
-             Equivs ty
+-- | Add a set of equivalences to an 'Equivs'.
+addEquivs :: (Eq idty, Hashable idty, Monoid infoty, MonadIO m) =>
+             Equivs idty infoty
           -- ^ The equivalence structure to which to add the equivalences.
-          -> [ty]
+          -> [idty]
           -- ^ The equivalences to add.
+          -> infoty
+          -- ^ The extra information.
           -> m ()
-addEquivs Equivs { equivMap = equivs } l =
+addEquivs Equivs { equivMap = equivs } l info =
   let
-    getset a =
+    getent a =
       do
         res <- HashTable.lookup equivs a
         case res of
           Just out -> return out
-          Nothing -> return mempty
+          Nothing -> return (mempty, mempty)
 
     -- Lookup and union all the equivalence sets
-    newset =
+    newent =
       do
-        sets <- mapM getset l
+        sets <- mapM getent l
         return (mconcat sets)
 
     mapfun set a = liftIO (HashTable.insert equivs a set)
   in do
-    set <- liftIO newset
-    mapM_ (mapfun set) (HashSet.toList set)
+    (set, newinfo) <- liftIO newent
+    mapM_ (mapfun (set, info <> newinfo)) (HashSet.toList set)
 
 -- | Turn an 'Equivs' into a list of equivalence classes.
-toEquivs :: (Eq ty, Hashable ty, MonadIO m) =>
-            Equivs ty
+toEquivs :: (Eq idty, Hashable idty, MonadIO m) =>
+            Equivs idty infoty
          -- ^ The 'Equivs' to decompose.
-         -> m [[ty]]
+         -> m [([idty], infoty)]
          -- ^ A list of all equivalence classes.
 toEquivs Equivs { equivMap = equivs } =
   let
-    foldfun accum @ (skipset, equivsets) (key, set)
+    foldfun accum @ (skipset, equivsets) (key, (set, info))
       | HashSet.member key skipset = accum
-      | otherwise = (skipset <> set, HashSet.toList set : equivsets)
+      | otherwise = (skipset <> set, (HashSet.toList set, info) : equivsets)
 
     getsets = snd . foldl foldfun (mempty, [])
   in do
