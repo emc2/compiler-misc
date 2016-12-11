@@ -55,15 +55,15 @@ newtype Equivs ty = Equivs { equivMap :: HashMap ty (HashSet ty) }
 
 -- | Add an equivalence relationship to an 'Equivs'.
 addEquiv :: (Eq ty, Hashable ty) =>
-            Equivs ty
-         -- ^ The equivalence structure to which to add the equivalence.
-         -> ty
+            ty
          -- ^ The first equivalent item.
          -> ty
          -- ^ The second equivalent item.
          -> Equivs ty
+         -- ^ The equivalence structure to which to add the equivalence.
+         -> Equivs ty
          -- ^ The equivalence structure with the new equivalence added.
-addEquiv Equivs { equivMap = equivs } a b =
+addEquiv a b Equivs { equivMap = equivs } =
   let
     -- Make a new set with the two elements' equivalence classes unioned
     newset =  case (HashMap.lookup a equivs, HashMap.lookup b equivs) of
@@ -79,14 +79,15 @@ addEquiv Equivs { equivMap = equivs } a b =
   in
     Equivs { equivMap = newmap }
 
+-- | Add a set of equivalences to an 'Equivs'.
 addEquivs :: (Eq ty, Hashable ty) =>
-             Equivs ty
-          -- ^ The equivalence structure to which to add the equivalences.
-          -> [ty]
+             [ty]
           -- ^ The equivalences to add.
           -> Equivs ty
+          -- ^ The equivalence structure to which to add the equivalences.
+          -> Equivs ty
           --  ^ The equivalence structure with the equivalences added.
-addEquivs Equivs { equivMap = equivs } l =
+addEquivs l Equivs { equivMap = equivs } =
   let
     getset a = HashMap.lookupDefault mempty a equivs
 
