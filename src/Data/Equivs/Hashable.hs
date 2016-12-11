@@ -38,6 +38,7 @@
 -- is based on 'HashMap's.
 module Data.Equivs.Hashable(
        Equivs,
+       addSingle,
        addEquiv,
        addEquivs,
        toEquivs,
@@ -54,6 +55,33 @@ import qualified Data.HashSet as HashSet
 -- | A set of equivalence relations.
 newtype Equivs idty infoty =
   Equivs { equivMap :: HashMap idty (HashSet idty, infoty) }
+
+-- | Add a single item with information.  If it already exists in an
+-- equivalence class, then the information will be added to that
+-- class.  Otherwise, a single-element equivalence class will be
+-- created.
+addSingle :: (Eq idty, Hashable idty, Monoid infoty) =>
+             idty
+          -- ^ The item to add.
+          -> infoty
+          -- ^ The extra information.
+          -> Equivs idty infoty
+          -- ^ The equivalence structure to which to add the equivalence.
+          -> Equivs idty infoty
+          -- ^ The equivalence structure with the new equivalence added.
+addSingle a info Equivs { equivMap = equivs } =
+  let
+    -- Make a new set with the two elements' equivalence classes unioned
+    newent @ (set, _) = case HashMap.lookup a equivs of
+      Just (oldset, oldinfo) -> (oldset, info <> oldinfo)
+      Nothing -> (HashSet.singleton a, info)
+
+    foldfun e = HashMap.insert e newent
+
+    -- Update the equivalence class mapping with the new equivalence class
+    newmap = HashSet.foldr foldfun equivs set
+  in
+    Equivs { equivMap = newmap }
 
 -- | Add an equivalence relationship to an 'Equivs'.
 addEquiv :: (Eq idty, Hashable idty, Monoid infoty) =>

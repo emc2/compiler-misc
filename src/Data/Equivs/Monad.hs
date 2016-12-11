@@ -39,12 +39,12 @@
 module Data.Equivs.Monad(
        Equivs,
        new,
+       addSingle,
        addEquiv,
        addEquivs,
        toEquivs,
        ) where
 
-import Control.Monad.Trans
 import Data.Hashable
 import Data.HashSet(HashSet)
 import Data.HashTable.IO(BasicHashTable)
@@ -57,15 +57,41 @@ newtype Equivs idty infoty =
   Equivs { equivMap :: BasicHashTable idty (HashSet idty, infoty) }
 
 -- | Create an empty 'Equivs'.
-new :: MonadIO m =>
-       m (Equivs idty infoty)
+new :: IO (Equivs idty infoty)
 new =
   do
-    tab <- liftIO HashTable.new
+    tab <- HashTable.new
     return Equivs { equivMap = tab }
 
+-- | Add a single item with information.  If it already exists in an
+-- equivalence class, then the information will be added to that
+-- class.  Otherwise, a single-element equivalence class will be
+-- created.
+addSingle :: (Eq idty, Hashable idty, Monoid infoty) =>
+             Equivs idty infoty
+          -- ^ The equivalence structure to which to add the equivalence.
+          -> idty
+          -- ^ The item to add.
+          -> infoty
+          -- ^ The information associated with the item.
+          -> IO ()
+addSingle Equivs { equivMap = equivs } a info =
+  let
+    newent =
+      do
+        ent <- HashTable.lookup equivs a
+        case ent of
+          Just (set, oldinfo) -> return (set, info <> oldinfo)
+          Nothing -> return (HashSet.singleton a, info)
+
+    mapfun ent e = HashTable.insert equivs e ent
+  in do
+    ent @ (set, _) <- newent
+    -- Update the equivalence class mapping with the new equivalence class
+    mapM_ (mapfun ent) (HashSet.toList set)
+
 -- | Add an equivalence relationship to an 'Equivs'.
-addEquiv :: (Eq idty, Hashable idty, Monoid infoty, MonadIO m) =>
+addEquiv :: (Eq idty, Hashable idty, Monoid infoty) =>
             Equivs idty infoty
          -- ^ The equivalence structure to which to add the equivalence.
          -> idty
@@ -74,7 +100,7 @@ addEquiv :: (Eq idty, Hashable idty, Monoid infoty, MonadIO m) =>
          -- ^ The second equivalent item.
          -> infoty
          -- ^ The extra information.
-         -> m ()
+         -> IO ()
 addEquiv Equivs { equivMap = equivs } a b info =
   let
     -- Make a new set with the two elements' equivalence classes unioned
@@ -91,21 +117,21 @@ addEquiv Equivs { equivMap = equivs } a b info =
           (Just (aset, ainfo), Just (bset, binfo)) ->
             return (aset <> bset, info <> ainfo <> binfo)
 
-    mapfun ent e = liftIO (HashTable.insert equivs e ent)
+    mapfun ent e = HashTable.insert equivs e ent
   in do
-    ent @ (set, _) <- liftIO newent
+    ent @ (set, _) <- newent
     -- Update the equivalence class mapping with the new equivalence class
     mapM_ (mapfun ent) (HashSet.toList set)
 
 -- | Add a set of equivalences to an 'Equivs'.
-addEquivs :: (Eq idty, Hashable idty, Monoid infoty, MonadIO m) =>
+addEquivs :: (Eq idty, Hashable idty, Monoid infoty) =>
              Equivs idty infoty
           -- ^ The equivalence structure to which to add the equivalences.
           -> [idty]
           -- ^ The equivalences to add.
           -> infoty
           -- ^ The extra information.
-          -> m ()
+          -> IO ()
 addEquivs Equivs { equivMap = equivs } l info =
   let
     getent a =
@@ -121,16 +147,16 @@ addEquivs Equivs { equivMap = equivs } l info =
         sets <- mapM getent l
         return (mconcat sets)
 
-    mapfun set a = liftIO (HashTable.insert equivs a set)
+    mapfun set a = HashTable.insert equivs a set
   in do
-    (set, newinfo) <- liftIO newent
+    (set, newinfo) <- newent
     mapM_ (mapfun (set, info <> newinfo)) (HashSet.toList set)
 
 -- | Turn an 'Equivs' into a list of equivalence classes.
-toEquivs :: (Eq idty, Hashable idty, MonadIO m) =>
+toEquivs :: (Eq idty, Hashable idty) =>
             Equivs idty infoty
          -- ^ The 'Equivs' to decompose.
-         -> m [([idty], infoty)]
+         -> IO [([idty], infoty)]
          -- ^ A list of all equivalence classes.
 toEquivs Equivs { equivMap = equivs } =
   let
@@ -140,5 +166,5 @@ toEquivs Equivs { equivMap = equivs } =
 
     getsets = snd . foldl foldfun (mempty, [])
   in do
-    pairs <- liftIO (HashTable.toList equivs)
+    pairs <- HashTable.toList equivs
     return (getsets pairs)
