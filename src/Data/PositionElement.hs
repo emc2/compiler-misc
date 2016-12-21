@@ -28,11 +28,11 @@
 -- OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 -- SUCH DAMAGE.
 {-# OPTIONS_GHC -funbox-strict-fields -Wall -Werror #-}
-{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses,
-             FunctionalDependencies #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
 
 module Data.PositionElement(
-       PositionElement(..)
+       PositionElement(..),
+       DWARFPositionElement(..)
        ) where
 
 import Data.Position.BasicPosition(BasicPosition)
@@ -43,39 +43,12 @@ import qualified Data.Position.DWARFPosition as DWARF
 
 -- | Typeclass of data with a notion of position.
 class PositionElement ty where
-  -- | Get basic position data.
+  -- | Get position data.
   position :: ty -> BasicPosition
-  position e =
-    case debugPosition e of
-      DWARF.Def { DWARF.defPos = DWARF.Span { DWARF.spanStart = start,
-                                              DWARF.spanEnd = end } } ->
-        Basic.Span { Basic.spanStart = start, Basic.spanEnd = end }
-      DWARF.Def { DWARF.defPos = DWARF.Point { DWARF.pointPos = pos } } ->
-        Basic.Point { Basic.pointPos = pos }
-      DWARF.TypeDef { DWARF.typeDefPos = DWARF.Span { DWARF.spanStart = start,
-                                                      DWARF.spanEnd = end } } ->
-        Basic.Span { Basic.spanStart = start, Basic.spanEnd = end }
-      DWARF.TypeDef {
-        DWARF.typeDefPos = DWARF.Point { DWARF.pointPos = pos }
-      } -> Basic.Point { Basic.pointPos = pos }
-      DWARF.Block { DWARF.blockPos = DWARF.Span { DWARF.spanStart = start,
-                                                  DWARF.spanEnd = end } } ->
-        Basic.Span { Basic.spanStart = start, Basic.spanEnd = end }
-      DWARF.Block { DWARF.blockPos = DWARF.Point { DWARF.pointPos = pos } } ->
-        Basic.Point { Basic.pointPos = pos }
-      DWARF.Simple { DWARF.simplePos = DWARF.Span { DWARF.spanStart = start,
-                                                    DWARF.spanEnd = end } } ->
-        Basic.Span { Basic.spanStart = start, Basic.spanEnd = end }
-      DWARF.Simple { DWARF.simplePos = DWARF.Point { DWARF.pointPos = pos } } ->
-        Basic.Point { Basic.pointPos = pos }
-      DWARF.File { DWARF.fileName = fname } ->
-        Basic.File { Basic.fileName = fname }
-      DWARF.Synthetic { DWARF.synthDesc = desc } ->
-        Basic.Synthetic { Basic.synthDesc = desc }
-      DWARF.CmdLine -> Basic.CmdLine
 
+class PositionElement ty => DWARFPositionElement def tydef ty where
   -- | Get full debugging position data.
-  debugPosition :: ty -> DWARFPosition defid tydefid
+  debugPosition :: ty -> DWARFPosition def tydef
   debugPosition e =
     case position e of
       Basic.Span { Basic.spanStart = start, Basic.spanEnd = end } ->

@@ -72,25 +72,25 @@ data DWARFPosition defid tydefid =
       -- | Identifier for the enclosing definition.
       defId :: !defid,
       -- | Position within the definition.
-      defPos :: SimplePosition
+      defPos :: !SimplePosition
     }
     -- | A position within a type definition.
   | TypeDef {
       -- | The position of the type definition in which this position occurs.
       typeDefId :: !tydefid,
       -- | The position within the type definition.
-      typeDefPos :: SimplePosition
+      typeDefPos :: !SimplePosition
     }
     -- | A position within a basic block.
   | Block {
       -- | Position of the whole enclosing block.
-      blockCtx :: DWARFPosition defid tydefid,
+      blockCtx :: !(DWARFPosition defid tydefid),
       -- | Position within the block.
-      blockPos :: SimplePosition
+      blockPos :: !SimplePosition
     }
     -- | A simple location in a file.
   | Simple {
-      simplePos :: SimplePosition
+      simplePos :: !SimplePosition
     }
     -- | A position representing a whole file.
   | File {
