@@ -38,10 +38,10 @@
 module Data.Symbol(
        Symbol,
        number,
-       firstSym,
        debugStr
        ) where
 
+import Data.Default
 import Data.Hashable
 import Data.Ix
 import Text.XML.Expat.Pickle
@@ -56,13 +56,12 @@ newtype Symbol =
   }
   deriving (Eq, Ord, Ix)
 
--- | A starting point for enumerating symbols.
-firstSym :: Symbol
-firstSym = Symbol { number = 0 }
-
 -- | Get a debugging name for a Symbol
 debugStr :: Symbol -> String
 debugStr Symbol { number = n } = "<symbol " ++ show n ++ ">"
+
+instance Default Symbol where
+  def = Symbol { number = 0 }
 
 instance Enum Symbol where
   succ = Symbol . succ . number

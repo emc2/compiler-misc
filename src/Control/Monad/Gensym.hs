@@ -61,6 +61,7 @@ import Control.Monad.State
 import Control.Monad.Symbols.Class
 import Control.Monad.Symbols(Symbols, SymbolsT)
 import Data.ByteString.Char8 hiding (map, empty)
+import Data.Default
 import Data.HashTable.IO(BasicHashTable)
 import Data.Symbol
 
@@ -82,7 +83,7 @@ newtype GensymT m a =
 type Gensym = GensymT IO
 
 initBounds :: (Symbol, Symbol)
-initBounds = (firstSym, succ firstSym)
+initBounds = (def, succ def)
 
 -- | Execute the computation represented by a Symbols monad.
 runGensym :: Gensym a
@@ -129,7 +130,7 @@ startGensymT :: MonadIO m =>
              -- ^ The SymbolsT monad to execute.
              -> m a
 startGensymT s =
-  runGensymT s initBounds [(firstSym, pack "<null>")]
+  runGensymT s initBounds [(def, pack "<null>")]
 
 -- | Execute a SymbolsT monad transformer using the current symbol
 -- state.

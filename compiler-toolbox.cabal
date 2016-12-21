@@ -51,7 +51,7 @@ Library
                         array, mtl >= 2.2, unordered-containers, hashtables, filepath,
                         utf8-string, hexpat, hexpat-pickle, blaze-builder, semigroups,
                         ansi-terminal, directory, dynamic-pprint, monad-journal, fgl,
-                        bitwise
+                        bitwise, data-default
   exposed-modules:      Algorithm.Graph.Flow
                         Algorithm.Worklist
                         Bound.Scope.ExtraInstances
