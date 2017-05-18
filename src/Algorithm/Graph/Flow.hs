@@ -83,9 +83,6 @@ class Monoid nodety => FlowData nodety edgety where
             -- ^ The result of propagating the source data over the
             -- edge, or 'Nothing' if the node doesn't change.
 
-  -- | Put the edges in the correct order.
-  order :: [edgety] -> [edgety]
-
 -- | Perform flow analysis on the graph.  This will propagate each
 -- node along its outgoing edges as per the 'propagate' function,
 -- merging with each node by the 'mappend' function from the 'Monoid'
